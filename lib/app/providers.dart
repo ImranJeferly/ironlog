@@ -95,7 +95,17 @@ class SettingsController extends Notifier<AppSettings> {
 
   Future<void> setSyncEnabled(bool on) => _repo.setSyncEnabled(on);
 
-  Future<void> setHealthEnabled(bool on) => _repo.setHealthEnabled(on);
+  Future<void> setHealthEnabled(bool on) async {
+    await _repo.setHealthEnabled(on);
+    // Turning Health on should immediately connect and pull today's numbers,
+    // so steps start syncing without waiting for the next app launch.
+    if (on) {
+      final health = ref.read(healthServiceProvider);
+      if (await health.requestPermissions()) {
+        await health.syncToday();
+      }
+    }
+  }
 
   Future<void> setStepGoal(int steps) => _repo.setStepGoal(steps);
 

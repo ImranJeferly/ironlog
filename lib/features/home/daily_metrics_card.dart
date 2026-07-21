@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/utils/haptics.dart';
+import '../../data/health/health_service.dart';
 import '../../data/repositories/metrics_repository.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
@@ -36,7 +37,9 @@ class DailyMetricsCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ---- steps (Health Connect / Samsung Health, editable) ----
+          // ---- steps (auto-synced from Health Connect / Samsung Health) ----
+          // Read-only on purpose: steps always come from the device's health
+          // store, never typed in, so the count can't drift from reality.
           Row(
             children: [
               Icon(
@@ -56,40 +59,34 @@ class DailyMetricsCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(
+                begin: 0,
+                end: ((steps ?? 0) / stepGoal).clamp(0.0, 1.0),
+              ),
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) => LinearProgressIndicator(
+                value: value,
+                minHeight: 8,
+                backgroundColor: AppColors.cardHigh,
+                valueColor: const AlwaysStoppedAnimation(AppColors.volt),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
           Row(
             children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(
-                      begin: 0,
-                      end: ((steps ?? 0) / stepGoal).clamp(0.0, 1.0),
-                    ),
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) => LinearProgressIndicator(
-                      value: value,
-                      minHeight: 8,
-                      backgroundColor: AppColors.cardHigh,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.volt),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              _MiniButton(
-                label: 'Edit',
-                wide: true,
-                onTap: () => _editInt(
-                  context,
-                  title: 'Steps',
-                  suffix: 'steps',
-                  initial: steps ?? stepGoal,
-                  min: 0,
-                  max: 100000,
-                  step: 100,
-                  onSave: (v) => repo.setSteps(date, v),
+              const Icon(Icons.sync, size: 12, color: AppColors.textTertiary),
+              const SizedBox(width: 5),
+              Text(
+                steps == null
+                    ? 'Auto-syncs from ${HealthService.providerName}'
+                    : 'Synced from ${HealthService.providerName}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textTertiary,
                 ),
               ),
             ],

@@ -82,8 +82,9 @@ class MetricsRepository {
   Future<void> setSleep(DateTime date, double? hours) =>
       upsert(date, sleepHours: Value(hours), sleepFromHealth: const Value(false));
 
-  Future<void> setSteps(DateTime date, int? steps) =>
-      upsert(date, steps: Value(steps), stepsFromHealth: const Value(false));
+  // Steps are intentionally read-only in the UI: they are always sourced from
+  // the platform health store (Health Connect / Samsung Health) via
+  // [mergeFromHealth], never entered by hand.
 
   /// Writes Health-sourced values without clobbering anything typed in by hand.
   Future<void> mergeFromHealth(
