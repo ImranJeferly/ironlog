@@ -5,6 +5,7 @@ import '../../app/providers.dart';
 import '../../core/notifications.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/health/health_service.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
@@ -70,11 +71,13 @@ class _FirstRunScreenState extends ConsumerState<FirstRunScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Connect Apple Health',
+                            'Connect ${HealthService.providerName}',
                             style: theme.textTheme.titleSmall,
                           ),
                           Text(
-                            'Steps, sleep and weight history. Optional.',
+                            HealthService.providerName == 'Health Connect'
+                                ? 'Steps from Samsung Health, sleep & weight. Optional.'
+                                : 'Steps, sleep and weight history. Optional.',
                             style: theme.textTheme.bodySmall,
                           ),
                         ],

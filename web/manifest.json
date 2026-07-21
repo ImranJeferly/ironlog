@@ -1,11 +1,11 @@
 {
-    "name": "gym",
-    "short_name": "gym",
+    "name": "IronLog",
+    "short_name": "IronLog",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0A0A0F",
+    "theme_color": "#0A0A0F",
+    "description": "Offline-first gym tracker — Push/Pull/Legs, double progression, daily metrics.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -48,6 +48,20 @@ class HealthService {
     }
   }
 
+  /// Human name of the platform health store. On Android this is Health
+  /// Connect, which is where Samsung Health (and Google Fit, Fitbit, …)
+  /// write their steps/sleep/weight — so reading here pulls Samsung Health data.
+  static String get providerName {
+    if (kIsWeb) return 'Health';
+    try {
+      if (Platform.isIOS) return 'Apple Health';
+      if (Platform.isAndroid) return 'Health Connect';
+    } on Object {
+      // Fall through to the generic label.
+    }
+    return 'Health';
+  }
+
   Future<void> _ensureConfigured() async {
     if (_configured || !isSupported) return;
     await _health.configure();

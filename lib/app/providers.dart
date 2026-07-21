@@ -97,6 +97,8 @@ class SettingsController extends Notifier<AppSettings> {
 
   Future<void> setHealthEnabled(bool on) => _repo.setHealthEnabled(on);
 
+  Future<void> setStepGoal(int steps) => _repo.setStepGoal(steps);
+
   Future<void> completeFirstRun() => _repo.completeFirstRun();
 }
 

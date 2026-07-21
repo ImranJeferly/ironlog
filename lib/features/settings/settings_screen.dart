@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/date_x.dart';
 import '../../core/utils/format.dart';
+import '../../data/health/health_service.dart';
 import '../../data/sync/firebase_bootstrap.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
@@ -98,15 +99,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
-          const SectionHeader('Apple Health'),
+          SectionHeader(HealthService.providerName),
           AppCard(
             child: Column(
               children: [
                 _SwitchRow(
                   title: 'Read steps, sleep and weight',
-                  subtitle: 'Manual entries are never overwritten.',
+                  subtitle:
+                      'From ${HealthService.providerName}'
+                      '${HealthService.providerName == 'Health Connect' ? ' (Samsung Health, Fit…)' : ''}. '
+                      'Manual entries are never overwritten.',
                   value: settings.healthEnabled,
                   onChanged: controller.setHealthEnabled,
+                ),
+                const Divider(height: AppSpacing.lg),
+                _StepGoalRow(
+                  value: settings.stepGoal,
+                  onChanged: controller.setStepGoal,
                 ),
                 const Divider(height: AppSpacing.lg),
                 Row(
@@ -334,6 +343,54 @@ class _SwitchRow extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.md),
         Switch(value: value, onChanged: enabled ? onChanged : null),
+      ],
+    );
+  }
+}
+
+/// Changeable daily step goal, stepped in 1 000-step increments.
+class _StepGoalRow extends StatelessWidget {
+  const _StepGoalRow({required this.value, required this.onChanged});
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Daily step goal', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 2),
+              Text(
+                'Home progress fills toward this.',
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        IconPill(
+          icon: Icons.remove,
+          size: 34,
+          onTap: value <= 1000 ? null : () => onChanged(value - 1000),
+        ),
+        SizedBox(
+          width: 76,
+          child: Text(
+            Fmt.count(value),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium,
+          ),
+        ),
+        IconPill(
+          icon: Icons.add,
+          size: 34,
+          onTap: value >= 100000 ? null : () => onChanged(value + 1000),
+        ),
       ],
     );
   }

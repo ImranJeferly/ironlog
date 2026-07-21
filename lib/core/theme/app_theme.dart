@@ -157,9 +157,10 @@ abstract final class AppTheme {
     );
   }
 
-  /// `null` lets Flutter pick the platform UI font (SF Pro on iOS, Roboto on
-  /// Android) which is what the design calls for; no webfont download at runtime.
-  static const String? _fontFamily = null;
+  /// Chakra Petch — sleek, futuristic techy face, bundled as an asset so it
+  /// works offline. Numerals are tabular-friendly, which suits the wheel picker
+  /// and stat headlines.
+  static const String? _fontFamily = 'ChakraPetch';
 
   static TextTheme _textTheme() {
     return const TextTheme(

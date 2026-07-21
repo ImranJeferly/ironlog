@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gym/app/providers.dart';
 import 'package:gym/core/theme/app_theme.dart';
 import 'package:gym/data/db/database.dart';
+import 'package:gym/data/health/health_service.dart';
 import 'package:gym/data/repositories/settings_repository.dart';
 import 'package:gym/data/repositories/workout_repository.dart';
 import 'package:gym/features/first_run/first_run_screen.dart';
@@ -75,7 +76,10 @@ void main() {
         expect(find.text('IronLog'), findsOneWidget);
         expect(find.text('KG'), findsOneWidget);
         expect(find.text('LB'), findsOneWidget);
-        expect(find.text('Connect Apple Health'), findsOneWidget);
+        expect(
+          find.text('Connect ${HealthService.providerName}'),
+          findsOneWidget,
+        );
         expect(find.text('Start training'), findsOneWidget);
       });
     });
@@ -88,7 +92,7 @@ void main() {
         // Local data must never render a loading indicator.
         expect(find.byType(CircularProgressIndicator), findsNothing);
         expect(find.textContaining('Start'), findsWidgets);
-        expect(find.text('Steps'), findsOneWidget);
+        expect(find.textContaining('Steps'), findsWidgets);
         expect(find.text('Water'), findsWidgets);
         expect(find.text('Calories'), findsOneWidget);
         expect(find.text('Protein'), findsOneWidget);

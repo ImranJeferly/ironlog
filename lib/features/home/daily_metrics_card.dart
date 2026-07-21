@@ -26,13 +26,77 @@ class DailyMetricsCard extends ConsumerWidget {
     final metrics = ref.watch(todayMetricsProvider).value;
     final unit = ref.watch(unitProvider);
     final repo = ref.watch(metricsRepositoryProvider);
+    final stepGoal = ref.watch(settingsProvider).stepGoal;
 
     final water = metrics?.waterMl ?? 0;
+    final steps = metrics?.steps;
+    final stepsReached = (steps ?? 0) >= stepGoal;
 
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ---- steps (Health Connect / Samsung Health, editable) ----
+          Row(
+            children: [
+              Icon(
+                Icons.directions_walk,
+                size: 18,
+                color: stepsReached ? AppColors.volt : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 8),
+              Text('Steps', style: theme.textTheme.titleSmall),
+              const Spacer(),
+              Text(
+                '${Fmt.count(steps ?? 0)} / ${Fmt.count(stepGoal)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: stepsReached ? AppColors.volt : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(
+                      begin: 0,
+                      end: ((steps ?? 0) / stepGoal).clamp(0.0, 1.0),
+                    ),
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) => LinearProgressIndicator(
+                      value: value,
+                      minHeight: 8,
+                      backgroundColor: AppColors.cardHigh,
+                      valueColor: const AlwaysStoppedAnimation(AppColors.volt),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _MiniButton(
+                label: 'Edit',
+                wide: true,
+                onTap: () => _editInt(
+                  context,
+                  title: 'Steps',
+                  suffix: 'steps',
+                  initial: steps ?? stepGoal,
+                  min: 0,
+                  max: 100000,
+                  step: 100,
+                  onSave: (v) => repo.setSteps(date, v),
+                ),
+              ),
+            ],
+          ),
+
+          const Divider(height: AppSpacing.lg * 1.4),
+
           // ---- water ----
           Row(
             children: [

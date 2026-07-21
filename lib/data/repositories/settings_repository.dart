@@ -10,6 +10,7 @@ class AppSettings {
     this.restTimerEnabled = true,
     this.syncEnabled = true,
     this.healthEnabled = true,
+    this.stepGoal = 20000,
     this.firstRunComplete = false,
     this.lastSyncAt,
   });
@@ -25,6 +26,9 @@ class AppSettings {
   final bool restTimerEnabled;
   final bool syncEnabled;
   final bool healthEnabled;
+
+  /// Daily step target the home progress ring fills toward. Changeable.
+  final int stepGoal;
   final bool firstRunComplete;
   final DateTime? lastSyncAt;
 
@@ -41,6 +45,7 @@ class AppSettings {
     bool? restTimerEnabled,
     bool? syncEnabled,
     bool? healthEnabled,
+    int? stepGoal,
     bool? firstRunComplete,
     DateTime? lastSyncAt,
   }) {
@@ -52,6 +57,7 @@ class AppSettings {
       restTimerEnabled: restTimerEnabled ?? this.restTimerEnabled,
       syncEnabled: syncEnabled ?? this.syncEnabled,
       healthEnabled: healthEnabled ?? this.healthEnabled,
+      stepGoal: stepGoal ?? this.stepGoal,
       firstRunComplete: firstRunComplete ?? this.firstRunComplete,
       lastSyncAt: lastSyncAt ?? this.lastSyncAt,
     );
@@ -66,6 +72,7 @@ abstract final class SettingKeys {
   static const restTimer = 'rest_timer_enabled';
   static const sync = 'sync_enabled';
   static const health = 'health_enabled';
+  static const stepGoal = 'step_goal';
   static const firstRun = 'first_run_complete';
   static const lastSync = 'last_sync_at';
   static const healthImported = 'health_history_imported';
@@ -99,6 +106,7 @@ class SettingsRepository {
       restTimerEnabled: map[SettingKeys.restTimer] != 'false',
       syncEnabled: map[SettingKeys.sync] != 'false',
       healthEnabled: map[SettingKeys.health] != 'false',
+      stepGoal: int.tryParse(map[SettingKeys.stepGoal] ?? '') ?? 20000,
       firstRunComplete: map[SettingKeys.firstRun] == 'true',
       lastSyncAt: map[SettingKeys.lastSync] == null
           ? null
@@ -125,6 +133,9 @@ class SettingsRepository {
 
   Future<void> setHealthEnabled(bool on) =>
       _db.setSetting(SettingKeys.health, '$on');
+
+  Future<void> setStepGoal(int steps) =>
+      _db.setSetting(SettingKeys.stepGoal, '${steps.clamp(1000, 100000)}');
 
   Future<void> completeFirstRun() =>
       _db.setSetting(SettingKeys.firstRun, 'true');

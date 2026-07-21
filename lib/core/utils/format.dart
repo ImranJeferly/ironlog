@@ -29,6 +29,17 @@ abstract final class Fmt {
     return '$buf ${unit.label}';
   }
 
+  /// Plain integers with a thousands separator: 20 000, 8 450.
+  static String count(int v) {
+    final s = v.abs().toString();
+    final buf = StringBuffer(v < 0 ? '-' : '');
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buf.write(' ');
+      buf.write(s[i]);
+    }
+    return buf.toString();
+  }
+
   static String duration(Duration d) {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);

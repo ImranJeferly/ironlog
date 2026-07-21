@@ -27,6 +27,7 @@ class HomeScreen extends ConsumerWidget {
     final consistency = ref.watch(consistencyProvider).value;
     final metrics = ref.watch(todayMetricsProvider).value;
     final unit = ref.watch(unitProvider);
+    final stepGoal = ref.watch(settingsProvider).stepGoal;
     final prs = ref.watch(personalRecordsProvider).value ?? const [];
     final now = DateTime.now();
 
@@ -77,8 +78,13 @@ class HomeScreen extends ConsumerWidget {
               Expanded(
                 child: StatTile(
                   icon: Icons.directions_walk,
-                  value: metrics?.steps == null ? '—' : '${metrics!.steps}',
-                  label: 'Steps',
+                  value: metrics?.steps == null
+                      ? '—'
+                      : Fmt.count(metrics!.steps!),
+                  label: 'Steps / ${Fmt.count(stepGoal)}',
+                  accent: (metrics?.steps ?? 0) >= stepGoal
+                      ? AppColors.volt
+                      : null,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
