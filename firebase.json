@@ -1,0 +1,24 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "ironlog-f6918",
+          "appId": "1:985496599173:android:d9ec8f8ac0408b34d3c7ec",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "ironlog-f6918",
+          "configurations": {
+            "android": "1:985496599173:android:d9ec8f8ac0408b34d3c7ec"
+          }
+        }
+      }
+    }
+  }
+}

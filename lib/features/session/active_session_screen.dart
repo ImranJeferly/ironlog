@@ -1,0 +1,797 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../app/providers.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/utils/format.dart';
+import '../../core/utils/haptics.dart';
+import '../../domain/enums.dart';
+import '../../domain/session_view.dart';
+import '../../widgets/app_card.dart';
+import '../../widgets/buttons.dart';
+import '../../widgets/pr_celebration.dart';
+import 'exercise_picker_sheet.dart';
+import 'rest_timer.dart';
+import 'session_summary_screen.dart';
+import 'set_logger_sheet.dart';
+
+class ActiveSessionScreen extends ConsumerStatefulWidget {
+  const ActiveSessionScreen({super.key, required this.sessionId});
+
+  final String sessionId;
+
+  static Future<void> open(BuildContext context, String sessionId) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ActiveSessionScreen(sessionId: sessionId),
+      ),
+    );
+  }
+
+  @override
+  ConsumerState<ActiveSessionScreen> createState() =>
+      _ActiveSessionScreenState();
+}
+
+class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final view = ref.watch(sessionViewProvider(widget.sessionId)).value;
+    final rest = ref.watch(restTimerProvider);
+
+    if (view == null) {
+      // The session was discarded from under us.
+      return const Scaffold(
+        backgroundColor: AppColors.bg,
+        body: Center(
+          child: EmptyState(
+            title: 'Session not found',
+            message: 'It may have been discarded.',
+          ),
+        ),
+      );
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        await _confirmLeave(view);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.bg,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _Header(
+                view: view,
+                onClose: () => _confirmLeave(view),
+              ),
+              if (rest.isActive) _RestBar(state: rest),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                    AppSpacing.md,
+                    140,
+                  ),
+                  children: [
+                    for (final exercise in view.exercises)
+                      _ExerciseCard(
+                        sessionId: widget.sessionId,
+                        exercise: exercise,
+                        onLog: () => _logSet(exercise),
+                        onEditSet: (setId, weight, reps, rpe, note) =>
+                            _editSet(exercise, setId, weight, reps, rpe, note),
+                      ),
+
+                    const SectionHeader('Finish up'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: VoltCheck(
+                            value: view.session.cardioDone,
+                            icon: Icons.favorite_outline,
+                            label: _cardioLabel(view),
+                            onChanged: (v) => ref
+                                .read(workoutRepositoryProvider)
+                                .setCardioDone(widget.sessionId, v),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: VoltCheck(
+                            value: view.session.saunaDone,
+                            icon: Icons.hot_tub_outlined,
+                            label: 'Sauna',
+                            onChanged: (v) => ref
+                                .read(workoutRepositoryProvider)
+                                .setSaunaDone(widget.sessionId, v),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    GhostButton(
+                      label: 'Add exercise',
+                      icon: Icons.add,
+                      expanded: true,
+                      onPressed: () => ExercisePickerSheet.show(
+                        context,
+                        sessionId: widget.sessionId,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    _NotesField(
+                      sessionId: widget.sessionId,
+                      initial: view.session.notes,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                Expanded(
+                  child: VoltButton(
+                    label: 'Finish workout',
+                    icon: Icons.check_rounded,
+                    onPressed: () => _finish(view),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _cardioLabel(SessionView view) {
+    final templates = ref.read(templatesProvider).value ?? const [];
+    for (final t in templates) {
+      if (t.id == view.session.templateId && t.cardioLabel != null) {
+        return t.cardioLabel!;
+      }
+    }
+    return 'Cardio';
+  }
+
+  Future<void> _logSet(SessionExerciseView exercise) async {
+    final unit = ref.read(unitProvider);
+    final result = await SetLoggerSheet.show(
+      context,
+      exercise: exercise,
+      unit: unit,
+    );
+    if (result == null || !mounted) return;
+
+    final logged = await ref
+        .read(workoutRepositoryProvider)
+        .logSet(
+          sessionId: widget.sessionId,
+          exerciseId: exercise.exercise.id,
+          weightKg: result.weightKg,
+          reps: result.reps,
+          rpe: result.rpe,
+          note: result.note,
+        );
+
+    await Haptics.impact();
+
+    final settings = ref.read(settingsProvider);
+    if (settings.restTimerEnabled) {
+      ref
+          .read(restTimerProvider.notifier)
+          .start(
+            Duration(seconds: settings.restForRole(exercise.role)),
+            exerciseName: exercise.name,
+          );
+    }
+
+    if (logged.isPr && mounted) {
+      await PrCelebration.show(
+        context,
+        pr: logged.headline!,
+        exerciseName: exercise.name,
+        unit: unit,
+      );
+    }
+  }
+
+  Future<void> _editSet(
+    SessionExerciseView exercise,
+    String setId,
+    double weight,
+    int reps,
+    int? rpe,
+    String? note,
+  ) async {
+    final unit = ref.read(unitProvider);
+    final result = await SetLoggerSheet.show(
+      context,
+      exercise: exercise,
+      unit: unit,
+      initialWeightKg: weight,
+      initialReps: reps,
+      initialRpe: rpe,
+      initialNote: note,
+      isEdit: true,
+    );
+    if (result == null) return;
+
+    if (result.delete) {
+      await ref.read(workoutRepositoryProvider).deleteSet(setId);
+      return;
+    }
+    await ref
+        .read(workoutRepositoryProvider)
+        .updateSet(
+          setId: setId,
+          weightKg: result.weightKg,
+          reps: result.reps,
+          rpe: result.rpe,
+          note: result.note,
+        );
+  }
+
+  Future<void> _finish(SessionView view) async {
+    if (view.totalSets == 0) {
+      final discard = await _confirm(
+        title: 'Nothing logged',
+        message: 'Discard this session?',
+        confirmLabel: 'Discard',
+        danger: true,
+      );
+      if (discard != true) return;
+      await ref.read(workoutRepositoryProvider).discardSession(widget.sessionId);
+      ref.read(restTimerProvider.notifier).stop();
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+
+    final session = await ref
+        .read(workoutRepositoryProvider)
+        .finishSession(widget.sessionId);
+    ref.read(restTimerProvider.notifier).stop();
+    ref.read(analyticsRevisionProvider.notifier).bump();
+    unawaited(ref.read(syncControllerProvider.notifier).sync());
+    await Haptics.celebrate();
+
+    if (!mounted || session == null) return;
+    await SessionSummaryScreen.openReplacing(context, session.id);
+  }
+
+  Future<void> _confirmLeave(SessionView view) async {
+    if (view.totalSets == 0) {
+      final discard = await _confirm(
+        title: 'Leave session?',
+        message: 'Nothing has been logged — this session will be discarded.',
+        confirmLabel: 'Discard',
+        danger: true,
+      );
+      if (discard != true) return;
+      await ref.read(workoutRepositoryProvider).discardSession(widget.sessionId);
+      ref.read(restTimerProvider.notifier).stop();
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+
+    // Work is already saved locally, so backing out just hides the screen —
+    // the session stays resumable from Home.
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<bool?> _confirm({
+    required String title,
+    required String message,
+    required String confirmLabel,
+    bool danger = false,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              confirmLabel,
+              style: TextStyle(
+                color: danger ? AppColors.danger : AppColors.volt,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.view, required this.onClose});
+
+  final SessionView view;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              IconPill(icon: Icons.keyboard_arrow_down, onTap: onClose),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(view.title, style: theme.textTheme.headlineSmall),
+                    _ElapsedText(startedAt: view.session.startedAt),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${view.totalSets}/${view.targetSetTotal}',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  Text('sets', style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: view.progress),
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) => LinearProgressIndicator(
+                value: value,
+                minHeight: 5,
+                backgroundColor: AppColors.cardHigh,
+                valueColor: const AlwaysStoppedAnimation(AppColors.volt),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ticks the session clock once a second without rebuilding the whole screen.
+class _ElapsedText extends StatefulWidget {
+  const _ElapsedText({required this.startedAt});
+
+  final DateTime startedAt;
+
+  @override
+  State<_ElapsedText> createState() => _ElapsedTextState();
+}
+
+class _ElapsedTextState extends State<_ElapsedText> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => mounted ? setState(() {}) : null,
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final elapsed = DateTime.now().difference(widget.startedAt);
+    return Text(
+      Fmt.duration(elapsed),
+      style: Theme.of(context).textTheme.bodySmall,
+    );
+  }
+}
+
+/// Countdown strip that appears between sets.
+class _RestBar extends ConsumerWidget {
+  const _RestBar({required this.state});
+
+  final RestTimerState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final done = state.isFinished;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: done ? AppColors.voltDim : AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadii.cardSmall),
+        border: Border.all(color: done ? AppColors.volt : AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            done ? Icons.notifications_active : Icons.timer_outlined,
+            size: 18,
+            color: done ? AppColors.volt : AppColors.textSecondary,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            done ? 'Rest over — go' : Fmt.clock(state.remaining),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: done ? AppColors.volt : AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: state.progress,
+                minHeight: 5,
+                backgroundColor: AppColors.cardHigh,
+                valueColor: AlwaysStoppedAnimation(
+                  done ? AppColors.volt : AppColors.chartTo,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          if (!done)
+            GestureDetector(
+              onTap: () =>
+                  ref.read(restTimerProvider.notifier).addSeconds(30),
+              child: Text(
+                '+30s',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.volt,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: () => ref.read(restTimerProvider.notifier).stop(),
+            child: const Icon(
+              Icons.close,
+              size: 16,
+              color: AppColors.textTertiary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+typedef EditSetCallback =
+    void Function(
+      String setId,
+      double weight,
+      int reps,
+      int? rpe,
+      String? note,
+    );
+
+class _ExerciseCard extends ConsumerWidget {
+  const _ExerciseCard({
+    required this.sessionId,
+    required this.exercise,
+    required this.onLog,
+    required this.onEditSet,
+  });
+
+  final String sessionId;
+  final SessionExerciseView exercise;
+  final VoidCallback onLog;
+  final EditSetCallback onEditSet;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final unit = ref.watch(unitProvider);
+    final done = exercise.isComplete;
+
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      borderColor: done ? AppColors.volt.withValues(alpha: 0.4) : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            exercise.name,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ),
+                        if (done) ...[
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: AppColors.volt,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Text(
+                          exercise.schemeLabel,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        Text(
+                          '  ·  ${exercise.muscleGroup.label}',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        if (exercise.exercise.isUnilateral)
+                          Text(
+                            '  ·  per side',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (exercise.increaseFlagged)
+                const VoltBadge('↑ WEIGHT', filled: true)
+              else if (exercise.suggestedWeightKg != null)
+                VoltBadge(
+                  Fmt.weight(exercise.suggestedWeightKg!, unit),
+                  color: AppColors.textSecondary,
+                ),
+            ],
+          ),
+
+          const SizedBox(height: AppSpacing.md),
+
+          for (var i = 0; i < exercise.targetSets; i++)
+            _SetRow(
+              index: i,
+              exercise: exercise,
+              unit: unit,
+              onEdit: onEditSet,
+              onLog: onLog,
+            ),
+
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Expanded(
+                child: GhostButton(
+                  label: exercise.isStarted ? 'Log set' : 'Start',
+                  icon: Icons.add,
+                  expanded: true,
+                  color: AppColors.volt,
+                  onPressed: onLog,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              IconPill(
+                icon: Icons.playlist_add,
+                tooltip: 'Add a set',
+                onTap: () => ref
+                    .read(workoutRepositoryProvider)
+                    .setTargetSets(exercise.link.id, exercise.targetSets + 1),
+              ),
+              const SizedBox(width: 6),
+              IconPill(
+                icon: Icons.delete_outline,
+                tooltip: 'Remove exercise',
+                onTap: () => ref
+                    .read(workoutRepositoryProvider)
+                    .removeExerciseFromSession(exercise.link.id),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One prescribed set: either the logged values, or the ghost of last session.
+class _SetRow extends StatelessWidget {
+  const _SetRow({
+    required this.index,
+    required this.exercise,
+    required this.unit,
+    required this.onEdit,
+    required this.onLog,
+  });
+
+  final int index;
+  final SessionExerciseView exercise;
+  final WeightUnit unit;
+  final EditSetCallback onEdit;
+  final VoidCallback onLog;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final logged = index < exercise.sets.length ? exercise.sets[index] : null;
+    final ghost = exercise.ghostForSet(index + 1);
+    final isNext = logged == null && index == exercise.sets.length;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: logged != null
+          ? () => onEdit(
+              logged.id,
+              logged.weightKg,
+              logged.reps,
+              logged.rpe,
+              logged.note,
+            )
+          : (isNext ? onLog : null),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: logged != null ? AppColors.cardHigh : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isNext
+                ? AppColors.volt.withValues(alpha: 0.5)
+                : (logged != null ? Colors.transparent : AppColors.border),
+          ),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              child: Text(
+                '${index + 1}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: logged != null
+                      ? AppColors.textSecondary
+                      : AppColors.textTertiary,
+                ),
+              ),
+            ),
+            Expanded(
+              child: logged != null
+                  ? Row(
+                      children: [
+                        Text(
+                          Fmt.setSummary(logged.weightKg, logged.reps, unit),
+                          style: theme.textTheme.titleSmall,
+                        ),
+                        if (logged.rpe != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            RpeLevel.fromRpe(logged.rpe)?.emoji ?? '',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ],
+                        if (logged.isPr) ...[
+                          const SizedBox(width: 8),
+                          const VoltBadge('PR', icon: Icons.bolt),
+                        ],
+                      ],
+                    )
+                  : Text(
+                      ghost == null
+                          ? '— × ${exercise.link.repRangeMin}'
+                          : '${Fmt.weight(ghost.weightKg, unit)} × ${ghost.reps}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textTertiary,
+                        fontStyle: ghost == null
+                            ? FontStyle.normal
+                            : FontStyle.italic,
+                      ),
+                    ),
+            ),
+            if (logged == null && ghost != null)
+              Text(
+                'last time',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textTertiary,
+                  fontSize: 10,
+                ),
+              ),
+            if (logged != null)
+              const Icon(
+                Icons.check,
+                size: 15,
+                color: AppColors.volt,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotesField extends ConsumerStatefulWidget {
+  const _NotesField({required this.sessionId, required this.initial});
+
+  final String sessionId;
+  final String? initial;
+
+  @override
+  ConsumerState<_NotesField> createState() => _NotesFieldState();
+}
+
+class _NotesFieldState extends ConsumerState<_NotesField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      maxLines: 3,
+      minLines: 2,
+      style: Theme.of(context).textTheme.bodyLarge,
+      decoration: const InputDecoration(hintText: 'Session notes…'),
+      onChanged: (value) => ref
+          .read(workoutRepositoryProvider)
+          .setSessionNotes(widget.sessionId, value.isEmpty ? null : value),
+    );
+  }
+}

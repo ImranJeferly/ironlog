@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "985496599173",
+    "project_id": "ironlog-f6918",
+    "storage_bucket": "ironlog-f6918.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:985496599173:android:d9ec8f8ac0408b34d3c7ec",
+        "android_client_info": {
+          "package_name": "com.example.ironlog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBewzRRD4J9-3YgFHXM_6gJYlYYK9ZIWDM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
