@@ -150,6 +150,36 @@ final todayTemplateProvider = Provider<TemplateRow?>((ref) {
   return null;
 });
 
+/// (exercise count, total prescribed working sets) for a template — the
+/// "what am I in for" line on the hero card.
+final templatePlanProvider = FutureProvider.family<(int, int), String>((
+  ref,
+  templateId,
+) async {
+  final rows = await ref
+      .watch(appDatabaseProvider)
+      .templateExerciseRows(templateId);
+  var sets = 0;
+  for (final (link, exercise) in rows) {
+    sets += link.setsOverride ?? exercise.targetSets;
+  }
+  return (rows.length, sets);
+});
+
+/// The next scheduled workout strictly after today — what a rest day looks
+/// forward to. Null when nothing is scheduled at all.
+final nextTemplateProvider = Provider<TemplateRow?>((ref) {
+  final templates = ref.watch(templatesProvider).value ?? const [];
+  final today = DateTime.now().weekday;
+  for (var offset = 1; offset <= 7; offset++) {
+    final day = (today - 1 + offset) % 7 + 1;
+    for (final t in templates) {
+      if (t.weekday == day) return t;
+    }
+  }
+  return null;
+});
+
 // ------------------------------------------------------------------ sessions
 
 final activeSessionProvider = StreamProvider<SessionRow?>(

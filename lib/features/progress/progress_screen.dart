@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../photos/photos_timeline.dart';
 import 'body_tab.dart';
 import 'exercises_tab.dart';
 import 'muscle_groups_tab.dart';
@@ -18,7 +17,9 @@ class ProgressScreen extends ConsumerStatefulWidget {
 class _ProgressScreenState extends ConsumerState<ProgressScreen> {
   int _tab = 0;
 
-  static const _labels = ['Exercises', 'Muscles', 'Body', 'Photos'];
+  // Photos live on their own tab in the bottom bar — repeating them here
+  // just made the page structure confusing.
+  static const _labels = ['Exercises', 'Muscles', 'Body'];
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +62,6 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                 ExercisesTab(),
                 MuscleGroupsTab(),
                 BodyTab(),
-                PhotosTimeline(embedded: true),
               ],
             ),
           ),

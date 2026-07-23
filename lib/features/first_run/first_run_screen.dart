@@ -41,7 +41,7 @@ class _FirstRunScreenState extends ConsumerState<FirstRunScreen> {
               Text('IronLog', style: theme.textTheme.displayMedium),
               const SizedBox(height: 6),
               Text(
-                'Push · Pull · Legs. Double progression, offline first.',
+                'Push · Pull · Legs · Arms. Double progression, offline first.',
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: AppSpacing.xl),

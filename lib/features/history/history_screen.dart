@@ -140,8 +140,21 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               ),
             )
           else
-            for (final session in completed)
-              _SessionRow(session: session, unit: unit),
+            for (var i = 0; i < completed.length; i++) ...[
+              // A quiet month header whenever the list crosses into a new
+              // month — long histories stay scannable.
+              if (i == 0 ||
+                  completed[i - 1].date.month != completed[i].date.month ||
+                  completed[i - 1].date.year != completed[i].date.year)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, AppSpacing.sm, 4, 8),
+                  child: Text(
+                    Dates.monthYear(completed[i].date).toUpperCase(),
+                    style: theme.textTheme.labelSmall,
+                  ),
+                ),
+              _SessionRow(session: completed[i], unit: unit),
+            ],
         ],
       ),
     );
@@ -197,15 +210,23 @@ class _Toggle extends StatelessWidget {
   }
 }
 
-class _SessionRow extends StatelessWidget {
+class _SessionRow extends ConsumerWidget {
   const _SessionRow({required this.session, required this.unit});
 
   final SessionRow session;
   final WeightUnit unit;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final templates = ref.watch(templatesProvider).value ?? const [];
+    Color accent = AppColors.textTertiary;
+    for (final t in templates) {
+      if (t.id == session.templateId) {
+        accent = _accent(t.accentHex);
+        break;
+      }
+    }
 
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -216,6 +237,15 @@ class _SessionRow extends StatelessWidget {
         children: [
           Row(
             children: [
+              Container(
+                width: 4,
+                height: 18,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
               Expanded(
                 child: Text(
                   session.templateName ?? 'Workout',
@@ -265,6 +295,12 @@ class _SessionRow extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static Color _accent(String? hex) {
+    if (hex == null || hex.length < 7) return AppColors.textTertiary;
+    final parsed = int.tryParse(hex.substring(1), radix: 16);
+    return parsed == null ? AppColors.textTertiary : Color(0xFF000000 | parsed);
   }
 }
 

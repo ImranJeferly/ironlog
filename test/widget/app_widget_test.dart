@@ -238,14 +238,15 @@ void main() {
   });
 
   group('other screens', () {
-    testWidgets('progress renders all four tabs', (tester) async {
+    testWidgets('progress renders its three tabs', (tester) async {
       await withScreen(tester, const ProgressScreen(), () async {
         expect(find.text('Exercises'), findsOneWidget);
         expect(find.text('Muscles'), findsOneWidget);
         expect(find.text('Body'), findsOneWidget);
-        expect(find.text('Photos'), findsOneWidget);
+        // Photos has its own bottom-nav tab — not duplicated here.
+        expect(find.text('Photos'), findsNothing);
 
-        for (final tab in ['Muscles', 'Body', 'Photos']) {
+        for (final tab in ['Muscles', 'Body']) {
           await tester.tap(find.text(tab));
           await tester.pump(const Duration(milliseconds: 400));
         }

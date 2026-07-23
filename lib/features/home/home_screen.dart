@@ -25,9 +25,7 @@ class HomeScreen extends ConsumerWidget {
     final active = ref.watch(activeSessionProvider).value;
     final todayTemplate = ref.watch(todayTemplateProvider);
     final consistency = ref.watch(consistencyProvider).value;
-    final metrics = ref.watch(todayMetricsProvider).value;
     final unit = ref.watch(unitProvider);
-    final stepGoal = ref.watch(settingsProvider).stepGoal;
     final prs = ref.watch(personalRecordsProvider).value ?? const [];
     final now = DateTime.now();
 
@@ -71,50 +69,11 @@ class HomeScreen extends ConsumerWidget {
             _TodayWorkoutCard(template: todayTemplate),
 
           const SizedBox(height: AppSpacing.md),
-
-          // Quick glance row — workout done?, steps, water, weight.
-          Row(
-            children: [
-              Expanded(
-                child: StatTile(
-                  icon: Icons.directions_walk,
-                  value: metrics?.steps == null
-                      ? '—'
-                      : Fmt.count(metrics!.steps!),
-                  label: 'Steps / ${Fmt.count(stepGoal)}',
-                  accent: (metrics?.steps ?? 0) >= stepGoal
-                      ? AppColors.volt
-                      : null,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: StatTile(
-                  icon: Icons.local_drink_outlined,
-                  value: Fmt.water(metrics?.waterMl ?? 0),
-                  label: 'Water',
-                  accent: (metrics?.waterMl ?? 0) >= 2000
-                      ? AppColors.volt
-                      : null,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: StatTile(
-                  icon: Icons.monitor_weight_outlined,
-                  value: metrics?.weightKg == null
-                      ? '—'
-                      : Fmt.weight(metrics!.weightKg!, unit, withUnit: false),
-                  label: 'Weight ${unit.label}',
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: AppSpacing.md),
           _AdherenceCard(consistency: consistency),
 
-          const SectionHeader('Today'),
+          // Steps, water, food, sleep and weight all live in one place —
+          // no duplicate tiles fighting for attention.
+          const SectionHeader('Daily check-in'),
           const DailyMetricsCard(),
 
           if (prs.isNotEmpty) ...[
@@ -215,46 +174,45 @@ class _TodayWorkoutCard extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            template?.name ?? 'No workout scheduled',
+            template?.name ?? 'Rest & recover',
             style: theme.textTheme.displaySmall,
           ),
-          if (template?.cardioLabel != null) ...[
-            const SizedBox(height: 6),
+          const SizedBox(height: 6),
+          if (template != null)
+            _PlanLine(template: template!)
+          else
+            _NextUpLine(),
+          const SizedBox(height: AppSpacing.lg),
+          if (doneToday)
+            GhostButton(
+              label: 'Start another workout',
+              icon: Icons.add,
+              expanded: true,
+              height: 52,
+              onPressed: () => TemplatePickerSheet.show(context),
+            )
+          else
             Row(
               children: [
-                const Icon(
-                  Icons.favorite_outline,
-                  size: 14,
-                  color: AppColors.textTertiary,
+                Expanded(
+                  child: VoltButton(
+                    label: template == null
+                        ? 'Start a session anyway'
+                        : 'Start ${template!.name}',
+                    icon: Icons.play_arrow_rounded,
+                    onPressed: () => _start(context, ref, template),
+                  ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  '${template!.cardioLabel} + Sauna',
-                  style: theme.textTheme.bodySmall,
+                const SizedBox(width: AppSpacing.sm),
+                IconPill(
+                  icon: Icons.more_horiz,
+                  size: 56,
+                  tooltip: 'Pick another workout',
+                  background: AppColors.cardHigh,
+                  onTap: () => TemplatePickerSheet.show(context),
                 ),
               ],
             ),
-          ],
-          const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: VoltButton(
-                  label: template == null ? 'Start a session' : 'Start ${template!.name}',
-                  icon: Icons.play_arrow_rounded,
-                  onPressed: () => _start(context, ref, template),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              IconPill(
-                icon: Icons.more_horiz,
-                size: 56,
-                tooltip: 'Pick another workout',
-                background: AppColors.cardHigh,
-                onTap: () => TemplatePickerSheet.show(context),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -281,6 +239,88 @@ class _TodayWorkoutCard extends ConsumerWidget {
     if (hex == null || hex.length < 7) return AppColors.volt;
     final parsed = int.tryParse(hex.substring(1), radix: 16);
     return parsed == null ? AppColors.volt : Color(0xFF000000 | parsed);
+  }
+}
+
+/// "6 exercises · 19 sets · Rope 5 min + sauna" — what today actually holds.
+class _PlanLine extends ConsumerWidget {
+  const _PlanLine({required this.template});
+
+  final TemplateRow template;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final plan = ref.watch(templatePlanProvider(template.id)).value;
+
+    final parts = <String>[
+      if (plan != null) '${plan.$1} exercises · ${plan.$2} sets',
+      if (template.cardioLabel != null) '${template.cardioLabel} + sauna',
+    ];
+    if (parts.isEmpty) return const SizedBox.shrink();
+
+    return Row(
+      children: [
+        const Icon(
+          Icons.format_list_bulleted,
+          size: 14,
+          color: AppColors.textTertiary,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            parts.join('  ·  '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// On a rest day the card points at what's coming instead of a dead end.
+class _NextUpLine extends ConsumerWidget {
+  const _NextUpLine();
+
+  static const _dayNames = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final next = ref.watch(nextTemplateProvider);
+    if (next == null) {
+      return Text(
+        'No workouts scheduled — set your training days in Settings.',
+        style: theme.textTheme.bodySmall,
+      );
+    }
+    final isTomorrow =
+        next.weekday == (DateTime.now().weekday % 7) + 1;
+    return Row(
+      children: [
+        const Icon(
+          Icons.event_repeat,
+          size: 14,
+          color: AppColors.textTertiary,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          'Next up: ${next.name} · '
+          '${isTomorrow ? 'tomorrow' : _dayNames[next.weekday! - 1]}',
+          style: theme.textTheme.bodySmall,
+        ),
+      ],
+    );
   }
 }
 
