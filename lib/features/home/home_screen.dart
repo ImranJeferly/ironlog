@@ -357,7 +357,7 @@ class _AdherenceCard extends StatelessWidget {
                 Text('THIS WEEK', style: theme.textTheme.labelSmall),
                 const SizedBox(height: 6),
                 Text(
-                  '$done of 3 gym days',
+                  '$done of ${consistency?.scheduledPerWeek ?? 4} gym days',
                   style: theme.textTheme.titleMedium,
                 ),
                 const SizedBox(height: 10),

@@ -74,6 +74,25 @@ class AppDatabase extends _$AppDatabase {
       }
     });
 
+    // One-time fixup for installs seeded before Arms became a scheduled day:
+    // it used to be an unscheduled "Extra — Arms" finisher, but it is a full
+    // training day — 4 gym days out of 7. Guarded by a flag so a user who
+    // later takes it off the schedule isn't fought on every open.
+    const armsFixupKey = 'arms_weekday_fixup_v1';
+    if (await getSetting(armsFixupKey) == null) {
+      await (update(templates)
+            ..where((t) => t.id.equals('extra') & t.weekday.isNull()))
+          .write(
+        TemplatesCompanion(
+          name: const Value('Arms'),
+          weekday: const Value(DateTime.saturday),
+          updatedAt: Value(now),
+          synced: const Value(false),
+        ),
+      );
+      await setSetting(armsFixupKey, 'done');
+    }
+
     final existingTemplates = await select(templates).get();
     final existingTemplateIds = existingTemplates.map((t) => t.id).toSet();
 
@@ -163,6 +182,15 @@ class AppDatabase extends _$AppDatabase {
     return (select(
       templates,
     )..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Distinct weekdays that have a template scheduled — the gym days the
+  /// adherence percentage and streaks are measured against.
+  Future<Set<int>> scheduledWeekdays() async {
+    final rows = await (select(
+      templates,
+    )..where((t) => t.deleted.equals(false))).get();
+    return rows.map((t) => t.weekday).whereType<int>().toSet();
   }
 
   /// Template exercises joined to their exercise definitions, in order.

@@ -24,8 +24,18 @@ abstract final class FirebaseBootstrap {
   /// Human-readable explanation shown in Settings when sync is off.
   static String? get unavailableReason => _reason;
 
-  /// Anonymous uid — the single-user document root in Firestore.
-  static String? get uid => _uid;
+  /// Uid of whoever is signed in right now — the single-user document root in
+  /// Firestore. Live rather than cached so signing into a real account (or
+  /// linking the anonymous one) immediately points sync at the right data.
+  static String? get uid {
+    if (!_available) return null;
+    try {
+      return FirebaseAuth.instance.currentUser?.uid ?? _uid;
+    } on Object {
+      // No Firebase app in this process (tests) — fall back to the override.
+      return _uid;
+    }
+  }
 
   static Future<void> init() async {
     // The whole thing is guarded: the generated options throw

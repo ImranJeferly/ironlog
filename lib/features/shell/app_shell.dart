@@ -56,7 +56,8 @@ class _AppShellState extends ConsumerState<AppShell>
       ref.read(syncControllerProvider.notifier).sync();
     }
     if (settings.healthEnabled) {
-      ref.read(healthServiceProvider).syncToday();
+      // A week's window, not just today — catches up after days offline.
+      ref.read(healthServiceProvider).syncRecent();
     }
   }
 

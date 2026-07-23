@@ -269,16 +269,23 @@ void main() {
       tester,
     ) async {
       await withScreen(tester, const SettingsScreen(), () async {
-        // Top of the list is visible immediately.
-        expect(find.text('Weight unit'), findsOneWidget);
-        expect(find.text('Auto-start after each set'), findsOneWidget);
+        // Top of the list: the account and the training-day schedule.
+        expect(find.text('Guest'), findsOneWidget);
+        expect(find.text('Push'), findsOneWidget);
+        expect(find.text('Arms'), findsOneWidget);
 
         // The rest are further down the scrolling list.
-        for (final label in ['Haptics', 'Firebase sync', 'Export CSV']) {
+        for (final label in [
+          'Weight unit',
+          'Auto-start after each set',
+          'Haptics',
+          'Firebase sync',
+          'Export CSV',
+        ]) {
           await tester.scrollUntilVisible(
             find.text(label),
             300,
-            maxScrolls: 20,
+            maxScrolls: 30,
           );
           expect(find.text(label), findsOneWidget);
         }
@@ -287,6 +294,8 @@ void main() {
 
     testWidgets('switching to lb persists the unit', (tester) async {
       await withScreen(tester, const SettingsScreen(), () async {
+        // Units now live below the account/training-day cards.
+        await tester.scrollUntilVisible(find.text('LB'), 300, maxScrolls: 30);
         await tester.tap(find.text('LB'));
         await tester.pump(const Duration(milliseconds: 300));
 

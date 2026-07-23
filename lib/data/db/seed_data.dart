@@ -314,7 +314,8 @@ abstract final class SeedData {
     ),
     SeedTemplate(
       id: 'extra',
-      name: 'Extra — Arms',
+      name: 'Arms',
+      weekday: DateTime.saturday,
       accentHex: '#FF7A45',
       orderIndex: 3,
       exerciseIds: [
@@ -326,10 +327,13 @@ abstract final class SeedData {
     ),
   ];
 
-  /// Gym days the adherence percentage is measured against (Mon/Wed/Fri).
+  /// Fallback gym days for adherence when no template has a weekday assigned.
+  /// The live schedule comes from the templates table — Arms is a full
+  /// training day, so the default week is 4 gym days out of 7.
   static const scheduledWeekdays = <int>[
     DateTime.monday,
     DateTime.wednesday,
     DateTime.friday,
+    DateTime.saturday,
   ];
 }

@@ -32,19 +32,20 @@ void main() {
       );
     });
 
-    test('loads Push, Pull, Legs and Extra templates in order', () async {
+    test('loads Push, Pull, Legs and Arms templates in order', () async {
       final templates = await db.watchTemplates().first;
 
       expect(templates.map((t) => t.name), [
         'Push',
         'Pull',
         'Legs',
-        'Extra — Arms',
+        'Arms',
       ]);
       expect(templates[0].weekday, DateTime.monday);
       expect(templates[1].weekday, DateTime.wednesday);
       expect(templates[2].weekday, DateTime.friday);
-      expect(templates[3].weekday, isNull);
+      // Arms is a full training day — 4 gym days out of 7, not an extra.
+      expect(templates[3].weekday, DateTime.saturday);
     });
 
     test('carries the cardio prescription for each day', () async {

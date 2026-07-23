@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/utils/date_x.dart';
@@ -14,6 +15,7 @@ import '../data/repositories/photo_repository.dart';
 import '../data/repositories/progress_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/repositories/workout_repository.dart';
+import '../data/sync/auth_service.dart';
 import '../data/sync/sync_service.dart';
 import '../domain/enums.dart';
 import '../domain/session_view.dart';
@@ -97,12 +99,12 @@ class SettingsController extends Notifier<AppSettings> {
 
   Future<void> setHealthEnabled(bool on) async {
     await _repo.setHealthEnabled(on);
-    // Turning Health on should immediately connect and pull today's numbers,
+    // Turning Health on should immediately connect and pull recent numbers,
     // so steps start syncing without waiting for the next app launch.
     if (on) {
       final health = ref.read(healthServiceProvider);
       if (await health.requestPermissions()) {
-        await health.syncToday();
+        await health.syncRecent();
       }
     }
   }
@@ -228,6 +230,9 @@ class AnalyticsRevision extends Notifier<int> {
 final consistencyProvider = FutureProvider<ConsistencyStats>((ref) {
   ref.watch(analyticsRevisionProvider);
   ref.watch(recentSessionsProvider);
+  // Adherence is measured against the template schedule, so editing a
+  // training day recomputes it immediately.
+  ref.watch(templatesProvider);
   return ref.watch(progressRepositoryProvider).consistency();
 });
 
@@ -278,6 +283,16 @@ final todayMetricsProvider = StreamProvider<DailyMetricRow?>((ref) {
 
 final photosProvider = StreamProvider<List<PhotoRow>>(
   (ref) => ref.watch(photoRepositoryProvider).watchAll(),
+);
+
+// ---------------------------------------------------------------------- auth
+
+final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+
+/// The signed-in Firebase user (anonymous or real). Null when Firebase is
+/// unavailable — the app keeps working fully offline in that case.
+final authUserProvider = StreamProvider<User?>(
+  (ref) => ref.watch(authServiceProvider).authStateChanges(),
 );
 
 // ---------------------------------------------------------------------- sync

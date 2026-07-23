@@ -42,8 +42,8 @@ class Templates extends Table with SyncColumns {
   TextColumn get id => text()();
   TextColumn get name => text()();
 
-  /// 1 = Mon … 7 = Sun, matching [DateTime.weekday]. Null for unscheduled
-  /// templates like the Saturday arms finisher.
+  /// 1 = Mon … 7 = Sun, matching [DateTime.weekday]. Null for a template the
+  /// user has taken off the weekly schedule.
   IntColumn get weekday => integer().nullable()();
 
   /// "Rope 5 min", "HIIT bike 15 min" — the cardio prescription for the day.

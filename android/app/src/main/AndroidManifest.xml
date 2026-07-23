@@ -4,9 +4,12 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- Progress photos -->
     <uses-permission android:name="android.permission.CAMERA"/>
-    <!-- Rest-timer notification (scheduled, inexact — survives backgrounding) -->
+    <!-- Rest-timer notification (scheduled exact — survives backgrounding) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- Daily metrics from Health Connect (all guarded; the app runs without them) -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
     <uses-permission android:name="android.permission.health.READ_STEPS"/>

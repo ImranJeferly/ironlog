@@ -60,11 +60,17 @@ abstract final class Notifications {
             IOSFlutterLocalNotificationsPlugin
           >()
           ?.requestPermissions(alert: true, sound: true);
-      await _plugin
+      final android = _plugin
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.requestNotificationsPermission();
+          >();
+      await android?.requestNotificationsPermission();
+      // Exact alarms make the rest alert land on the second instead of
+      // "sometime within the next 15 minutes" — essential for a rest timer.
+      if (android != null &&
+          !(await android.canScheduleExactNotifications() ?? false)) {
+        await android.requestExactAlarmsPermission();
+      }
     } on Object catch (e) {
       debugPrint('IronLog: notification permission request failed ($e)');
     }
@@ -100,14 +106,30 @@ abstract final class Notifications {
         await restFinished(exerciseName: exerciseName);
         return;
       }
-      await _plugin.zonedSchedule(
-        id: _restNotificationId,
-        title: 'Rest over',
-        body: exerciseName == null ? 'Next set — go.' : 'Next set: $exerciseName',
-        scheduledDate: scheduled,
-        notificationDetails: _restDetails,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      );
+      final body =
+          exerciseName == null ? 'Next set — go.' : 'Next set: $exerciseName';
+      try {
+        // Exact first: a rest timer that fires minutes late is useless.
+        await _plugin.zonedSchedule(
+          id: _restNotificationId,
+          title: 'Rest over',
+          body: body,
+          scheduledDate: scheduled,
+          notificationDetails: _restDetails,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
+      } on Object {
+        // Exact alarms not permitted on this device — inexact still beats
+        // nothing when the app is backgrounded.
+        await _plugin.zonedSchedule(
+          id: _restNotificationId,
+          title: 'Rest over',
+          body: body,
+          scheduledDate: scheduled,
+          notificationDetails: _restDetails,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
     } on Object catch (e) {
       debugPrint('IronLog: could not schedule rest notification ($e)');
     }

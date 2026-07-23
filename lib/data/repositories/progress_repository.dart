@@ -93,19 +93,23 @@ class ConsistencyStats {
     required this.sessionsThisWeek,
     required this.setsByDay,
     required this.totalSessions,
+    required this.scheduledPerWeek,
   });
 
-  /// Consecutive scheduled gym days (Mon/Wed/Fri) hit without a miss.
+  /// Consecutive scheduled gym days hit without a miss.
   final int currentStreak;
   final int longestStreak;
 
-  /// 0–1 against the 3-day week.
+  /// 0–1 against the scheduled gym days per week.
   final double weeklyAdherence;
   final int sessionsThisWeek;
 
   /// Working sets per day — drives the heatmap intensity.
   final Map<DateTime, int> setsByDay;
   final int totalSessions;
+
+  /// How many gym days the current template schedule has per week.
+  final int scheduledPerWeek;
 }
 
 class BodyWeightSeries {
@@ -260,6 +264,12 @@ class ProgressRepository {
     final sessions = await _db.sessionsBetween(from, now.dayEnd);
     final completed = sessions.where((s) => s.isComplete).toList();
 
+    // Gym days come from the live template schedule (Push/Pull/Legs/Arms —
+    // 4 of 7 by default), not a hardcoded list, so editing a training day in
+    // Settings immediately changes what adherence is measured against.
+    var scheduled = await _db.scheduledWeekdays();
+    if (scheduled.isEmpty) scheduled = SeedData.scheduledWeekdays.toSet();
+
     final setsByDay = <DateTime, int>{};
     for (final s in completed) {
       setsByDay[s.date] = (setsByDay[s.date] ?? 0) + s.totalSets;
@@ -272,8 +282,8 @@ class ProgressRepository {
 
     final doneDays = completed.map((s) => s.date).toSet();
 
-    final currentStreak = _currentStreak(doneDays, now);
-    final longestStreak = _longestStreak(doneDays, from, now);
+    final currentStreak = _currentStreak(doneDays, now, scheduled);
+    final longestStreak = _longestStreak(doneDays, from, now, scheduled);
 
     final weekStart = now.weekStart;
     final sessionsThisWeek = completed
@@ -286,20 +296,21 @@ class ProgressRepository {
       currentStreak: currentStreak,
       longestStreak: longestStreak,
       weeklyAdherence:
-          (sessionsThisWeek / SeedData.scheduledWeekdays.length).clamp(0.0, 1.0),
+          (sessionsThisWeek / scheduled.length).clamp(0.0, 1.0),
       sessionsThisWeek: sessionsThisWeek,
       setsByDay: setsByDay,
       totalSessions: completed.length,
+      scheduledPerWeek: scheduled.length,
     );
   }
 
   /// Walks scheduled gym days backwards, counting until one was missed. Today
   /// is skipped rather than counted as a miss — the day isn't over yet.
-  int _currentStreak(Set<DateTime> doneDays, DateTime now) {
+  int _currentStreak(Set<DateTime> doneDays, DateTime now, Set<int> scheduled) {
     var streak = 0;
     var cursor = now.dayStart;
 
-    if (_isScheduled(cursor)) {
+    if (scheduled.contains(cursor.weekday)) {
       if (doneDays.contains(cursor)) {
         streak++;
       }
@@ -308,7 +319,7 @@ class ProgressRepository {
 
     // Look back at most two years of scheduled days.
     for (var i = 0; i < 730; i++) {
-      if (_isScheduled(cursor)) {
+      if (scheduled.contains(cursor.weekday)) {
         if (doneDays.contains(cursor)) {
           streak++;
         } else {
@@ -320,11 +331,16 @@ class ProgressRepository {
     return streak;
   }
 
-  int _longestStreak(Set<DateTime> doneDays, DateTime from, DateTime to) {
+  int _longestStreak(
+    Set<DateTime> doneDays,
+    DateTime from,
+    DateTime to,
+    Set<int> scheduled,
+  ) {
     var best = 0;
     var run = 0;
     for (final day in Dates.range(from, to)) {
-      if (!_isScheduled(day)) continue;
+      if (!scheduled.contains(day.weekday)) continue;
       if (day.isAfter(DateTime.now().dayStart)) break;
       if (doneDays.contains(day)) {
         run++;
@@ -335,9 +351,6 @@ class ProgressRepository {
     }
     return best;
   }
-
-  bool _isScheduled(DateTime day) =>
-      SeedData.scheduledWeekdays.contains(day.weekday);
 
   /// Logged body weight with a trailing 7-day moving average.
   Future<BodyWeightSeries> bodyWeight({int days = 180}) async {

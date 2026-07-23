@@ -104,7 +104,13 @@ class HealthService {
       final start = day;
       final end = day.dayEnd;
 
-      final steps = await _health.getTotalStepsInInterval(start, end);
+      // Manual entries included — Samsung Health/Fit imports sometimes land
+      // as "manual" in Health Connect and would otherwise read as 0 here.
+      final steps = await _health.getTotalStepsInInterval(
+        start,
+        end,
+        includeManualEntry: true,
+      );
 
       final points = await _health.getHealthDataFromTypes(
         types: const [HealthDataType.WEIGHT, HealthDataType.SLEEP_ASLEEP],
@@ -143,17 +149,26 @@ class HealthService {
   }
 
   /// Pulls today's numbers into the local DB without overwriting manual entries.
-  Future<bool> syncToday() async {
+  Future<bool> syncToday() => syncRecent(days: 1);
+
+  /// Pulls the last [days] days (today included), so days the app wasn't
+  /// opened still get their steps filled in instead of staying blank forever.
+  Future<bool> syncRecent({int days = 7}) async {
     if (!isSupported) return false;
-    final sample = await readDay(DateTime.now());
-    if (sample.isEmpty) return false;
-    await _metrics.mergeFromHealth(
-      sample.date,
-      steps: sample.steps,
-      sleepHours: sample.sleepHours,
-      weightKg: sample.weightKg,
-    );
-    return true;
+    final today = DateTime.now().dayStart;
+    var any = false;
+    for (var i = days - 1; i >= 0; i--) {
+      final sample = await readDay(today.subtract(Duration(days: i)));
+      if (sample.isEmpty) continue;
+      await _metrics.mergeFromHealth(
+        sample.date,
+        steps: sample.steps,
+        sleepHours: sample.sleepHours,
+        weightKg: sample.weightKg,
+      );
+      any = true;
+    }
+    return any;
   }
 
   /// First-run backfill of weight and step history.
@@ -182,7 +197,11 @@ class HealthService {
 
       for (var i = days; i >= 0; i--) {
         final day = today.subtract(Duration(days: i));
-        final steps = await _health.getTotalStepsInInterval(day, day.dayEnd);
+        final steps = await _health.getTotalStepsInInterval(
+          day,
+          day.dayEnd,
+          includeManualEntry: true,
+        );
         final weight = weightByDay[day];
         if (steps == null && weight == null) continue;
         await _metrics.mergeFromHealth(day, steps: steps, weightKg: weight);

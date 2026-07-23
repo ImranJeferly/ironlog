@@ -551,6 +551,37 @@ class WorkoutRepository {
     return out;
   }
 
+  // ---------------------------------------------------------------- templates
+
+  /// Moves a template to a weekday (or off the schedule with null). A weekday
+  /// can only host one template, so any current holder gets unscheduled.
+  Future<void> setTemplateWeekday(String templateId, int? weekday) async {
+    final now = DateTime.now();
+    await _db.transaction(() async {
+      if (weekday != null) {
+        await (_db.update(_db.templates)..where(
+              (t) => t.weekday.equals(weekday) & t.id.equals(templateId).not(),
+            ))
+            .write(
+          TemplatesCompanion(
+            weekday: const Value(null),
+            updatedAt: Value(now),
+            synced: const Value(false),
+          ),
+        );
+      }
+      await (_db.update(
+        _db.templates,
+      )..where((t) => t.id.equals(templateId))).write(
+        TemplatesCompanion(
+          weekday: Value(weekday),
+          updatedAt: Value(now),
+          synced: const Value(false),
+        ),
+      );
+    });
+  }
+
   /// Which template is scheduled for a given weekday, if any.
   Future<TemplateRow?> templateForDate(DateTime date) async {
     final all = await _db.watchTemplates().first;

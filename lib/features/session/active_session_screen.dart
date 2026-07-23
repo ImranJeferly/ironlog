@@ -632,6 +632,22 @@ class _ExerciseCard extends ConsumerWidget {
               ),
               const SizedBox(width: 6),
               IconPill(
+                icon: Icons.playlist_remove,
+                tooltip: 'Remove a set',
+                // Can't drop below what's already been logged (tap a logged
+                // set to edit or delete it), and never below one set.
+                onTap: exercise.targetSets > 1 &&
+                        exercise.targetSets > exercise.sets.length
+                    ? () => ref
+                          .read(workoutRepositoryProvider)
+                          .setTargetSets(
+                            exercise.link.id,
+                            exercise.targetSets - 1,
+                          )
+                    : null,
+              ),
+              const SizedBox(width: 6),
+              IconPill(
                 icon: Icons.delete_outline,
                 tooltip: 'Remove exercise',
                 onTap: () => ref
