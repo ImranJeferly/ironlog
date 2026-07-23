@@ -35,6 +35,7 @@ class _AccountSheetState extends ConsumerState<AccountSheet> {
   bool _busy = false;
   bool _obscure = true;
   String? _error;
+  String? _info;
 
   @override
   void dispose() {
@@ -58,6 +59,7 @@ class _AccountSheetState extends ConsumerState<AccountSheet> {
     setState(() {
       _busy = true;
       _error = null;
+      _info = null;
     });
 
     final auth = ref.read(authServiceProvider);
@@ -82,6 +84,32 @@ class _AccountSheetState extends ConsumerState<AccountSheet> {
     await sync.sync();
 
     if (mounted) Navigator.of(context).pop(true);
+  }
+
+  Future<void> _resetPassword() async {
+    final email = _email.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() {
+        _error = 'Enter your email above first, then tap Forgot password.';
+        _info = null;
+      });
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+      _info = null;
+    });
+    final error =
+        await ref.read(authServiceProvider).sendPasswordReset(email);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _error = error;
+      _info = error == null
+          ? 'Reset link sent to $email — set a new password, then sign in.'
+          : null;
+    });
   }
 
   @override
@@ -153,6 +181,15 @@ class _AccountSheetState extends ConsumerState<AccountSheet> {
                   ),
                 ),
               ],
+              if (_info != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  _info!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.volt,
+                  ),
+                ),
+              ],
               const SizedBox(height: AppSpacing.lg),
               VoltButton(
                 label: _busy
@@ -161,6 +198,25 @@ class _AccountSheetState extends ConsumerState<AccountSheet> {
                 icon: Icons.check_rounded,
                 onPressed: _busy ? null : _submit,
               ),
+              if (!widget.createMode) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Center(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _busy ? null : _resetPassword,
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Text(
+                        'Forgot password?',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

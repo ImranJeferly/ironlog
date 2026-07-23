@@ -34,7 +34,11 @@ class AuthService {
   Stream<User?> authStateChanges() {
     if (!isAvailable) return Stream<User?>.value(null);
     try {
-      return _auth.authStateChanges();
+      // userChanges, not authStateChanges: linking an anonymous user to an
+      // email credential keeps the same User object, so authStateChanges
+      // never fires and the account UI would keep showing "Guest" until the
+      // next app restart.
+      return _auth.userChanges();
     } on Object {
       return Stream<User?>.value(null);
     }
@@ -79,6 +83,20 @@ class AuthService {
     } on Object catch (e) {
       debugPrint('IronLog: signIn failed ($e)');
       return 'Could not sign in. Check your connection.';
+    }
+  }
+
+  /// Emails a password-reset link. Returns null on success.
+  Future<String?> sendPasswordReset(String email) async {
+    if (!isAvailable) return 'Firebase is not available on this device.';
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return _friendly(e);
+    } on Object catch (e) {
+      debugPrint('IronLog: password reset failed ($e)');
+      return 'Could not send the reset email. Check your connection.';
     }
   }
 
