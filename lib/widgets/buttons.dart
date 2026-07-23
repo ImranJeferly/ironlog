@@ -82,15 +82,22 @@ class _VoltButtonState extends State<VoltButton> {
                 ),
                 const SizedBox(width: 10),
               ],
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
-                  color: enabled
-                      ? widget.foreground
-                      : widget.foreground.withValues(alpha: 0.5),
+              // Long labels shrink instead of overflowing the pill.
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    widget.label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                      color: enabled
+                          ? widget.foreground
+                          : widget.foreground.withValues(alpha: 0.5),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -151,12 +158,19 @@ class GhostButton extends StatelessWidget {
                 Icon(icon, size: 18, color: color),
                 const SizedBox(width: 8),
               ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: color,
+              // Long labels shrink instead of overflowing the pill.
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  ),
                 ),
               ),
             ],

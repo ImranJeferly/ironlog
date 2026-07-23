@@ -129,17 +129,19 @@ void main() {
       await withScreen(tester, ActiveSessionScreen(sessionId: id), () async {
         expect(find.text('Push'), findsOneWidget);
         expect(find.text('Incline DB Press'), findsOneWidget);
-        expect(find.text('4×5–6'), findsOneWidget);
-        // The pinned bar: big Log set for the next exercise, Finish beside it.
-        expect(find.text('Log set'), findsWidgets);
+        expect(find.textContaining('4×5–6'), findsOneWidget);
+        // The pinned bar: big Log set for the current exercise, Finish beside.
+        expect(find.textContaining('Log set'), findsWidgets);
         expect(find.text('Finish'), findsOneWidget);
       });
     });
 
-    testWidgets('opens the wheel-picker sheet from a set row', (tester) async {
+    testWidgets('opens the wheel-picker sheet from the log button', (
+      tester,
+    ) async {
       final id = await WorkoutRepository(db).startSessionFromTemplate('push');
       await withScreen(tester, ActiveSessionScreen(sessionId: id), () async {
-        await tester.tap(find.text('Start').first);
+        await tester.tap(find.textContaining('Log set').first);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 500));
 

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/utils/date_x.dart';
+import '../../domain/enums.dart';
 import '../../domain/pr_detector.dart';
 import '../../domain/progression.dart';
 import '../../domain/session_view.dart';
@@ -549,6 +550,74 @@ class WorkoutRepository {
           .toList();
     }
     return out;
+  }
+
+  // ------------------------------------------------------------ exercise CRUD
+
+  /// Creates a custom exercise. It lives in the library (and syncs to the
+  /// account) permanently — available in every future session and template.
+  Future<ExerciseRow?> createExercise({
+    required String name,
+    required MuscleGroup muscleGroup,
+    required int targetSets,
+    required int repRangeMin,
+    required int repRangeMax,
+    bool isBodyweight = false,
+    bool isUnilateral = false,
+  }) async {
+    final id = _uuid.v4();
+    final now = DateTime.now();
+    await _db.into(_db.exercises).insert(
+      ExercisesCompanion.insert(
+        id: id,
+        name: name,
+        muscleGroup: muscleGroup,
+        role: ExerciseRole.secondary,
+        targetSets: targetSets,
+        repRangeMin: repRangeMin,
+        repRangeMax: repRangeMax,
+        incrementKg: muscleGroup.defaultIncrementKg,
+        isBodyweight: Value(isBodyweight),
+        isUnilateral: Value(isUnilateral),
+        isCustom: const Value(true),
+        updatedAt: Value(now),
+      ),
+    );
+    return _db.exerciseById(id);
+  }
+
+  /// Adds an exercise to a template permanently (future sessions include it).
+  /// Re-adding something that was removed earlier just revives the row.
+  Future<void> addExerciseToTemplate(
+    String templateId,
+    String exerciseId,
+  ) async {
+    final existing = await _db.templateExerciseRows(templateId);
+    await _db.into(_db.templateExercises).insertOnConflictUpdate(
+      TemplateExercisesCompanion.insert(
+        id: '${templateId}__$exerciseId',
+        templateId: templateId,
+        exerciseId: exerciseId,
+        orderIndex: existing.length,
+        updatedAt: Value(DateTime.now()),
+        deleted: const Value(false),
+        synced: const Value(false),
+      ),
+    );
+  }
+
+  /// Takes an exercise off a template for good (tombstoned so the removal
+  /// syncs). Past sessions are untouched.
+  Future<void> removeExerciseFromTemplate(String templateExerciseId) async {
+    await (_db.update(
+      _db.templateExercises,
+    )..where((t) => t.id.equals(templateExerciseId))).write(
+      TemplateExercisesCompanion(
+        deleted: const Value(true),
+        synced: const Value(false),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   // ---------------------------------------------------------------- templates

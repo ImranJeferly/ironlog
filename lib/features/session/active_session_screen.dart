@@ -18,6 +18,9 @@ import 'rest_timer.dart';
 import 'session_summary_screen.dart';
 import 'set_logger_sheet.dart';
 
+/// The workout runs as a guided, one-exercise-at-a-time flow: swipe (or get
+/// auto-advanced) through exercise pages, one giant Log button for whatever
+/// is in front of you, and a wrap-up page at the end. No wall of cards.
 class ActiveSessionScreen extends ConsumerStatefulWidget {
   const ActiveSessionScreen({super.key, required this.sessionId});
 
@@ -37,6 +40,15 @@ class ActiveSessionScreen extends ConsumerStatefulWidget {
 }
 
 class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
+  final _pager = PageController();
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _pager.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final view = ref.watch(sessionViewProvider(widget.sessionId)).value;
@@ -55,6 +67,11 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       );
     }
 
+    final pageCount = view.exercises.length + 1; // +1 for the wrap-up page
+    final page = _page.clamp(0, pageCount - 1);
+    final onWrapUp = page == view.exercises.length;
+    final current = onWrapUp ? null : view.exercises[page];
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -66,69 +83,33 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              _Header(
-                view: view,
-                onClose: () => _confirmLeave(view),
-              ),
+              _Header(view: view, onClose: () => _confirmLeave(view)),
               if (rest.isActive) _RestBar(state: rest),
+              _ExerciseTrack(
+                view: view,
+                current: page,
+                onTap: _goTo,
+              ),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.sm,
-                    AppSpacing.md,
-                    140,
-                  ),
+                child: PageView(
+                  controller: _pager,
+                  onPageChanged: (i) {
+                    Haptics.tick();
+                    setState(() => _page = i);
+                  },
                   children: [
                     for (final exercise in view.exercises)
-                      _ExerciseCard(
-                        sessionId: widget.sessionId,
+                      _ExercisePage(
                         exercise: exercise,
                         onLog: () => _logSet(exercise),
                         onEditSet: (setId, weight, reps, rpe, note) =>
                             _editSet(exercise, setId, weight, reps, rpe, note),
+                        onOptions: () => _showOptions(exercise),
                       ),
-
-                    const SectionHeader('Finish up'),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: VoltCheck(
-                            value: view.session.cardioDone,
-                            icon: Icons.favorite_outline,
-                            label: _cardioLabel(view),
-                            onChanged: (v) => ref
-                                .read(workoutRepositoryProvider)
-                                .setCardioDone(widget.sessionId, v),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: VoltCheck(
-                            value: view.session.saunaDone,
-                            icon: Icons.hot_tub_outlined,
-                            label: 'Sauna',
-                            onChanged: (v) => ref
-                                .read(workoutRepositoryProvider)
-                                .setSaunaDone(widget.sessionId, v),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    GhostButton(
-                      label: 'Add exercise',
-                      icon: Icons.add,
-                      expanded: true,
-                      onPressed: () => ExercisePickerSheet.show(
-                        context,
-                        sessionId: widget.sessionId,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    _NotesField(
+                    _WrapUpPage(
                       sessionId: widget.sessionId,
-                      initial: view.session.notes,
+                      view: view,
+                      cardioLabel: _cardioLabel(view),
                     ),
                   ],
                 ),
@@ -139,15 +120,100 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         bottomNavigationBar: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
-            child: _BottomBar(
-              view: view,
-              onLogNext: (exercise) => _logSet(exercise),
-              onFinish: () => _finish(view),
-            ),
+            child: _buildBottomBar(view, current, onWrapUp),
           ),
         ),
       ),
     );
+  }
+
+  /// One primary action at all times, matched to the page you're looking at.
+  Widget _buildBottomBar(
+    SessionView view,
+    SessionExerciseView? current,
+    bool onWrapUp,
+  ) {
+    if (onWrapUp || current == null) {
+      return VoltButton(
+        label: 'Finish workout',
+        icon: Icons.check_rounded,
+        onPressed: () => _finish(view),
+      );
+    }
+
+    if (current.isComplete) {
+      return Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: VoltButton(
+              label: 'Next exercise',
+              icon: Icons.arrow_forward_rounded,
+              onPressed: _advance,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            flex: 2,
+            child: GhostButton(
+              label: 'Finish',
+              expanded: true,
+              height: 56,
+              onPressed: () => _finish(view),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final setNo = current.sets.length + 1;
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: VoltButton(
+            label: 'Log set $setNo of ${current.targetSets}',
+            icon: Icons.add,
+            onPressed: () => _logSet(current),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          flex: 2,
+          child: GhostButton(
+            label: 'Finish',
+            expanded: true,
+            height: 56,
+            onPressed: () => _finish(view),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _goTo(int page) {
+    if (!_pager.hasClients) return;
+    _pager.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  /// Jumps to the next unfinished exercise, or the wrap-up page if there is
+  /// none left.
+  void _advance() {
+    final view = ref.read(sessionViewProvider(widget.sessionId)).value;
+    if (view == null) return;
+    final list = view.exercises;
+    for (var i = 1; i <= list.length; i++) {
+      final j = (_page + i) % list.length;
+      if (!list[j].isComplete) {
+        _goTo(j);
+        return;
+      }
+    }
+    _goTo(list.length);
   }
 
   String _cardioLabel(SessionView view) {
@@ -169,6 +235,9 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     );
     if (result == null || !mounted) return;
 
+    final completesExercise =
+        exercise.sets.length + 1 >= exercise.targetSets;
+
     final logged = await ref
         .read(workoutRepositoryProvider)
         .logSet(
@@ -183,7 +252,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     await Haptics.impact();
 
     final settings = ref.read(settingsProvider);
-    if (settings.restTimerEnabled) {
+    if (settings.restTimerEnabled && !completesExercise) {
       ref
           .read(restTimerProvider.notifier)
           .start(
@@ -199,6 +268,12 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
         exerciseName: exercise.name,
         unit: unit,
       );
+    }
+
+    // Exercise done — carry the lifter straight to the next one.
+    if (completesExercise && mounted) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (mounted) _advance();
     }
   }
 
@@ -236,6 +311,55 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
           rpe: result.rpe,
           note: result.note,
         );
+  }
+
+  /// Add/remove-set and remove-exercise live behind one calm menu.
+  void _showOptions(SessionExerciseView exercise) {
+    final repo = ref.read(workoutRepositoryProvider);
+    // Can't drop below what's already been logged (tap a logged set to edit
+    // or delete it), and never below one set.
+    final canRemoveSet =
+        exercise.targetSets > 1 && exercise.targetSets > exercise.sets.length;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.card,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: AppSpacing.sm),
+            _OptionRow(
+              icon: Icons.playlist_add,
+              label: 'Add a set',
+              onTap: () {
+                repo.setTargetSets(exercise.link.id, exercise.targetSets + 1);
+                Navigator.of(sheet).pop();
+              },
+            ),
+            _OptionRow(
+              icon: Icons.playlist_remove,
+              label: 'Remove a set',
+              enabled: canRemoveSet,
+              onTap: () {
+                repo.setTargetSets(exercise.link.id, exercise.targetSets - 1);
+                Navigator.of(sheet).pop();
+              },
+            ),
+            _OptionRow(
+              icon: Icons.delete_outline,
+              label: 'Remove exercise from session',
+              color: AppColors.danger,
+              onTap: () {
+                repo.removeExerciseFromSession(exercise.link.id);
+                Navigator.of(sheet).pop();
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _finish(SessionView view) async {
@@ -337,51 +461,97 @@ class _Header extends StatelessWidget {
         AppSpacing.md,
         AppSpacing.sm,
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              IconPill(icon: Icons.keyboard_arrow_down, onTap: onClose),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(view.title, style: theme.textTheme.headlineSmall),
-                    _ElapsedText(startedAt: view.session.startedAt),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${view.totalSets}/${view.targetSetTotal}',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  Text('sets', style: theme.textTheme.bodySmall),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: view.progress),
-              duration: const Duration(milliseconds: 420),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, _) => LinearProgressIndicator(
-                value: value,
-                minHeight: 5,
-                backgroundColor: AppColors.cardHigh,
-                valueColor: const AlwaysStoppedAnimation(AppColors.volt),
-              ),
+          IconPill(icon: Icons.keyboard_arrow_down, onTap: onClose),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(view.title, style: theme.textTheme.headlineSmall),
+                _ElapsedText(startedAt: view.session.startedAt),
+              ],
             ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${view.totalSets}/${view.targetSetTotal}',
+                style: theme.textTheme.titleMedium,
+              ),
+              Text('sets', style: theme.textTheme.bodySmall),
+            ],
           ),
         ],
       ),
     );
+  }
+}
+
+/// Story-style progress track: one segment per exercise (plus the finish
+/// flag). Filled = done, bright ring = where you are. Tap to jump.
+class _ExerciseTrack extends StatelessWidget {
+  const _ExerciseTrack({
+    required this.view,
+    required this.current,
+    required this.onTap,
+  });
+
+  final SessionView view;
+  final int current;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = view.exercises.length;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 4, AppSpacing.md, 6),
+      child: Row(
+        children: [
+          for (var i = 0; i <= count; i++) ...[
+            if (i > 0) const SizedBox(width: 5),
+            Expanded(
+              flex: i == count ? 1 : 2,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  Haptics.tick();
+                  onTap(i);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: _colorFor(i),
+                      borderRadius: BorderRadius.circular(999),
+                      border: i == current
+                          ? Border.all(color: AppColors.volt, width: 1)
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _colorFor(int i) {
+    final isCurrent = i == current;
+    if (i == view.exercises.length) {
+      // The finish segment.
+      return isCurrent ? AppColors.voltDim : AppColors.cardHigh;
+    }
+    if (view.exercises[i].isComplete) return AppColors.volt;
+    if (isCurrent) return AppColors.voltDim;
+    return AppColors.cardHigh;
   }
 }
 
@@ -503,63 +673,6 @@ class _RestBar extends ConsumerWidget {
   }
 }
 
-/// One thumb-sized primary action at all times: log the next set of the next
-/// unfinished exercise. Finishing is secondary until everything is done.
-class _BottomBar extends StatelessWidget {
-  const _BottomBar({
-    required this.view,
-    required this.onLogNext,
-    required this.onFinish,
-  });
-
-  final SessionView view;
-  final void Function(SessionExerciseView) onLogNext;
-  final VoidCallback onFinish;
-
-  @override
-  Widget build(BuildContext context) {
-    SessionExerciseView? nextUp;
-    for (final exercise in view.exercises) {
-      if (!exercise.isComplete) {
-        nextUp = exercise;
-        break;
-      }
-    }
-
-    if (nextUp == null) {
-      return VoltButton(
-        label: 'Finish workout',
-        icon: Icons.check_rounded,
-        onPressed: onFinish,
-      );
-    }
-
-    final target = nextUp;
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: VoltButton(
-            label: 'Log set',
-            icon: Icons.add,
-            onPressed: () => onLogNext(target),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          flex: 2,
-          child: GhostButton(
-            label: 'Finish',
-            expanded: true,
-            height: 56,
-            onPressed: onFinish,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 typedef EditSetCallback =
     void Function(
       String setId,
@@ -569,214 +682,300 @@ typedef EditSetCallback =
       String? note,
     );
 
-class _ExerciseCard extends ConsumerStatefulWidget {
-  const _ExerciseCard({
-    required this.sessionId,
+/// One exercise, full screen: big name, its sets, nothing else competing.
+class _ExercisePage extends ConsumerWidget {
+  const _ExercisePage({
     required this.exercise,
     required this.onLog,
     required this.onEditSet,
+    required this.onOptions,
   });
 
-  final String sessionId;
   final SessionExerciseView exercise;
   final VoidCallback onLog;
   final EditSetCallback onEditSet;
+  final VoidCallback onOptions;
 
   @override
-  ConsumerState<_ExerciseCard> createState() => _ExerciseCardState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final unit = ref.watch(unitProvider);
+    final done = exercise.isComplete;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.lg,
+      ),
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(exercise.name, style: theme.textTheme.headlineMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${exercise.schemeLabel} · ${exercise.muscleGroup.label}'
+                    '${exercise.exercise.isUnilateral ? ' · per side' : ''}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (done)
+              const Icon(Icons.check_circle, size: 22, color: AppColors.volt)
+            else if (exercise.increaseFlagged)
+              const VoltBadge('↑ WEIGHT', filled: true)
+            else if (exercise.suggestedWeightKg != null)
+              VoltBadge(
+                Fmt.weight(exercise.suggestedWeightKg!, unit),
+                color: AppColors.textSecondary,
+              ),
+            const SizedBox(width: 8),
+            IconPill(
+              icon: Icons.more_horiz,
+              tooltip: 'Exercise options',
+              onTap: onOptions,
+            ),
+          ],
+        ),
+        if (exercise.exercise.notes != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            exercise.exercise.notes!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textTertiary,
+            ),
+          ),
+        ],
+
+        const SizedBox(height: AppSpacing.md),
+
+        for (var i = 0; i < exercise.targetSets; i++)
+          _SetRow(
+            index: i,
+            exercise: exercise,
+            unit: unit,
+            onEdit: onEditSet,
+            onLog: onLog,
+          ),
+
+        if (done) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Center(
+            child: Text(
+              'All sets done — swipe on or hit Next.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.volt,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
-class _ExerciseCardState extends ConsumerState<_ExerciseCard> {
-  late bool _collapsed = widget.exercise.isComplete;
+/// One prescribed set: either the logged values, or the ghost of last session.
+class _SetRow extends StatelessWidget {
+  const _SetRow({
+    required this.index,
+    required this.exercise,
+    required this.unit,
+    required this.onEdit,
+    required this.onLog,
+  });
 
-  @override
-  void didUpdateWidget(covariant _ExerciseCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Fold the card away the moment its last set is logged — the list stays
-    // short and the next exercise is right there.
-    if (!oldWidget.exercise.isComplete && widget.exercise.isComplete) {
-      _collapsed = true;
-    }
-  }
+  final int index;
+  final SessionExerciseView exercise;
+  final WeightUnit unit;
+  final EditSetCallback onEdit;
+  final VoidCallback onLog;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final unit = ref.watch(unitProvider);
-    final exercise = widget.exercise;
-    final done = exercise.isComplete;
-    final collapsed = _collapsed && done;
+    final logged = index < exercise.sets.length ? exercise.sets[index] : null;
+    final ghost = exercise.ghostForSet(index + 1);
+    final isNext = logged == null && index == exercise.sets.length;
 
-    return AppCard(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      borderColor: done ? AppColors.volt.withValues(alpha: 0.4) : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: done ? () => setState(() => _collapsed = !_collapsed) : null,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              exercise.name,
-                              style: theme.textTheme.titleMedium,
-                            ),
-                          ),
-                          if (done) ...[
-                            const SizedBox(width: 6),
-                            const Icon(
-                              Icons.check_circle,
-                              size: 16,
-                              color: AppColors.volt,
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      collapsed
-                          ? Text(
-                              exercise.sets
-                                  .map(
-                                    (s) =>
-                                        '${Fmt.weight(s.weightKg, unit, withUnit: false)}×${s.reps}',
-                                  )
-                                  .join('  ·  '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall,
-                            )
-                          : Row(
-                              children: [
-                                Text(
-                                  exercise.schemeLabel,
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                                Text(
-                                  '  ·  ${exercise.muscleGroup.label}',
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                                if (exercise.exercise.isUnilateral)
-                                  Text(
-                                    '  ·  per side',
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                              ],
-                            ),
-                    ],
-                  ),
-                ),
-                if (done)
-                  Icon(
-                    collapsed ? Icons.expand_more : Icons.expand_less,
-                    size: 18,
-                    color: AppColors.textTertiary,
-                  )
-                else if (exercise.increaseFlagged)
-                  const VoltBadge('↑ WEIGHT', filled: true)
-                else if (exercise.suggestedWeightKg != null)
-                  VoltBadge(
-                    Fmt.weight(exercise.suggestedWeightKg!, unit),
-                    color: AppColors.textSecondary,
-                  ),
-              ],
-            ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: logged != null
+          ? () => onEdit(
+              logged.id,
+              logged.weightKg,
+              logged.reps,
+              logged.rpe,
+              logged.note,
+            )
+          : (isNext ? onLog : null),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: logged != null ? AppColors.cardHigh : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isNext
+                ? AppColors.volt.withValues(alpha: 0.5)
+                : (logged != null ? Colors.transparent : AppColors.border),
           ),
-
-          if (!collapsed) ...[
-            const SizedBox(height: AppSpacing.md),
-
-            for (var i = 0; i < exercise.targetSets; i++)
-              _SetRow(
-                index: i,
-                exercise: exercise,
-                unit: unit,
-                onEdit: widget.onEditSet,
-                onLog: widget.onLog,
-              ),
-
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: GhostButton(
-                    label: exercise.isStarted ? 'Log set' : 'Start',
-                    icon: Icons.add,
-                    expanded: true,
-                    color: AppColors.volt,
-                    onPressed: widget.onLog,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                IconPill(
-                  icon: Icons.more_horiz,
-                  tooltip: 'Exercise options',
-                  onTap: () => _showOptions(context),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Add/remove-set and remove-exercise live behind one calm menu instead of
-  /// a row of mystery icons on every card.
-  void _showOptions(BuildContext context) {
-    final exercise = widget.exercise;
-    final repo = ref.read(workoutRepositoryProvider);
-    // Can't drop below what's already been logged (tap a logged set to edit
-    // or delete it), and never below one set.
-    final canRemoveSet =
-        exercise.targetSets > 1 && exercise.targetSets > exercise.sets.length;
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.card,
-      builder: (sheet) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        ),
+        child: Row(
           children: [
-            const SizedBox(height: AppSpacing.sm),
-            _OptionRow(
-              icon: Icons.playlist_add,
-              label: 'Add a set',
-              onTap: () {
-                repo.setTargetSets(exercise.link.id, exercise.targetSets + 1);
-                Navigator.of(sheet).pop();
-              },
+            SizedBox(
+              width: 24,
+              child: Text(
+                '${index + 1}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: logged != null
+                      ? AppColors.textSecondary
+                      : AppColors.textTertiary,
+                ),
+              ),
             ),
-            _OptionRow(
-              icon: Icons.playlist_remove,
-              label: 'Remove a set',
-              enabled: canRemoveSet,
-              onTap: () {
-                repo.setTargetSets(exercise.link.id, exercise.targetSets - 1);
-                Navigator.of(sheet).pop();
-              },
+            Expanded(
+              child: logged != null
+                  ? Row(
+                      children: [
+                        Text(
+                          Fmt.setSummary(logged.weightKg, logged.reps, unit),
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        if (logged.rpe != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            RpeLevel.fromRpe(logged.rpe)?.emoji ?? '',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
+                        if (logged.isPr) ...[
+                          const SizedBox(width: 8),
+                          const VoltBadge('PR', icon: Icons.bolt),
+                        ],
+                      ],
+                    )
+                  : Text(
+                      ghost == null
+                          ? '— × ${exercise.link.repRangeMin}'
+                          : '${Fmt.weight(ghost.weightKg, unit)} × ${ghost.reps}',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: AppColors.textTertiary,
+                        fontStyle: ghost == null
+                            ? FontStyle.normal
+                            : FontStyle.italic,
+                      ),
+                    ),
             ),
-            _OptionRow(
-              icon: Icons.delete_outline,
-              label: 'Remove exercise from session',
-              color: AppColors.danger,
-              onTap: () {
-                repo.removeExerciseFromSession(exercise.link.id);
-                Navigator.of(sheet).pop();
-              },
-            ),
-            const SizedBox(height: AppSpacing.sm),
+            if (logged == null && ghost != null)
+              Text(
+                'last time',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textTertiary,
+                  fontSize: 10,
+                ),
+              ),
+            if (isNext)
+              Text(
+                'tap to log',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.volt,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            if (logged != null)
+              const Icon(
+                Icons.check,
+                size: 16,
+                color: AppColors.volt,
+              ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Final page: cardio & sauna ticks, extra exercises, session notes.
+class _WrapUpPage extends ConsumerWidget {
+  const _WrapUpPage({
+    required this.sessionId,
+    required this.view,
+    required this.cardioLabel,
+  });
+
+  final String sessionId;
+  final SessionView view;
+  final String cardioLabel;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final doneCount = view.exercises.where((e) => e.isComplete).length;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.lg,
+      ),
+      children: [
+        Text('Finish up', style: theme.textTheme.headlineMedium),
+        const SizedBox(height: 4),
+        Text(
+          '$doneCount of ${view.exercises.length} exercises done · '
+          '${view.totalSets} sets logged',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: VoltCheck(
+                value: view.session.cardioDone,
+                icon: Icons.favorite_outline,
+                label: cardioLabel,
+                onChanged: (v) => ref
+                    .read(workoutRepositoryProvider)
+                    .setCardioDone(sessionId, v),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: VoltCheck(
+                value: view.session.saunaDone,
+                icon: Icons.hot_tub_outlined,
+                label: 'Sauna',
+                onChanged: (v) => ref
+                    .read(workoutRepositoryProvider)
+                    .setSaunaDone(sessionId, v),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        GhostButton(
+          label: 'Add exercise',
+          icon: Icons.add,
+          expanded: true,
+          onPressed: () => ExercisePickerSheet.show(
+            context,
+            sessionId: sessionId,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _NotesField(sessionId: sessionId, initial: view.session.notes),
+      ],
     );
   }
 }
@@ -818,120 +1017,6 @@ class _OptionRow extends StatelessWidget {
               onTap();
             }
           : null,
-    );
-  }
-}
-
-/// One prescribed set: either the logged values, or the ghost of last session.
-class _SetRow extends StatelessWidget {
-  const _SetRow({
-    required this.index,
-    required this.exercise,
-    required this.unit,
-    required this.onEdit,
-    required this.onLog,
-  });
-
-  final int index;
-  final SessionExerciseView exercise;
-  final WeightUnit unit;
-  final EditSetCallback onEdit;
-  final VoidCallback onLog;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final logged = index < exercise.sets.length ? exercise.sets[index] : null;
-    final ghost = exercise.ghostForSet(index + 1);
-    final isNext = logged == null && index == exercise.sets.length;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: logged != null
-          ? () => onEdit(
-              logged.id,
-              logged.weightKg,
-              logged.reps,
-              logged.rpe,
-              logged.note,
-            )
-          : (isNext ? onLog : null),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: logged != null ? AppColors.cardHigh : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isNext
-                ? AppColors.volt.withValues(alpha: 0.5)
-                : (logged != null ? Colors.transparent : AppColors.border),
-          ),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 22,
-              child: Text(
-                '${index + 1}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: logged != null
-                      ? AppColors.textSecondary
-                      : AppColors.textTertiary,
-                ),
-              ),
-            ),
-            Expanded(
-              child: logged != null
-                  ? Row(
-                      children: [
-                        Text(
-                          Fmt.setSummary(logged.weightKg, logged.reps, unit),
-                          style: theme.textTheme.titleSmall,
-                        ),
-                        if (logged.rpe != null) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            RpeLevel.fromRpe(logged.rpe)?.emoji ?? '',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ],
-                        if (logged.isPr) ...[
-                          const SizedBox(width: 8),
-                          const VoltBadge('PR', icon: Icons.bolt),
-                        ],
-                      ],
-                    )
-                  : Text(
-                      ghost == null
-                          ? '— × ${exercise.link.repRangeMin}'
-                          : '${Fmt.weight(ghost.weightKg, unit)} × ${ghost.reps}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textTertiary,
-                        fontStyle: ghost == null
-                            ? FontStyle.normal
-                            : FontStyle.italic,
-                      ),
-                    ),
-            ),
-            if (logged == null && ghost != null)
-              Text(
-                'last time',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textTertiary,
-                  fontSize: 10,
-                ),
-              ),
-            if (logged != null)
-              const Icon(
-                Icons.check,
-                size: 15,
-                color: AppColors.volt,
-              ),
-          ],
-        ),
-      ),
     );
   }
 }

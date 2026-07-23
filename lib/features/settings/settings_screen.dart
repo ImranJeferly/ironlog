@@ -13,6 +13,7 @@ import '../../data/sync/firebase_bootstrap.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
+import '../home/template_editor_screen.dart';
 import 'account_sheet.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -471,32 +472,42 @@ class _TrainingDayRow extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 4,
-              height: 16,
-              decoration: BoxDecoration(
-                color: accent,
-                borderRadius: BorderRadius.circular(2),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => TemplateEditorScreen.open(context, template.id),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(template.name, style: theme.textTheme.titleSmall),
-            ),
-            Text(
-              template.weekday == null
-                  ? 'Off schedule'
-                  : _dayNames[template.weekday! - 1],
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: template.weekday == null
-                    ? AppColors.textTertiary
-                    : accent,
-                fontWeight: FontWeight.w700,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(template.name, style: theme.textTheme.titleSmall),
               ),
-            ),
-          ],
+              const Icon(
+                Icons.edit_outlined,
+                size: 14,
+                color: AppColors.textTertiary,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                template.weekday == null
+                    ? 'Off schedule'
+                    : _dayNames[template.weekday! - 1],
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: template.weekday == null
+                      ? AppColors.textTertiary
+                      : accent,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         Row(

@@ -219,6 +219,33 @@ class AppDatabase extends _$AppDatabase {
         .toList();
   }
 
+  /// Live version of [templateExerciseRows] — drives the template editor.
+  Stream<List<(TemplateExerciseRow, ExerciseRow)>> watchTemplateExerciseRows(
+    String templateId,
+  ) {
+    final query =
+        select(templateExercises).join([
+          innerJoin(
+            exercises,
+            exercises.id.equalsExp(templateExercises.exerciseId),
+          ),
+        ])
+          ..where(
+            templateExercises.templateId.equals(templateId) &
+                templateExercises.deleted.equals(false) &
+                exercises.deleted.equals(false),
+          )
+          ..orderBy([OrderingTerm.asc(templateExercises.orderIndex)]);
+
+    return query.watch().map(
+      (rows) => rows
+          .map(
+            (r) => (r.readTable(templateExercises), r.readTable(exercises)),
+          )
+          .toList(),
+    );
+  }
+
   // ---------------------------------------------------------------- sessions
 
   Stream<List<SessionRow>> watchSessions({int? limit}) {

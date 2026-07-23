@@ -6,12 +6,23 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
+import 'new_exercise_sheet.dart';
 
-/// Adds an exercise to a running session, searchable and grouped by muscle.
+/// Picks an exercise from the library (or creates a brand-new one) and adds
+/// it to a running session or, permanently, to a workout template.
 class ExercisePickerSheet extends ConsumerStatefulWidget {
-  const ExercisePickerSheet({super.key, required this.sessionId});
+  const ExercisePickerSheet({
+    super.key,
+    this.sessionId,
+    this.templateId,
+    this.excludeIds = const {},
+  }) : assert(sessionId != null || templateId != null);
 
-  final String sessionId;
+  final String? sessionId;
+  final String? templateId;
+
+  /// Already in the target — hidden from the list.
+  final Set<String> excludeIds;
 
   static Future<void> show(
     BuildContext context, {
@@ -25,6 +36,22 @@ class ExercisePickerSheet extends ConsumerStatefulWidget {
     );
   }
 
+  static Future<void> showForTemplate(
+    BuildContext context, {
+    required String templateId,
+    Set<String> excludeIds = const {},
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.card,
+      isScrollControlled: true,
+      builder: (_) => ExercisePickerSheet(
+        templateId: templateId,
+        excludeIds: excludeIds,
+      ),
+    );
+  }
+
   @override
   ConsumerState<ExercisePickerSheet> createState() =>
       _ExercisePickerSheetState();
@@ -34,12 +61,30 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
   String _query = '';
   MuscleGroup? _group;
 
+  /// Routes the pick to its target: the running session, or the template.
+  Future<void> _add(String exerciseId) async {
+    final repo = ref.read(workoutRepositoryProvider);
+    if (widget.sessionId != null) {
+      await repo.addExercise(widget.sessionId!, exerciseId);
+    } else if (widget.templateId != null) {
+      await repo.addExerciseToTemplate(widget.templateId!, exerciseId);
+    }
+  }
+
+  Future<void> _createNew() async {
+    final created = await NewExerciseSheet.show(context);
+    if (created == null || !mounted) return;
+    await _add(created.id);
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final all = ref.watch(allExercisesProvider).value ?? const [];
 
     final filtered = all.where((e) {
+      if (widget.excludeIds.contains(e.id)) return false;
       final matchesQuery =
           _query.isEmpty || e.name.toLowerCase().contains(_query.toLowerCase());
       final matchesGroup = _group == null || e.muscleGroup == _group;
@@ -100,22 +145,66 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Expanded(
-                child: filtered.isEmpty
-                    ? const EmptyState(
-                        title: 'No matches',
-                        icon: Icons.search_off,
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.lg,
-                          0,
-                          AppSpacing.lg,
-                          AppSpacing.lg,
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    0,
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                  ),
+                  // +1 for the "create your own" row that always leads.
+                  itemCount: filtered.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return AppCard(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        radius: AppRadii.cardSmall,
+                        color: AppColors.voltDim,
+                        borderColor: AppColors.volt.withValues(alpha: 0.4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
                         ),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, i) {
-                          final exercise = filtered[i];
-                          return AppCard(
+                        onTap: _createNew,
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.add_circle_outline,
+                              size: 18,
+                              color: AppColors.volt,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Create your own exercise',
+                                    style: theme.textTheme.titleSmall
+                                        ?.copyWith(color: AppColors.volt),
+                                  ),
+                                  Text(
+                                    'Saved to your library forever.',
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    if (filtered.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: AppSpacing.lg),
+                        child: EmptyState(
+                          title: 'No matches',
+                          icon: Icons.search_off,
+                        ),
+                      );
+                    }
+                    final exercise = filtered[index - 1];
+                    return AppCard(
                             margin: const EdgeInsets.only(bottom: 6),
                             radius: AppRadii.cardSmall,
                             color: AppColors.cardHigh,
@@ -124,9 +213,7 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                               vertical: 12,
                             ),
                             onTap: () async {
-                              await ref
-                                  .read(workoutRepositoryProvider)
-                                  .addExercise(widget.sessionId, exercise.id);
+                              await _add(exercise.id);
                               if (context.mounted) Navigator.of(context).pop();
                             },
                             child: Row(

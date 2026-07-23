@@ -8,6 +8,7 @@ import '../../data/db/database.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
 import '../session/active_session_screen.dart';
+import 'template_editor_screen.dart';
 
 /// "Pick a template or start empty" — the entry point to every session.
 class TemplatePickerSheet extends ConsumerWidget {
@@ -130,10 +131,14 @@ class _TemplateRow extends ConsumerWidget {
               ),
             ),
           const SizedBox(width: 10),
-          const Icon(
-            Icons.arrow_forward_ios,
-            size: 14,
-            color: AppColors.textTertiary,
+          IconPill(
+            icon: Icons.edit_outlined,
+            size: 34,
+            tooltip: 'Edit this workout',
+            onTap: () {
+              Navigator.of(context).pop();
+              TemplateEditorScreen.open(context, template.id);
+            },
           ),
         ],
       ),

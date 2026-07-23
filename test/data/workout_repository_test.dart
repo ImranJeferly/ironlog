@@ -432,4 +432,57 @@ void main() {
       expect(session.saunaDone, isTrue);
     });
   });
+
+  group('editing the library', () {
+    test('a custom exercise is created and lands in the library', () async {
+      final created = await repo.createExercise(
+        name: 'Cable Lateral Raise',
+        muscleGroup: MuscleGroup.shoulders,
+        targetSets: 3,
+        repRangeMin: 12,
+        repRangeMax: 15,
+      );
+
+      expect(created, isNotNull);
+      expect(created!.isCustom, isTrue);
+      expect(created.synced, isFalse); // waiting to be pushed to the account
+
+      final all = await db.allExercises();
+      expect(all.map((e) => e.name), contains('Cable Lateral Raise'));
+    });
+
+    test('adding a custom exercise to a template sticks for new sessions',
+        () async {
+      final created = await repo.createExercise(
+        name: 'Face Pull',
+        muscleGroup: MuscleGroup.shoulders,
+        targetSets: 3,
+        repRangeMin: 15,
+        repRangeMax: 20,
+      );
+      await repo.addExerciseToTemplate('pull', created!.id);
+
+      final rows = await db.templateExerciseRows('pull');
+      expect(rows.map((r) => r.$2.name), contains('Face Pull'));
+
+      // A brand-new session from the template includes it.
+      final id = await repo.startSessionFromTemplate('pull');
+      final view = await repo.loadSessionView(id);
+      expect(view!.exercises.map((e) => e.name), contains('Face Pull'));
+    });
+
+    test('removing a template exercise tombstones it; re-adding revives it',
+        () async {
+      final before = await db.templateExerciseRows('push');
+      final target = before.firstWhere((r) => r.$2.id == 'cable-chest-fly');
+
+      await repo.removeExerciseFromTemplate(target.$1.id);
+      var rows = await db.templateExerciseRows('push');
+      expect(rows.map((r) => r.$2.id), isNot(contains('cable-chest-fly')));
+
+      await repo.addExerciseToTemplate('push', 'cable-chest-fly');
+      rows = await db.templateExerciseRows('push');
+      expect(rows.map((r) => r.$2.id), contains('cable-chest-fly'));
+    });
+  });
 }

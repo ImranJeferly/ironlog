@@ -150,15 +150,22 @@ final todayTemplateProvider = Provider<TemplateRow?>((ref) {
   return null;
 });
 
+/// The live exercise list of a template — drives the workout editor and the
+/// hero card, updating the moment an exercise is added or removed.
+final templateExercisesProvider =
+    StreamProvider.family<List<(TemplateExerciseRow, ExerciseRow)>, String>(
+      (ref, templateId) =>
+          ref.watch(appDatabaseProvider).watchTemplateExerciseRows(templateId),
+    );
+
 /// (exercise count, total prescribed working sets) for a template — the
 /// "what am I in for" line on the hero card.
-final templatePlanProvider = FutureProvider.family<(int, int), String>((
+final templatePlanProvider = Provider.family<(int, int)?, String>((
   ref,
   templateId,
-) async {
-  final rows = await ref
-      .watch(appDatabaseProvider)
-      .templateExerciseRows(templateId);
+) {
+  final rows = ref.watch(templateExercisesProvider(templateId)).value;
+  if (rows == null) return null;
   var sets = 0;
   for (final (link, exercise) in rows) {
     sets += link.setsOverride ?? exercise.targetSets;

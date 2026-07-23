@@ -197,7 +197,7 @@ class _TodayWorkoutCard extends ConsumerWidget {
                 Expanded(
                   child: VoltButton(
                     label: template == null
-                        ? 'Start a session anyway'
+                        ? 'Start a workout'
                         : 'Start ${template!.name}',
                     icon: Icons.play_arrow_rounded,
                     onPressed: () => _start(context, ref, template),
@@ -251,7 +251,7 @@ class _PlanLine extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final plan = ref.watch(templatePlanProvider(template.id)).value;
+    final plan = ref.watch(templatePlanProvider(template.id));
 
     final parts = <String>[
       if (plan != null) '${plan.$1} exercises · ${plan.$2} sets',
