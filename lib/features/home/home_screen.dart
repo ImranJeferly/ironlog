@@ -348,46 +348,137 @@ class _AdherenceCard extends StatelessWidget {
     final adherence = consistency?.weeklyAdherence ?? 0.0;
 
     return AppCard(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('THIS WEEK', style: theme.textTheme.labelSmall),
-                const SizedBox(height: 6),
-                Text(
-                  '$done of ${consistency?.scheduledPerWeek ?? 4} gym days',
-                  style: theme.textTheme.titleMedium,
+          Row(
+            children: [
+              Expanded(
+                child: Text('THIS WEEK', style: theme.textTheme.labelSmall),
+              ),
+              Text(
+                '$done of ${consistency?.scheduledPerWeek ?? 4} gym days · '
+                '${Fmt.percent(adherence)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: adherence >= 1
+                      ? AppColors.volt
+                      : AppColors.textSecondary,
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: adherence),
-                    duration: const Duration(milliseconds: 600),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) => LinearProgressIndicator(
-                      value: value,
-                      minHeight: 8,
-                      backgroundColor: AppColors.cardHigh,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.volt),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.md),
-          Text(
-            Fmt.percent(adherence),
-            style: theme.textTheme.displaySmall?.copyWith(
-              color: adherence >= 1 ? AppColors.volt : AppColors.textPrimary,
-            ),
-          ),
+          const SizedBox(height: AppSpacing.md),
+          _WeekStrip(consistency: consistency),
         ],
       ),
     );
+  }
+}
+
+/// The week at a glance: one circle per day — accented ring on gym days,
+/// filled tick once that day's session is done, label highlighted for today.
+class _WeekStrip extends ConsumerWidget {
+  const _WeekStrip({required this.consistency});
+
+  final ConsistencyStats? consistency;
+
+  static const _letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final templates = ref.watch(templatesProvider).value ?? const [];
+    final byWeekday = {
+      for (final t in templates)
+        if (t.weekday != null) t.weekday!: t,
+    };
+    final doneDays = consistency?.setsByDay.keys.toSet() ?? const <DateTime>{};
+    final now = DateTime.now();
+    final weekStart = now.weekStart;
+
+    return Row(
+      children: [
+        for (var i = 0; i < 7; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Expanded(
+            child: _dayCell(
+              context,
+              letter: _letters[i],
+              date: weekStart.add(Duration(days: i)),
+              template: byWeekday[i + 1],
+              doneDays: doneDays,
+              isToday: now.weekday == i + 1,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _dayCell(
+    BuildContext context, {
+    required String letter,
+    required DateTime date,
+    required TemplateRow? template,
+    required Set<DateTime> doneDays,
+    required bool isToday,
+  }) {
+    final theme = Theme.of(context);
+    final accent = _accent(template?.accentHex);
+    final scheduled = template != null;
+    final done = doneDays.any((d) => d.isSameDay(date));
+
+    return Column(
+      children: [
+        Text(
+          letter,
+          style: theme.textTheme.labelSmall?.copyWith(
+            fontSize: 10,
+            color: isToday ? AppColors.volt : AppColors.textTertiary,
+            fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 34,
+          decoration: BoxDecoration(
+            color: done
+                ? AppColors.volt.withValues(alpha: 0.18)
+                : (scheduled ? AppColors.cardHigh : Colors.transparent),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: done
+                  ? AppColors.volt
+                  : (isToday
+                        ? AppColors.volt.withValues(alpha: 0.6)
+                        : (scheduled
+                              ? accent.withValues(alpha: 0.55)
+                              : AppColors.border)),
+              width: isToday && !done ? 1.5 : 1,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: done
+              ? const Icon(Icons.check, size: 15, color: AppColors.volt)
+              : (scheduled
+                    ? Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: accent,
+                          shape: BoxShape.circle,
+                        ),
+                      )
+                    : null),
+        ),
+      ],
+    );
+  }
+
+  static Color _accent(String? hex) {
+    if (hex == null || hex.length < 7) return AppColors.volt;
+    final parsed = int.tryParse(hex.substring(1), radix: 16);
+    return parsed == null ? AppColors.volt : Color(0xFF000000 | parsed);
   }
 }
 

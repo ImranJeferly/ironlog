@@ -130,8 +130,9 @@ void main() {
         expect(find.text('Push'), findsOneWidget);
         expect(find.text('Incline DB Press'), findsOneWidget);
         expect(find.text('4×5–6'), findsOneWidget);
-        // The Finish button is pinned regardless of scroll position.
-        expect(find.text('Finish workout'), findsOneWidget);
+        // The pinned bar: big Log set for the next exercise, Finish beside it.
+        expect(find.text('Log set'), findsWidgets);
+        expect(find.text('Finish'), findsOneWidget);
       });
     });
 
@@ -208,7 +209,7 @@ void main() {
       await withScreen(tester, ActiveSessionScreen(sessionId: id), () async {
         expect(find.text('Pull'), findsOneWidget);
         expect(find.text('Weighted Pull-ups'), findsOneWidget);
-        expect(find.text('Finish workout'), findsOneWidget);
+        expect(find.text('Finish'), findsOneWidget);
       });
     });
   });

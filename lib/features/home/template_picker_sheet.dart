@@ -27,6 +27,16 @@ class TemplatePickerSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final templates = ref.watch(templatesProvider).value ?? const [];
 
+    // Today's workout goes first — it's what you're here for 9 times out of 10.
+    final today = DateTime.now().weekday;
+    final sorted = [...templates]
+      ..sort((a, b) {
+        final aToday = a.weekday == today ? 0 : 1;
+        final bToday = b.weekday == today ? 0 : 1;
+        if (aToday != bToday) return aToday - bToday;
+        return a.orderIndex.compareTo(b.orderIndex);
+      });
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -36,8 +46,8 @@ class TemplatePickerSheet extends ConsumerWidget {
           children: [
             Text('START A SESSION', style: theme.textTheme.labelSmall),
             const SizedBox(height: AppSpacing.md),
-            for (final template in templates)
-              _TemplateRow(template: template),
+            for (final template in sorted)
+              _TemplateRow(template: template, isToday: template.weekday == today),
             const SizedBox(height: AppSpacing.sm),
             GhostButton(
               label: 'Empty session',
@@ -60,9 +70,12 @@ class TemplatePickerSheet extends ConsumerWidget {
 }
 
 class _TemplateRow extends ConsumerWidget {
-  const _TemplateRow({required this.template});
+  const _TemplateRow({required this.template, this.isToday = false});
 
   final TemplateRow template;
+  final bool isToday;
+
+  static const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -73,6 +86,7 @@ class _TemplateRow extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       radius: AppRadii.cardSmall,
       color: AppColors.cardHigh,
+      borderColor: isToday ? accent.withValues(alpha: 0.6) : null,
       onTap: () async {
         final id = await ref
             .read(workoutRepositoryProvider)
@@ -105,6 +119,17 @@ class _TemplateRow extends ConsumerWidget {
               ],
             ),
           ),
+          if (isToday)
+            const VoltBadge('TODAY', filled: true)
+          else if (template.weekday != null)
+            Text(
+              _dayNames[template.weekday! - 1],
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.textTertiary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          const SizedBox(width: 10),
           const Icon(
             Icons.arrow_forward_ios,
             size: 14,
