@@ -78,8 +78,9 @@ class TemplateEditorScreen extends ConsumerWidget {
                           style: theme.textTheme.headlineSmall,
                         ),
                         Text(
-                          '${rows.length} exercises — changes apply to '
-                          'future sessions',
+                          rows.isEmpty
+                              ? 'Changes apply to future sessions'
+                              : '${rows.length} exercises · drag to reorder',
                           style: theme.textTheme.bodySmall,
                         ),
                       ],
@@ -95,17 +96,29 @@ class TemplateEditorScreen extends ConsumerWidget {
                       icon: Icons.fitness_center,
                       message: 'Add your first exercise below.',
                     )
-                  : ListView.builder(
+                  : ReorderableListView.builder(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
                         AppSpacing.sm,
                         AppSpacing.md,
                         120,
                       ),
+                      // We supply our own drag handle so the whole card isn't
+                      // a long-press target (the × still needs plain taps).
+                      buildDefaultDragHandles: false,
                       itemCount: rows.length,
+                      onReorder: (oldIndex, newIndex) {
+                        if (newIndex > oldIndex) newIndex -= 1;
+                        final ids = [for (final (l, _) in rows) l.id];
+                        ids.insert(newIndex, ids.removeAt(oldIndex));
+                        ref
+                            .read(workoutRepositoryProvider)
+                            .reorderTemplateExercises(ids);
+                      },
                       itemBuilder: (context, i) {
                         final (link, exercise) = rows[i];
                         return AppCard(
+                          key: ValueKey(link.id),
                           margin: const EdgeInsets.only(bottom: 8),
                           radius: AppRadii.cardSmall,
                           padding: const EdgeInsets.symmetric(
@@ -114,6 +127,17 @@ class TemplateEditorScreen extends ConsumerWidget {
                           ),
                           child: Row(
                             children: [
+                              ReorderableDragStartListener(
+                                index: i,
+                                child: const Padding(
+                                  padding: EdgeInsets.only(right: 10),
+                                  child: Icon(
+                                    Icons.drag_indicator,
+                                    size: 20,
+                                    color: AppColors.textTertiary,
+                                  ),
+                                ),
+                              ),
                               Container(
                                 width: 8,
                                 height: 8,

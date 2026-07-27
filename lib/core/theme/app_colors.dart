@@ -48,7 +48,8 @@ abstract final class AppColors {
     'chest': Color(0xFF7C5CFF),
     'back': Color(0xFF2D9CFF),
     'shoulders': Color(0xFF00D4B8),
-    'arms': Color(0xFFFF7A45),
+    'biceps': Color(0xFFFF7A45),
+    'triceps': Color(0xFFFFA033),
     'legs': Color(0xFFFF4D8D),
     'core': Color(0xFFFFC53D),
   };

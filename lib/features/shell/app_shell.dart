@@ -10,6 +10,7 @@ import '../home/home_screen.dart';
 import '../photos/photos_screen.dart';
 import '../progress/progress_screen.dart';
 import '../settings/settings_screen.dart';
+import '../update/update_prompt.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
@@ -21,6 +22,7 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   int _index = 0;
+  bool _updateChecked = false;
 
   static const _tabs = <_TabSpec>[
     _TabSpec('Today', Icons.bolt_outlined, Icons.bolt),
@@ -59,6 +61,18 @@ class _AppShellState extends ConsumerState<AppShell>
       // A week's window, not just today — catches up after days offline.
       ref.read(healthServiceProvider).syncRecent();
     }
+    _maybeCheckForUpdate();
+  }
+
+  /// Checks GitHub releases once per app session and, if a newer build is out,
+  /// offers a one-tap download + install. Silent when up to date or offline.
+  Future<void> _maybeCheckForUpdate() async {
+    if (_updateChecked) return;
+    _updateChecked = true;
+    final service = ref.read(updateServiceProvider);
+    final info = await service.checkForUpdate();
+    if (info == null || !mounted) return;
+    await promptForUpdate(context, service, info);
   }
 
   @override

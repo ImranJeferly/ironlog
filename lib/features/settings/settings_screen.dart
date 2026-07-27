@@ -14,6 +14,7 @@ import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
 import '../home/template_editor_screen.dart';
+import '../update/update_prompt.dart';
 import 'account_sheet.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -25,6 +26,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _exporting = false;
+  bool _checkingUpdate = false;
 
   @override
   Widget build(BuildContext context) {
@@ -267,6 +269,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
+          const SectionHeader('Updates'),
+          AppCard(
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.system_update,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('App version', style: theme.textTheme.titleSmall),
+                      FutureBuilder<String>(
+                        future: ref
+                            .read(updateServiceProvider)
+                            .currentVersionName(),
+                        builder: (context, snap) => Text(
+                          snap.data == null || snap.data!.isEmpty
+                              ? 'Checks GitHub for new builds'
+                              : 'v${snap.data}',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                GhostButton(
+                  label: _checkingUpdate ? 'Checking…' : 'Check',
+                  height: 40,
+                  onPressed: _checkingUpdate ? null : _checkUpdate,
+                ),
+              ],
+            ),
+          ),
+
           const SizedBox(height: AppSpacing.lg),
           Center(
             child: Text(
@@ -279,6 +319,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _checkUpdate() async {
+    setState(() => _checkingUpdate = true);
+    final service = ref.read(updateServiceProvider);
+    final info = await service.checkForUpdate();
+    if (!mounted) return;
+    setState(() => _checkingUpdate = false);
+    if (info == null) {
+      _toast('You’re on the latest version');
+      return;
+    }
+    await promptForUpdate(context, service, info);
   }
 
   IconData _syncIcon(SyncState state) => switch (state) {

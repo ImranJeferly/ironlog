@@ -16,6 +16,7 @@ import '../data/repositories/progress_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/repositories/workout_repository.dart';
 import '../data/sync/auth_service.dart';
+import '../core/update/update_service.dart';
 import '../data/sync/sync_service.dart';
 import '../domain/enums.dart';
 import '../domain/session_view.dart';
@@ -51,6 +52,8 @@ final photoRepositoryProvider = Provider<PhotoRepository>(
 final healthServiceProvider = Provider<HealthService>(
   (ref) => HealthService(ref.watch(metricsRepositoryProvider)),
 );
+
+final updateServiceProvider = Provider<UpdateService>((ref) => UpdateService());
 
 final csvExporterProvider = Provider<CsvExporter>(
   (ref) => CsvExporter(ref.watch(appDatabaseProvider)),

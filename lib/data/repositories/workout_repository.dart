@@ -606,6 +606,26 @@ class WorkoutRepository {
     );
   }
 
+  /// Persists a new exercise order for a template. [orderedIds] are the
+  /// TemplateExercise row ids in their new top-to-bottom order; future sessions
+  /// are built in exactly this order.
+  Future<void> reorderTemplateExercises(List<String> orderedIds) async {
+    final now = DateTime.now();
+    await _db.batch((b) {
+      for (var i = 0; i < orderedIds.length; i++) {
+        b.update(
+          _db.templateExercises,
+          TemplateExercisesCompanion(
+            orderIndex: Value(i),
+            updatedAt: Value(now),
+            synced: const Value(false),
+          ),
+          where: (t) => t.id.equals(orderedIds[i]),
+        );
+      }
+    });
+  }
+
   /// Takes an exercise off a template for good (tombstoned so the removal
   /// syncs). Past sessions are untouched.
   Future<void> removeExerciseFromTemplate(String templateExerciseId) async {

@@ -34,7 +34,8 @@ enum MuscleGroup {
   chest('Chest', 'chest', false),
   back('Back', 'back', false),
   shoulders('Shoulders', 'shoulders', false),
-  arms('Arms', 'arms', false),
+  biceps('Biceps', 'biceps', false),
+  triceps('Triceps', 'triceps', false),
   legs('Legs', 'legs', true),
   core('Core', 'core', false);
 

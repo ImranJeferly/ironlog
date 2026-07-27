@@ -103,7 +103,7 @@ abstract final class SeedData {
     SeedExercise(
       id: 'overhead-tricep-ext',
       name: 'Overhead Tricep Ext',
-      muscleGroup: MuscleGroup.arms,
+      muscleGroup: MuscleGroup.triceps,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 12,
@@ -112,7 +112,7 @@ abstract final class SeedData {
     SeedExercise(
       id: 'tricep-pulldown',
       name: 'Tricep Pulldown',
-      muscleGroup: MuscleGroup.arms,
+      muscleGroup: MuscleGroup.triceps,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 12,
@@ -153,7 +153,7 @@ abstract final class SeedData {
     SeedExercise(
       id: 'ez-bar-curl',
       name: 'EZ Bar Curl',
-      muscleGroup: MuscleGroup.arms,
+      muscleGroup: MuscleGroup.biceps,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 10,
@@ -162,7 +162,7 @@ abstract final class SeedData {
     SeedExercise(
       id: 'cross-body-hammer-curl',
       name: 'Cross-Body Hammer Curl',
-      muscleGroup: MuscleGroup.arms,
+      muscleGroup: MuscleGroup.biceps,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 12,
@@ -254,7 +254,7 @@ abstract final class SeedData {
     SeedExercise(
       id: 'incline-db-curl',
       name: 'Incline Curl',
-      muscleGroup: MuscleGroup.arms,
+      muscleGroup: MuscleGroup.biceps,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 12,

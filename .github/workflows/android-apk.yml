@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - claude/android-health-integration-hnyyaw
     paths-ignore:
       - '**/*.md'
@@ -43,7 +44,12 @@ jobs:
         run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Build release APK
-        run: flutter build apk --release
+        # versionCode = run number so each build is a strict upgrade the app
+        # (and Android) recognise; the in-app updater compares this number.
+        run: >
+          flutter build apk --release
+          --build-number=${{ github.run_number }}
+          --build-name=1.0.${{ github.run_number }}
 
       - name: Rename APK
         run: |
@@ -58,7 +64,7 @@ jobs:
           path: dist/IronLog-${{ github.run_number }}.apk
           if-no-files-found: error
 
-      - name: Publish APK to a Release (download link)
+      - name: Publish APK to a Release (auto-update source)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-build-${{ github.run_number }}
@@ -67,8 +73,12 @@ jobs:
             Debug-signed release APK built from
             `${{ github.ref_name }}` @ `${{ github.sha }}`.
 
-            Download **IronLog-${{ github.run_number }}.apk** below and open it
-            on your Android device to install (you may need to allow
-            "install from unknown sources").
-          prerelease: true
+            The app checks these releases and offers a one-tap in-app update.
+            To install manually, download **IronLog-${{ github.run_number }}.apk**
+            below and open it on your Android device (allow "install from
+            unknown sources" if prompted).
+          # Not a prerelease, and marked latest, so it's the "current" build the
+          # in-app updater and the Releases page surface.
+          prerelease: false
+          make_latest: true
           files: dist/IronLog-${{ github.run_number }}.apk

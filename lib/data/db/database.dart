@@ -37,12 +37,43 @@ class AppDatabase extends _$AppDatabase {
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
+      // Reclassify the old single "Arms" group into Biceps/Triceps. Runs as raw
+      // SQL *before* any enum-mapped read, because the old rows still store
+      // 'arms', which no longer maps to a MuscleGroup value.
+      await _splitArmsIntoBicepsTriceps();
       // Seeding runs on every open but only inserts what's missing, so adding
       // an exercise to SeedData in a later release backfills existing installs
       // without touching anything the user has edited.
       await seedIfNeeded();
     },
   );
+
+  /// One-time migration: the "Arms" muscle group became "Biceps" and "Triceps".
+  /// Known tricep movements go to Triceps; every other former-arms exercise
+  /// (curls, and any custom ones) defaults to Biceps. Guarded by a flag so it
+  /// only runs once per install.
+  Future<void> _splitArmsIntoBicepsTriceps() async {
+    const flag = 'arms_split_biceps_triceps_v1';
+    if (await getSetting(flag) != null) return;
+
+    // Triceps: seeded ids plus anything that reads like a tricep movement.
+    await customStatement(
+      "UPDATE exercises SET muscle_group = 'triceps' "
+      "WHERE muscle_group = 'arms' AND ("
+      "id IN ('overhead-tricep-ext', 'tricep-pulldown') "
+      "OR lower(name) LIKE '%tricep%' "
+      "OR lower(name) LIKE '%pushdown%' "
+      "OR lower(name) LIKE '%skull%' "
+      "OR lower(name) LIKE '%dip%' "
+      "OR lower(name) LIKE '%extension%')",
+    );
+    // Everything still tagged 'arms' (curls, custom) becomes Biceps.
+    await customStatement(
+      "UPDATE exercises SET muscle_group = 'biceps' WHERE muscle_group = 'arms'",
+    );
+
+    await setSetting(flag, 'done');
+  }
 
   /// Inserts any seed exercise/template rows that aren't present yet. Existing
   /// rows are left alone — the user's own edits win.
