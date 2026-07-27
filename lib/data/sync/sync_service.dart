@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
@@ -121,8 +123,11 @@ class SyncService {
 
     _running = true;
     try {
-      final pushed = await _pushAll();
-      final pulled = await _pullAll();
+      // Hard ceiling so a stalled Firestore connection can never leave the UI
+      // stuck on "Syncing…" forever — it fails and can be retried instead.
+      const budget = Duration(seconds: 30);
+      final pushed = await _pushAll().timeout(budget);
+      final pulled = await _pullAll().timeout(budget);
       final now = DateTime.now();
       await _settings.setLastSyncAt(now);
       return SyncStatus(
@@ -131,6 +136,15 @@ class SyncService {
         pending: await pendingCount(),
         pushed: pushed,
         pulled: pulled,
+      );
+    } on TimeoutException {
+      debugPrint('IronLog: sync timed out');
+      return SyncStatus(
+        state: SyncState.failed,
+        message: 'Sync timed out — check your connection, and that Firestore '
+            'is enabled with the app’s security rules deployed.',
+        pending: await pendingCount(),
+        lastSyncAt: settings.lastSyncAt,
       );
     } on Object catch (e) {
       debugPrint('IronLog: sync failed ($e)');

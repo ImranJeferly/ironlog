@@ -381,8 +381,13 @@ class SyncController extends Notifier<SyncStatus> {
   Future<void> sync() async {
     if (state.state == SyncState.syncing) return;
     state = state.copyWith(state: SyncState.syncing);
-    final result = await ref.read(syncServiceProvider).sync();
-    state = result;
+    // Never leave the UI stranded on "Syncing…": any escape from sync() resolves
+    // to a terminal state.
+    try {
+      state = await ref.read(syncServiceProvider).sync();
+    } on Object catch (e) {
+      state = state.copyWith(state: SyncState.failed, message: '$e');
+    }
   }
 
   Future<void> forceFullPush() async {
