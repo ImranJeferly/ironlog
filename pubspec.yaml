@@ -59,6 +59,9 @@ dependencies:
   # downloaded APK with the system installer.
   package_info_plus: ^8.1.2
   open_filex: ^4.5.0
+  # Proactively request camera / gallery / notification / activity permissions
+  # when the app opens.
+  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:
