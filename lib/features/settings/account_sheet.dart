@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../domain/enums.dart';
 import '../../widgets/buttons.dart';
 
 /// Email + password sheet for creating the permanent account or signing back
@@ -79,11 +80,34 @@ class _AccountSheetState extends ConsumerState<AccountSheet> {
     // Make sure every local stat ends up under the signed-in account —
     // creating an account links the anonymous uid (data already there), and
     // signing into another account gets the full local history pushed to it.
+    // forceFullPush also resets the pull cursor, so the account's existing
+    // data is pulled back in full.
     final sync = ref.read(syncControllerProvider.notifier);
     await sync.forceFullPush();
     await sync.sync();
+    if (!mounted) return;
 
-    if (mounted) Navigator.of(context).pop(true);
+    // Don't pretend it worked: if the first sync failed (almost always
+    // Firestore rules / auth not enabled in the project), surface the real
+    // reason instead of silently closing.
+    final status = ref.read(syncControllerProvider);
+    if (status.state == SyncState.failed) {
+      setState(() {
+        _busy = false;
+        _error = 'Signed in, but the first sync failed:\n'
+            '${status.message ?? 'unknown error'}';
+      });
+      return;
+    }
+    if (status.state == SyncState.disabled) {
+      setState(() {
+        _busy = false;
+        _error = status.message ?? 'Sync is turned off.';
+      });
+      return;
+    }
+
+    Navigator.of(context).pop(true);
   }
 
   Future<void> _resetPassword() async {
