@@ -35,11 +35,24 @@ android {
         multiDexEnabled = true
     }
 
+    signingConfigs {
+        // A fixed, checked-in release key so every CI build (and every in-app
+        // auto-update) is signed identically. Without this, GitHub runners sign
+        // each build with a fresh ephemeral debug key, so Android rejects the
+        // install with "package conflicts with an existing package".
+        // Note: this key lives in a public repo, so it is NOT a secret — it only
+        // guarantees consistent self-distribution, not Play Store integrity.
+        create("release") {
+            storeFile = file("ironlog-release.jks")
+            storePassword = "ironlog-signing"
+            keyAlias = "ironlog"
+            keyPassword = "ironlog-signing"
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
