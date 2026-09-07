@@ -3,7 +3,9 @@ import 'dart:math' as math;
 import '../../core/utils/date_x.dart';
 import '../../domain/enums.dart';
 import '../../domain/strength_math.dart';
+import '../../domain/exercise_x.dart';
 import '../../domain/program.dart';
+import '../../domain/volume.dart';
 import '../db/database.dart';
 import '../db/seed_data.dart';
 
@@ -95,9 +97,12 @@ class ConsistencyStats {
     required this.setsByDay,
     required this.totalSessions,
     required this.scheduledPerWeek,
+    this.sessionsLast4Weeks = 0,
+    this.fourWeekAdherence = 0,
   });
 
-  /// Consecutive scheduled gym days hit without a miss.
+  /// Consecutive scheduled gym days hit without a miss (or, on a rotation
+  /// program, consecutive sessions no more than three days apart).
   final int currentStreak;
   final int longestStreak;
 
@@ -109,8 +114,15 @@ class ConsistencyStats {
   final Map<DateTime, int> setsByDay;
   final int totalSessions;
 
-  /// How many gym days the current template schedule has per week.
+  /// Sessions per week the plan asks for: the program's target (6) when a
+  /// rotation is active, otherwise the number of scheduled weekdays.
   final int scheduledPerWeek;
+
+  /// Distinct training days in the last 28 days.
+  final int sessionsLast4Weeks;
+
+  /// 0–1: [sessionsLast4Weeks] against four weeks of [scheduledPerWeek].
+  final double fourWeekAdherence;
 }
 
 class BodyWeightSeries {
@@ -299,6 +311,14 @@ class ProgressRepository {
     var scheduled = await _db.scheduledWeekdays();
     if (scheduled.isEmpty) scheduled = SeedData.scheduledWeekdays.toSet();
 
+    // A rotation program has no fixed days: measure against its sessions/week
+    // and count a streak as consecutive sessions ≤ 3 days apart.
+    final programActive =
+        await _db.getSetting(ProgramKeys.id) == SeedData.program.id;
+    final targetPerWeek = programActive
+        ? SeedData.program.sessionsPerWeek
+        : scheduled.length;
+
     final setsByDay = <DateTime, int>{};
     for (final s in completed) {
       setsByDay[s.date] = (setsByDay[s.date] ?? 0) + s.totalSets;
@@ -311,8 +331,16 @@ class ProgressRepository {
 
     final doneDays = completed.map((s) => s.date).toSet();
 
-    final currentStreak = _currentStreak(doneDays, now, scheduled);
-    final longestStreak = _longestStreak(doneDays, from, now, scheduled);
+    final currentStreak = programActive
+        ? _rotationStreak(doneDays, now)
+        : _currentStreak(doneDays, now, scheduled);
+    final longestStreak = programActive
+        ? _rotationLongest(doneDays)
+        : _longestStreak(doneDays, from, now, scheduled);
+
+    final fourWeeksAgo = now.dayStart.subtract(const Duration(days: 28));
+    final sessionsLast4Weeks =
+        doneDays.where((d) => !d.isBefore(fourWeeksAgo)).length;
 
     final weekStart = now.weekStart;
     final sessionsThisWeek = completed
@@ -321,16 +349,44 @@ class ProgressRepository {
         .toSet()
         .length;
 
+    final target = targetPerWeek <= 0 ? 1 : targetPerWeek;
     return ConsistencyStats(
       currentStreak: currentStreak,
       longestStreak: longestStreak,
-      weeklyAdherence:
-          (sessionsThisWeek / scheduled.length).clamp(0.0, 1.0),
+      weeklyAdherence: (sessionsThisWeek / target).clamp(0.0, 1.0),
       sessionsThisWeek: sessionsThisWeek,
       setsByDay: setsByDay,
       totalSessions: completed.length,
-      scheduledPerWeek: scheduled.length,
+      scheduledPerWeek: target,
+      sessionsLast4Weeks: sessionsLast4Weeks,
+      fourWeekAdherence: (sessionsLast4Weeks / (4 * target)).clamp(0.0, 1.0),
     );
+  }
+
+  /// Rotation streak: walk back from the most recent training day; every step
+  /// of ≤ 3 days extends it. A most-recent day more than 3 days ago is 0.
+  int _rotationStreak(Set<DateTime> doneDays, DateTime now) {
+    if (doneDays.isEmpty) return 0;
+    final days = doneDays.toList()..sort((a, b) => b.compareTo(a));
+    if (now.dayStart.difference(days.first).inDays > 3) return 0;
+    var streak = 1;
+    for (var i = 1; i < days.length; i++) {
+      if (days[i - 1].difference(days[i]).inDays > 3) break;
+      streak++;
+    }
+    return streak;
+  }
+
+  int _rotationLongest(Set<DateTime> doneDays) {
+    if (doneDays.isEmpty) return 0;
+    final days = doneDays.toList()..sort();
+    var best = 1;
+    var run = 1;
+    for (var i = 1; i < days.length; i++) {
+      run = days[i].difference(days[i - 1]).inDays > 3 ? 1 : run + 1;
+      if (run > best) best = run;
+    }
+    return best;
   }
 
   /// Walks scheduled gym days backwards, counting until one was missed. Today
@@ -405,6 +461,45 @@ class ProgressRepository {
 
   /// Every exercise that has at least one logged set, most recently trained
   /// first — the Exercises tab list.
+  // ----------------------------------------------------------------- volume
+
+  /// Per-muscle hard sets and tonnage for the last [weeks] calendar weeks,
+  /// newest last. Warm-ups and explosive work are excluded; secondary muscles
+  /// get half credit.
+  Future<List<MuscleWeek>> volumeWeeks({int weeks = 4}) async {
+    final now = DateTime.now();
+    final from = now.weekStart.subtract(Duration(days: 7 * (weeks - 1)));
+    final sessions = await _db.sessionsBetween(from, now.dayEnd);
+    final dateBySession = {
+      for (final s in sessions)
+        if (s.isComplete && !s.deleted) s.id: s.date,
+    };
+    final exercises = await _db.allExercises();
+    final credits = {for (final e in exercises) e.id: e.volumeCredits};
+
+    final inputs = <VolumeSetInput>[];
+    for (final set in await _db.allSets()) {
+      if (set.deleted) continue;
+      final date = dateBySession[set.sessionId];
+      if (date == null) continue;
+      inputs.add(
+        VolumeSetInput(
+          exerciseId: set.exerciseId,
+          weightKg: set.weightKg,
+          reps: set.reps,
+          isWarmup: set.isWarmup,
+          date: date,
+        ),
+      );
+    }
+    return VolumeCalc.weekly(
+      sets: inputs,
+      credits: credits,
+      now: now,
+      weeks: weeks,
+    );
+  }
+
   // ------------------------------------------------------- stalled / deload
 
   /// Every exercise trained in the last [days] days that hasn't produced an

@@ -22,6 +22,7 @@ import '../core/update/update_service.dart';
 import '../data/sync/sync_service.dart';
 import '../domain/enums.dart';
 import '../domain/program.dart';
+import '../domain/volume.dart';
 import '../domain/session_view.dart';
 import '../domain/strength_math.dart';
 
@@ -184,6 +185,18 @@ final nextWorkoutProvider = Provider<TemplateRow?>((ref) {
   }
   return ref.watch(todayTemplateProvider);
 });
+
+/// Per-muscle hard sets / tonnage for the last four calendar weeks.
+final volumeWeeksProvider = FutureProvider<List<MuscleWeek>>((ref) {
+  ref.watch(analyticsRevisionProvider);
+  ref.watch(recentSessionsProvider);
+  return ref.watch(progressRepositoryProvider).volumeWeeks();
+});
+
+/// Weekly hard-set target band per muscle (spec defaults + user overrides).
+final volumeTargetsProvider = FutureProvider<Map<Muscle, VolumeTarget>>(
+  (ref) => ref.watch(settingsRepositoryProvider).volumeTargets(),
+);
 
 /// Exercise ids with no e1RM PR in the last four weeks despite being trained.
 final stalledExercisesProvider = FutureProvider<Set<String>>((ref) {

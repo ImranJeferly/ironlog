@@ -12,6 +12,7 @@ import '../../widgets/app_card.dart';
 import '../../widgets/charts.dart';
 
 enum _Metric {
+  strength('Top set + e1RM'),
   topSet('Top set'),
   e1rm('Est. 1RM'),
   volume('Volume');
@@ -41,7 +42,7 @@ class ExerciseDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ExerciseDetailScreenState extends ConsumerState<ExerciseDetailScreen> {
-  _Metric _metric = _Metric.topSet;
+  _Metric _metric = _Metric.strength;
 
   @override
   Widget build(BuildContext context) {
@@ -49,10 +50,24 @@ class _ExerciseDetailScreenState extends ConsumerState<ExerciseDetailScreen> {
     final progress = ref.watch(exerciseProgressProvider(widget.exerciseId)).value;
     final unit = ref.watch(unitProvider);
     final exercise = ref.watch(exerciseByIdProvider(widget.exerciseId));
+    final stalled =
+        ref.watch(stalledExercisesProvider).value?.contains(widget.exerciseId) ??
+        false;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      appBar: AppBar(title: Text(exercise?.name ?? 'Exercise')),
+      appBar: AppBar(
+        title: Text(exercise?.name ?? 'Exercise'),
+        actions: [
+          if (stalled)
+            const Padding(
+              padding: EdgeInsets.only(right: AppSpacing.md),
+              child: Center(
+                child: VoltBadge('STALLED', color: AppColors.warning),
+              ),
+            ),
+        ],
+      ),
       body: progress == null || progress.isEmpty
           ? EmptyState(
               title: exercise?.name ?? 'Exercise',
@@ -116,13 +131,35 @@ class _ExerciseDetailScreenState extends ConsumerState<ExerciseDetailScreen> {
                 ChartCard(
                   title: _metric.label,
                   headline: _headline(progress, unit),
-                  subtitle: _subtitle(progress, unit),
+                  subtitle: stalled
+                      ? 'No e1RM PR in 4 weeks — ${_subtitle(progress, unit)}'
+                      : _subtitle(progress, unit),
                   child: TrendChart(
                     series: [
-                      ChartSeries(
-                        dates: progress.points.map((p) => p.date).toList(),
-                        values: progress.points.map(_valueOf).toList(),
-                      ),
+                      if (_metric == _Metric.strength) ...[
+                        // Solid = top-set weight, dashed volt = Epley e1RM.
+                        ChartSeries(
+                          dates: progress.points.map((p) => p.date).toList(),
+                          values: progress.points
+                              .map((p) => unit.fromKg(p.topWeightKg))
+                              .toList(),
+                          showArea: true,
+                        ),
+                        ChartSeries(
+                          dates: progress.points.map((p) => p.date).toList(),
+                          values: progress.points
+                              .map((p) => unit.fromKg(p.best1RM))
+                              .toList(),
+                          dashed: true,
+                          gradient: const LinearGradient(
+                            colors: [AppColors.volt, AppColors.volt],
+                          ),
+                        ),
+                      ] else
+                        ChartSeries(
+                          dates: progress.points.map((p) => p.date).toList(),
+                          values: progress.points.map(_valueOf).toList(),
+                        ),
                     ],
                     valueSuffix: _metric == _Metric.volume
                         ? ''
@@ -172,54 +209,42 @@ class _ExerciseDetailScreenState extends ConsumerState<ExerciseDetailScreen> {
                     ),
                 ],
 
-                const SectionHeader('Session history'),
-                for (final point in progress.points.reversed.take(20))
-                  AppCard(
-                    margin: const EdgeInsets.only(bottom: 6),
-                    radius: AppRadii.cardSmall,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 74,
-                          child: Text(
-                            Dates.dayMonth(point.date),
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            '${Fmt.weight(point.topWeightKg, unit)} × ${point.topReps}',
-                            style: theme.textTheme.titleSmall,
-                          ),
-                        ),
-                        Text(
-                          '${point.sets} sets · ${Fmt.tonnage(point.volumeKg, unit)}',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
+                const SectionHeader('Last 5 sessions'),
+                AppCard(
+                  radius: AppRadii.cardSmall,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
                   ),
+                  child: Column(
+                    children: [
+                      _HistoryRow.header(theme),
+                      for (final point in progress.points.reversed.take(5))
+                        _HistoryRow(point: point, unit: unit),
+                    ],
+                  ),
+                ),
               ],
             ),
     );
   }
 
   double _valueOf(ExercisePoint point) => switch (_metric) {
-    _Metric.topSet => point.topWeightKg,
+    _Metric.strength || _Metric.topSet => point.topWeightKg,
     _Metric.e1rm => point.best1RM,
     _Metric.volume => point.volumeKg,
   };
 
   String _headline(ExerciseProgress progress, WeightUnit unit) {
     if (progress.points.isEmpty) return '—';
-    final last = _valueOf(progress.points.last);
-    return _metric == _Metric.volume
-        ? Fmt.tonnage(last, unit)
-        : Fmt.weight(last, unit);
+    final last = progress.points.last;
+    return switch (_metric) {
+      _Metric.strength =>
+        '${Fmt.weight(last.topWeightKg, unit)} × ${last.topReps} · '
+            'e1RM ${Fmt.weight(last.best1RM, unit)}',
+      _Metric.volume => Fmt.tonnage(last.volumeKg, unit),
+      _ => Fmt.weight(_valueOf(last), unit),
+    };
   }
 
   String? _subtitle(ExerciseProgress progress, WeightUnit unit) {
@@ -231,6 +256,72 @@ class _ExerciseDetailScreenState extends ConsumerState<ExerciseDetailScreen> {
         ? Fmt.tonnage(delta.abs(), unit)
         : Fmt.weight(delta.abs(), unit);
     return '$sign$formatted since ${Dates.dayMonth(points.first.date)}';
+  }
+}
+
+/// One line of the last-5 table: date · top set · e1RM · sets.
+class _HistoryRow extends StatelessWidget {
+  const _HistoryRow({required this.point, required this.unit})
+    : _header = false;
+
+  const _HistoryRow.header(ThemeData _)
+    : point = null,
+      unit = WeightUnit.kg,
+      _header = true;
+
+  final ExercisePoint? point;
+  final WeightUnit unit;
+  final bool _header;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final p = point;
+    final labelStyle = theme.textTheme.labelSmall;
+    final cell = theme.textTheme.bodyMedium?.copyWith(
+      color: AppColors.textPrimary,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 64,
+            child: Text(
+              _header ? 'DATE' : Dates.dayMonth(p!.date),
+              style: _header ? labelStyle : theme.textTheme.bodySmall,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              _header
+                  ? 'TOP SET'
+                  : '${Fmt.weight(p!.topWeightKg, unit)} × ${p.topReps}',
+              style: _header ? labelStyle : cell,
+            ),
+          ),
+          SizedBox(
+            width: 82,
+            child: Text(
+              _header ? 'E1RM' : Fmt.weight(p!.best1RM, unit),
+              textAlign: TextAlign.right,
+              style: _header
+                  ? labelStyle
+                  : cell?.copyWith(color: AppColors.volt),
+            ),
+          ),
+          SizedBox(
+            width: 44,
+            child: Text(
+              _header ? 'SETS' : '${p!.sets}',
+              textAlign: TextAlign.right,
+              style: _header ? labelStyle : theme.textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

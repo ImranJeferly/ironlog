@@ -489,7 +489,10 @@ class _AdherenceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final done = consistency?.sessionsThisWeek ?? 0;
+    final target = consistency?.scheduledPerWeek ?? 6;
     final adherence = consistency?.weeklyAdherence ?? 0.0;
+    final streak = consistency?.currentStreak ?? 0;
+    final fourWeek = consistency?.fourWeekAdherence ?? 0.0;
 
     return AppCard(
       child: Column(
@@ -501,8 +504,7 @@ class _AdherenceCard extends StatelessWidget {
                 child: Text('THIS WEEK', style: theme.textTheme.labelSmall),
               ),
               Text(
-                '$done of ${consistency?.scheduledPerWeek ?? 4} gym days · '
-                '${Fmt.percent(adherence)}',
+                '$done of $target sessions · ${Fmt.percent(adherence)}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: adherence >= 1
                       ? AppColors.volt
@@ -514,8 +516,72 @@ class _AdherenceCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           _WeekStrip(consistency: consistency),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: _ConsistencyStat(
+                  value: '$streak',
+                  label: 'session streak',
+                  accent: streak >= target ? AppColors.volt : null,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _ConsistencyStat(
+                  value: Fmt.percent(fourWeek),
+                  label: '4-week adherence',
+                  accent: fourWeek >= 1 ? AppColors.volt : null,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _ConsistencyStat(
+                  value: '${consistency?.sessionsLast4Weeks ?? 0}',
+                  label: 'last 28 days',
+                ),
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// Compact value + caption used under the week strip.
+class _ConsistencyStat extends StatelessWidget {
+  const _ConsistencyStat({
+    required this.value,
+    required this.label,
+    this.accent,
+  });
+
+  final String value;
+  final String label;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: accent ?? AppColors.textPrimary,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall,
+        ),
+      ],
     );
   }
 }

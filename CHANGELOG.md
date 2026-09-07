@@ -74,3 +74,22 @@ All notable changes to IronLog. Newest first.
 - **Steps** keep syncing from Health Connect; the card adds a 7-day rolling
   average.
 - Today card fields (weight, kcal, protein, sleep) stay one-tap editable.
+
+### 4. Volume screen
+- Progress › Muscles is now **weekly hard sets per muscle** (warm-ups and
+  explosive work excluded, secondary muscles ×0.5) against an **editable
+  target band** per muscle — defaults Chest 12–16, Back 12–16, Quads 10–14,
+  Hamstrings 8–12, Side Delts 8–12, Rear Delts 6–10, Biceps/Triceps 8–12,
+  Calves 8–12, Core 6–10. **Red under, amber over**, volt in band.
+- Tap a muscle → the exercises behind the number this week, a **4-week
+  tonnage trend**, and the target editor.
+
+### 5. Per-exercise trend
+- Exercise detail defaults to a **top-set + e1RM (Epley)** chart, shows the
+  **STALLED** badge, and ends with a **last-5-sessions table** (date · top
+  set · e1RM · sets). Stalled lifts are badged in the exercise list too.
+
+### 7. Consistency
+- With the program active, Home measures the week against its **6-session
+  target**, shows the **current streak** (consecutive sessions no more than
+  3 days apart) and a **rolling 4-week adherence %**.

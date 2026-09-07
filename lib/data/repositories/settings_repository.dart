@@ -1,5 +1,6 @@
 import '../../domain/enums.dart';
 import '../../domain/program.dart';
+import '../../domain/volume.dart';
 import '../db/database.dart';
 
 class AppSettings {
@@ -183,6 +184,30 @@ class SettingsRepository {
     SettingKeys.bwTargetMax,
     (kgPerWeek.clamp(-1.0, 1.5)).toStringAsFixed(2),
   );
+
+  // ------------------------------------------------------- volume targets
+
+  static String _volumeKey(Muscle m) => 'vol_target_${m.key}';
+
+  /// Weekly hard-set bands per muscle: user overrides on top of the spec
+  /// defaults.
+  Future<Map<Muscle, VolumeTarget>> volumeTargets() async {
+    final out = Map<Muscle, VolumeTarget>.of(VolumeCalc.defaultTargets);
+    for (final m in Muscle.values) {
+      final raw = await _db.getSetting(_volumeKey(m));
+      if (raw == null) continue;
+      final parts = raw.split('-');
+      if (parts.length != 2) continue;
+      final lo = int.tryParse(parts[0]);
+      final hi = int.tryParse(parts[1]);
+      if (lo == null || hi == null || lo < 0 || hi < lo) continue;
+      out[m] = VolumeTarget(lo, hi);
+    }
+    return out;
+  }
+
+  Future<void> setVolumeTarget(Muscle m, int min, int max) =>
+      _db.setSetting(_volumeKey(m), '$min-$max');
 
   /// How often the pre-session weigh-in was skipped — kept so it's visible,
   /// not to nag.

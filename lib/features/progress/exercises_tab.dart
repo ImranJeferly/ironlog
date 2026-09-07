@@ -17,6 +17,7 @@ class ExercisesTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final index = ref.watch(exerciseIndexProvider).value ?? const [];
+    final stalled = ref.watch(stalledExercisesProvider).value ?? const <String>{};
 
     if (index.isEmpty) {
       return const EmptyState(
@@ -36,7 +37,8 @@ class ExercisesTab extends ConsumerWidget {
         120,
       ),
       children: [
-        for (final row in trained) _ExerciseRow(row: row),
+        for (final row in trained)
+          _ExerciseRow(row: row, stalled: stalled.contains(row.$1.id)),
         if (untouched.isNotEmpty) ...[
           SectionHeader(
             'Not logged yet',
@@ -53,9 +55,10 @@ class ExercisesTab extends ConsumerWidget {
 }
 
 class _ExerciseRow extends StatelessWidget {
-  const _ExerciseRow({required this.row});
+  const _ExerciseRow({required this.row, this.stalled = false});
 
   final (ExerciseRow, DateTime?, int) row;
+  final bool stalled;
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +106,10 @@ class _ExerciseRow extends StatelessWidget {
               ],
             ),
           ),
+          if (stalled) ...[
+            const VoltBadge('STALLED', color: AppColors.warning),
+            const SizedBox(width: 8),
+          ],
           const Icon(
             Icons.arrow_forward_ios,
             size: 13,
