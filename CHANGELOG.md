@@ -92,4 +92,17 @@ All notable changes to IronLog. Newest first.
 ### 7. Consistency
 - With the program active, Home measures the week against its **6-session
   target**, shows the **current streak** (consecutive sessions no more than
-  3 days apart) and a **rolling 4-week adherence %**.
+  3 days apart), a **rolling 4-week adherence %** and sessions in the last
+  28 days.
+
+### 8. Export + tests
+- `sessions.csv` gains `program_day`, `ended_at`, `duration_suspect`,
+  `primary_muscle`, `secondary_muscle`, `is_explosive`.
+- New **`weekly_volume.csv`** — `week, muscle, hard_sets, tonnage_kg`, the
+  same accounting as the Volume screen, for every trained week.
+- `metrics.csv` now exports every column (incl. the from-Health flags and
+  `updated_at`).
+- Soft-deleted rows are excluded from every file.
+- Tests: data-integrity rules, exercise model + backfill, program rotation /
+  prescriptions / deload, RPE-gated progression, volume calculation, CSV
+  export.
