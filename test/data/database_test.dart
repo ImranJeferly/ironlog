@@ -32,7 +32,7 @@ void main() {
       );
     });
 
-    test('loads Push, Pull, Legs and Arms templates in order', () async {
+    test('loads the legacy days, then the PPL 6-Day v2 days, in order', () async {
       final templates = await db.watchTemplates().first;
 
       expect(templates.map((t) => t.name), [
@@ -40,7 +40,17 @@ void main() {
         'Pull',
         'Legs',
         'Arms',
+        'Push A',
+        'Pull A',
+        'Legs A',
+        'Push B',
+        'Pull B',
+        'Legs B',
       ]);
+      // Program days rotate; they are never pinned to a weekday.
+      for (final t in templates.skip(4)) {
+        expect(t.weekday, isNull, reason: t.name);
+      }
       expect(templates[0].weekday, DateTime.monday);
       expect(templates[1].weekday, DateTime.wednesday);
       expect(templates[2].weekday, DateTime.friday);

@@ -74,6 +74,13 @@ void main() {
       final id = await repo.startSessionFromTemplate('push');
       expect((await db.activeSession())?.id, id);
 
+      // A session needs at least one working set before it can be saved.
+      await repo.logSet(
+        sessionId: id,
+        exerciseId: 'incline-db-press',
+        weightKg: 30,
+        reps: 6,
+      );
       await repo.finishSession(id);
       expect(await db.activeSession(), isNull);
     });

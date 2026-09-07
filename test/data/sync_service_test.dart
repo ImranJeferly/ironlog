@@ -2,6 +2,7 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gym/data/db/database.dart';
+import 'package:gym/data/db/seed_data.dart';
 import 'package:gym/data/repositories/settings_repository.dart';
 import 'package:gym/data/repositories/workout_repository.dart';
 import 'package:gym/data/sync/firebase_bootstrap.dart';
@@ -73,7 +74,10 @@ void main() {
 
       expect(result.state, SyncState.success);
       expect(remote.countIn(SyncCollections.exercises), greaterThan(0));
-      expect(remote.countIn(SyncCollections.templates), 4);
+      expect(
+        remote.countIn(SyncCollections.templates),
+        SeedData.templates.length,
+      );
       expect(await sync.pendingCount(), 0);
     });
 

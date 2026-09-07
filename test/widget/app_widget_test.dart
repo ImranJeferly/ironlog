@@ -299,7 +299,13 @@ void main() {
     testWidgets('switching to lb persists the unit', (tester) async {
       await withScreen(tester, const SettingsScreen(), () async {
         // Units now live below the account/training-day cards.
+        // scrollUntilVisible stops once the ListView has *built* the row,
+        // which can still be in the cache extent below the fold — the
+        // settings list has grown — so bring it fully on-screen before
+        // tapping.
         await tester.scrollUntilVisible(find.text('LB'), 300, maxScrolls: 30);
+        await tester.ensureVisible(find.text('LB'));
+        await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(find.text('LB'));
         await tester.pump(const Duration(milliseconds: 300));
 
