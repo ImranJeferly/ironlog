@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../domain/enums.dart';
 import 'seed_data.dart';
@@ -28,12 +29,19 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.withExecutor(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
+    },
+    onUpgrade: (m, from, to) async {
+      // v2: sessions.duration_suspect (implausible durations are capped and
+      // flagged instead of silently inflating history).
+      if (from < 2) {
+        await m.addColumn(sessions, sessions.durationSuspect);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -45,8 +53,101 @@ class AppDatabase extends _$AppDatabase {
       // an exercise to SeedData in a later release backfills existing installs
       // without touching anything the user has edited.
       await seedIfNeeded();
+      await _repairDataIntegrity();
     },
   );
+
+  /// Maximum plausible session length. Anything longer is almost always the
+  /// app left open — it gets capped and flagged rather than counted.
+  static const maxSessionMinutes = 240;
+
+  /// One-time data repair: cap and flag implausibly long sessions, tombstone
+  /// completed sessions that have no working sets, and tombstone "phantom"
+  /// sets (0 kg and ≤1 rep on a non-bodyweight exercise). Tombstones rather
+  /// than hard deletes so the fixes reach the account. Runs once per install.
+  Future<void> _repairDataIntegrity() async {
+    const flag = 'data_repair_v1';
+    if (await getSetting(flag) != null) return;
+    final now = DateTime.now();
+
+    // 1) Sessions over the cap.
+    final long = await (select(
+      sessions,
+    )..where((t) => t.durationMin.isBiggerThanValue(maxSessionMinutes))).get();
+    for (final s in long) {
+      await (update(sessions)..where((t) => t.id.equals(s.id))).write(
+        SessionsCompanion(
+          durationMin: const Value(maxSessionMinutes),
+          durationSuspect: const Value(true),
+          updatedAt: Value(now),
+          synced: const Value(false),
+        ),
+      );
+    }
+
+    // 2) Phantom sets, sparing bodyweight moves where 0 kg is legitimate.
+    final bodyweightIds = (await (select(
+      exercises,
+    )..where((t) => t.isBodyweight.equals(true))).get()).map((e) => e.id).toSet();
+    final phantoms =
+        await (select(workoutSets)..where(
+              (t) =>
+                  t.deleted.equals(false) &
+                  t.weightKg.equals(0.0) &
+                  t.reps.isSmallerOrEqualValue(1),
+            ))
+            .get();
+    var phantomCount = 0;
+    for (final s in phantoms) {
+      if (bodyweightIds.contains(s.exerciseId)) continue;
+      await (update(workoutSets)..where((t) => t.id.equals(s.id))).write(
+        WorkoutSetsCompanion(
+          deleted: const Value(true),
+          updatedAt: Value(now),
+          synced: const Value(false),
+        ),
+      );
+      await (update(personalRecords)..where((t) => t.setId.equals(s.id))).write(
+        PersonalRecordsCompanion(
+          deleted: const Value(true),
+          updatedAt: Value(now),
+          synced: const Value(false),
+        ),
+      );
+      phantomCount++;
+    }
+
+    // 3) Completed sessions with no working sets left.
+    final complete = await (select(
+      sessions,
+    )..where((t) => t.isComplete.equals(true) & t.deleted.equals(false))).get();
+    var emptyCount = 0;
+    for (final s in complete) {
+      final working =
+          await (select(workoutSets)..where(
+                (t) =>
+                    t.sessionId.equals(s.id) &
+                    t.deleted.equals(false) &
+                    t.isWarmup.equals(false),
+              ))
+              .get();
+      if (working.isNotEmpty) continue;
+      await (update(sessions)..where((t) => t.id.equals(s.id))).write(
+        SessionsCompanion(
+          deleted: const Value(true),
+          updatedAt: Value(now),
+          synced: const Value(false),
+        ),
+      );
+      emptyCount++;
+    }
+
+    debugPrint(
+      'IronLog: data repair — ${long.length} long session(s) capped, '
+      '$phantomCount phantom set(s) removed, $emptyCount empty session(s) removed',
+    );
+    await setSetting(flag, 'done');
+  }
 
   /// One-time migration: the "Arms" muscle group became "Biceps" and "Triceps".
   /// Known tricep movements go to Triceps; every other former-arms exercise

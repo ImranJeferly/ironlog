@@ -11,6 +11,18 @@ import '../db/database.dart';
 
 /// The result of logging a set — the UI uses this to decide whether to fire the
 /// PR celebration and start the rest timer.
+/// Thrown when a set is too empty to be real: 0 kg and at most 1 rep on an
+/// exercise that isn't bodyweight. Such rows are almost always mis-taps and
+/// would poison volume and PR history.
+class PhantomSetException implements Exception {
+  const PhantomSetException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class LogSetResult {
   const LogSetResult({required this.setId, required this.prs});
 
@@ -220,6 +232,18 @@ class WorkoutRepository {
     int? setNo,
   }) async {
     final now = DateTime.now();
+
+    // Reject phantom sets (0 kg × ≤1 rep) unless the movement is bodyweight,
+    // where an added load of 0 is a real, loggable set.
+    if (weightKg <= 0 && reps <= 1) {
+      final exercise = await _db.exerciseById(exerciseId);
+      if (exercise == null || !exercise.isBodyweight) {
+        throw const PhantomSetException(
+          'That set is empty (0 kg × 1 rep) — set a weight and reps first.',
+        );
+      }
+    }
+
     final existing = await (_db.select(_db.workoutSets)..where(
           (t) =>
               t.sessionId.equals(sessionId) &
@@ -399,22 +423,39 @@ class WorkoutRepository {
   }
 
   /// Closes the session and denormalises duration/tonnage/set count.
-  Future<SessionRow?> finishSession(String sessionId) async {
+  ///
+  /// Refuses (returns null, leaving the session open) when there are no
+  /// working sets — an empty session must be discarded, never saved.
+  /// [endedAt] lets an auto-ended session close at its last real set rather
+  /// than at "now". Durations over [AppDatabase.maxSessionMinutes] are capped
+  /// and flagged `durationSuspect` so a forgotten open app can't inflate stats.
+  Future<SessionRow?> finishSession(
+    String sessionId, {
+    DateTime? endedAt,
+  }) async {
     final session = await _db.sessionById(sessionId);
     if (session == null) return null;
 
     final sets = await _db.setsForSession(sessionId);
     final working = sets.where((s) => !s.isWarmup).toList();
+    if (working.isEmpty) return null;
+
     final now = DateTime.now();
+    final end = endedAt ?? now;
     final tonnage = StrengthMath.tonnage(
       working.map((s) => SetPerformance(weightKg: s.weightKg, reps: s.reps)),
     );
-    final duration = now.difference(session.startedAt);
+    final rawMinutes = end.difference(session.startedAt).inMinutes;
+    final suspect = rawMinutes > AppDatabase.maxSessionMinutes;
+    final minutes = suspect
+        ? AppDatabase.maxSessionMinutes
+        : (rawMinutes < 0 ? 0 : rawMinutes);
 
     await (_db.update(_db.sessions)..where((t) => t.id.equals(sessionId))).write(
       SessionsCompanion(
-        endedAt: Value(now),
-        durationMin: Value(duration.inMinutes),
+        endedAt: Value(end),
+        durationMin: Value(minutes),
+        durationSuspect: Value(suspect),
         tonnageKg: Value(tonnage),
         totalSets: Value(working.length),
         isComplete: const Value(true),

@@ -86,6 +86,19 @@ class SessionView {
   Duration get elapsed =>
       (session.endedAt ?? DateTime.now()).difference(session.startedAt);
 
+  /// The last moment the lifter did something: the newest logged set, or the
+  /// session start if nothing has been logged yet. Drives the idle watchdog
+  /// and is the honest end time for an auto-ended session.
+  DateTime get lastActivityAt {
+    var latest = session.startedAt;
+    for (final e in exercises) {
+      for (final s in e.sets) {
+        if (s.completedAt.isAfter(latest)) latest = s.completedAt;
+      }
+    }
+    return latest;
+  }
+
   double get tonnageKg =>
       exercises.fold(0.0, (sum, e) => sum + e.tonnageKg);
 

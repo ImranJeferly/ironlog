@@ -174,6 +174,7 @@ abstract final class SyncMappers {
     'saunaDone': r.saunaDone,
     'notes': r.notes,
     'isComplete': r.isComplete,
+    'durationSuspect': r.durationSuspect,
     'updatedAt': isoUtc(r.updatedAt),
     'deleted': r.deleted,
   };
@@ -206,6 +207,7 @@ abstract final class SyncMappers {
       saunaDone: Value(_bool(m['saunaDone'])),
       notes: Value(m['notes'] as String?),
       isComplete: Value(_bool(m['isComplete'])),
+      durationSuspect: Value(_bool(m['durationSuspect'])),
       updatedAt: Value(updatedAt),
       deleted: Value(_bool(m['deleted'])),
       synced: const Value(true),

@@ -90,6 +90,11 @@ class Sessions extends Table with SyncColumns {
   TextColumn get notes => text().nullable()();
   BoolColumn get isComplete => boolean().withDefault(const Constant(false))();
 
+  /// True when the wall-clock duration was implausible (>240 min — e.g. the
+  /// app was left open overnight) and `durationMin` was capped.
+  BoolColumn get durationSuspect =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

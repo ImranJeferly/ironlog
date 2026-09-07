@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/utils/haptics.dart';
+import '../../data/repositories/workout_repository.dart';
 import '../../domain/enums.dart';
 import '../../domain/session_view.dart';
 import '../../widgets/app_card.dart';
@@ -43,10 +44,95 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   final _pager = PageController();
   int _page = 0;
 
+  // ---- idle watchdog: auto-end an abandoned session ----
+  static const _idleAfter = Duration(minutes: 45);
+  static const _answerWithin = Duration(minutes: 5);
+  Timer? _idleTicker;
+  Timer? _autoEndTimer;
+  bool _promptOpen = false;
+
+  /// When the lifter last confirmed "still going", so the idle window restarts
+  /// from then instead of from the last logged set.
+  DateTime? _idleAcknowledgedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _idleTicker = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _checkIdle(),
+    );
+  }
+
   @override
   void dispose() {
+    _idleTicker?.cancel();
+    _autoEndTimer?.cancel();
     _pager.dispose();
     super.dispose();
+  }
+
+  void _checkIdle() {
+    if (!mounted || _promptOpen) return;
+    final view = ref.read(sessionViewProvider(widget.sessionId)).value;
+    if (view == null || view.isComplete) return;
+    var since = view.lastActivityAt;
+    final acked = _idleAcknowledgedAt;
+    if (acked != null && acked.isAfter(since)) since = acked;
+    if (DateTime.now().difference(since) < _idleAfter) return;
+    _promptStillTraining(view);
+  }
+
+  /// "Still training?" after 45 idle minutes. No answer within 5 minutes ends
+  /// the session at its last logged set, so a forgotten app can't record a
+  /// six-hour workout.
+  Future<void> _promptStillTraining(SessionView view) async {
+    _promptOpen = true;
+    _autoEndTimer = Timer(_answerWithin, () {
+      if (!mounted || !_promptOpen) return;
+      Navigator.of(context, rootNavigator: true).pop(false);
+    });
+
+    final stillGoing = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Still training?'),
+        content: Text(
+          'No set logged for ${_idleAfter.inMinutes} minutes. If you\'re '
+          'done, the session ends at your last set.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              'End session',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Still going',
+              style: TextStyle(
+                color: AppColors.volt,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    _autoEndTimer?.cancel();
+    _promptOpen = false;
+    if (!mounted) return;
+    if (stillGoing == true) {
+      _idleAcknowledgedAt = DateTime.now();
+      return;
+    }
+    await _finish(view, endedAt: view.lastActivityAt);
   }
 
   @override
@@ -235,21 +321,49 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     );
     if (result == null || !mounted) return;
 
-    final completesExercise =
-        exercise.sets.length + 1 >= exercise.targetSets;
+    final setNo = exercise.sets.length + 1;
+    final completesExercise = setNo >= exercise.targetSets;
 
-    final logged = await ref
-        .read(workoutRepositoryProvider)
-        .logSet(
-          sessionId: widget.sessionId,
-          exerciseId: exercise.exercise.id,
-          weightKg: result.weightKg,
-          reps: result.reps,
-          rpe: result.rpe,
-          note: result.note,
+    final LogSetResult logged;
+    try {
+      logged = await ref
+          .read(workoutRepositoryProvider)
+          .logSet(
+            sessionId: widget.sessionId,
+            exerciseId: exercise.exercise.id,
+            weightKg: result.weightKg,
+            reps: result.reps,
+            rpe: result.rpe,
+            note: result.note,
+          );
+    } on PhantomSetException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
         );
+      }
+      return;
+    }
 
     await Haptics.impact();
+
+    // One-tap undo for mis-logged sets — deleting also retracts any PR the
+    // set produced.
+    if (mounted) {
+      final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Set $setNo logged'),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'UNDO',
+            textColor: AppColors.volt,
+            onPressed: () =>
+                ref.read(workoutRepositoryProvider).deleteSet(logged.setId),
+          ),
+        ),
+      );
+    }
 
     final settings = ref.read(settingsProvider);
     if (settings.restTimerEnabled && !completesExercise) {
@@ -362,11 +476,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     );
   }
 
-  Future<void> _finish(SessionView view) async {
+  /// Saves the session. A session with no working sets can never be saved —
+  /// the only exit is Discard. [endedAt] is passed by the idle watchdog so an
+  /// auto-ended session closes at its last set, not at "now".
+  Future<void> _finish(SessionView view, {DateTime? endedAt}) async {
     if (view.totalSets == 0) {
       final discard = await _confirm(
         title: 'Nothing logged',
-        message: 'Discard this session?',
+        message: 'A session with no working sets can\'t be saved. '
+            'Discard it?',
         confirmLabel: 'Discard',
         danger: true,
       );
@@ -379,7 +497,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
 
     final session = await ref
         .read(workoutRepositoryProvider)
-        .finishSession(widget.sessionId);
+        .finishSession(widget.sessionId, endedAt: endedAt);
     ref.read(restTimerProvider.notifier).stop();
     ref.read(analyticsRevisionProvider.notifier).bump();
     unawaited(ref.read(syncControllerProvider.notifier).sync());

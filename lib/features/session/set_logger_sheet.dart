@@ -123,6 +123,10 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
     final setNo = widget.isEdit
         ? null
         : exercise.sets.length + 1;
+    // RPE is what the progression and deload rules run on, so it's mandatory
+    // on the set that closes out an exercise and optional elsewhere.
+    final requireRpe =
+        !widget.isEdit && exercise.sets.length + 1 >= exercise.targetSets;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -249,8 +253,23 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
 
               const SizedBox(height: AppSpacing.md),
 
-              // ---- RPE ----
-              Text('HOW DID IT FEEL?', style: theme.textTheme.labelSmall),
+              // ---- RPE (6–10; required on an exercise's last set) ----
+              Row(
+                children: [
+                  Text('HOW DID IT FEEL?', style: theme.textTheme.labelSmall),
+                  if (requireRpe) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      _rpe == null ? '· required on the last set' : '· ✓',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: _rpe == null
+                            ? AppColors.warning
+                            : AppColors.volt,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
               const SizedBox(height: AppSpacing.sm),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -300,7 +319,9 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
                           ? 'Save set'
                           : 'Log ${Fmt.weight(_weightKg, widget.unit)} × $_repCount',
                       icon: Icons.check_rounded,
-                      onPressed: () {
+                      onPressed: (requireRpe && _rpe == null)
+                          ? null
+                          : () {
                         Haptics.impact();
                         Navigator.of(context).pop(
                           SetLogResult(

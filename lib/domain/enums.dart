@@ -94,7 +94,8 @@ enum RpeLevel {
   easy(6, '😤', 'Easy'),
   solid(7, '💪', 'Solid'),
   hard(8, '🔥', 'Hard'),
-  grinder(9, '💀', 'Grinder');
+  grinder(9, '💀', 'Grinder'),
+  allOut(10, '🥵', 'Max');
 
   const RpeLevel(this.rpe, this.emoji, this.label);
 
