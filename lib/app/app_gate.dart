@@ -63,7 +63,7 @@ class _AppGateState extends ConsumerState<AppGate> {
 
     // Prefer the live auth stream, but fall back to the synchronously-known
     // current user so a persisted session doesn't flash the login screen.
-    final streamed = ref.watch(authUserProvider).valueOrNull;
+    final streamed = ref.watch(authUserProvider).value;
     final user = streamed ?? ref.read(authServiceProvider).currentUser;
 
     if (user == null || user.isAnonymous) return const AuthScreen();

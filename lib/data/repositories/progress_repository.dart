@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:drift/drift.dart';
+
 import '../../core/utils/date_x.dart';
 import '../../domain/enums.dart';
 import '../../domain/strength_math.dart';
