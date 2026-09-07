@@ -10,6 +10,7 @@ import '../../core/utils/format.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../domain/enums.dart';
+import '../../domain/program.dart';
 import '../../domain/session_view.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
@@ -50,6 +51,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   Timer? _idleTicker;
   Timer? _autoEndTimer;
   bool _promptOpen = false;
+  bool _warnedOvertime = false;
 
   /// When the lifter last confirmed "still going", so the idle window restarts
   /// from then instead of from the last logged set.
@@ -73,9 +75,26 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
   }
 
   void _checkIdle() {
-    if (!mounted || _promptOpen) return;
+    if (!mounted) return;
     final view = ref.read(sessionViewProvider(widget.sessionId)).value;
     if (view == null || view.isComplete) return;
+
+    // One-time nudge once the session runs past the 90-minute warning.
+    if (!_warnedOvertime &&
+        DateTime.now().difference(view.session.startedAt) >=
+            SessionTargets.warn) {
+      _warnedOvertime = true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Over ${SessionTargets.warn.inMinutes} min — time to wrap up.',
+          ),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
+
+    if (_promptOpen) return;
     var since = view.lastActivityAt;
     final acked = _idleAcknowledgedAt;
     if (acked != null && acked.isAfter(since)) since = acked;
@@ -704,9 +723,17 @@ class _ElapsedTextState extends State<_ElapsedText> {
   @override
   Widget build(BuildContext context) {
     final elapsed = DateTime.now().difference(widget.startedAt);
+    // Session target is 80 min; the colour turns before it's a problem.
+    final over = elapsed >= SessionTargets.warn;
+    final near = elapsed >= SessionTargets.target;
     return Text(
-      Fmt.duration(elapsed),
-      style: Theme.of(context).textTheme.bodySmall,
+      '${Fmt.duration(elapsed)} / ${SessionTargets.target.inMinutes} min',
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: over
+            ? AppColors.danger
+            : (near ? AppColors.warning : null),
+        fontWeight: near ? FontWeight.w700 : null,
+      ),
     );
   }
 }
@@ -819,6 +846,11 @@ class _ExercisePage extends ConsumerWidget {
     final theme = Theme.of(context);
     final unit = ref.watch(unitProvider);
     final done = exercise.isComplete;
+    final stalled =
+        ref.watch(stalledExercisesProvider).value?.contains(
+          exercise.exercise.id,
+        ) ??
+        false;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -846,6 +878,10 @@ class _ExercisePage extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 8),
+            if (stalled && !done) ...[
+              const VoltBadge('STALLED', color: AppColors.warning),
+              const SizedBox(width: 6),
+            ],
             if (done)
               const Icon(Icons.check_circle, size: 22, color: AppColors.volt)
             else if (exercise.increaseFlagged)

@@ -76,6 +76,11 @@ class TemplateExercises extends Table with SyncColumns {
   /// (e.g. calf raises are 4 sets on legs day, 3 elsewhere).
   IntColumn get setsOverride => integer().nullable()();
 
+  /// Per-day rep range, when the program prescribes something other than the
+  /// exercise default (Leg Press 8–12 on Legs A but 12–15 on Legs B).
+  IntColumn get repMinOverride => integer().nullable()();
+  IntColumn get repMaxOverride => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

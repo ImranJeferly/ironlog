@@ -23,7 +23,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final active = ref.watch(activeSessionProvider).value;
-    final todayTemplate = ref.watch(todayTemplateProvider);
+    final todayTemplate = ref.watch(nextWorkoutProvider);
     final consistency = ref.watch(consistencyProvider).value;
     final unit = ref.watch(unitProvider);
     final prs = ref.watch(personalRecordsProvider).value ?? const [];
@@ -70,6 +70,7 @@ class HomeScreen extends ConsumerWidget {
 
           const SizedBox(height: AppSpacing.md),
           _AdherenceCard(consistency: consistency),
+          const _DeloadBanner(),
 
           // Steps, water, food, sleep and weight all live in one place —
           // no duplicate tiles fighting for attention.
@@ -87,6 +88,98 @@ class HomeScreen extends ConsumerWidget {
             for (final pr in prs.take(3)) _PrRow(pr: pr, unit: unit),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Suggests a deload week when the calendar or the numbers call for one.
+/// One tap applies it to the next six sessions (half the sets, −10 % load).
+class _DeloadBanner extends ConsumerWidget {
+  const _DeloadBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rec = ref.watch(deloadRecommendationProvider).value;
+    if (rec == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.md),
+      child: AppCard(
+        borderColor: AppColors.warning.withValues(alpha: 0.5),
+        gradient: LinearGradient(
+          colors: [AppColors.warning.withValues(alpha: 0.12), AppColors.card],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.battery_alert_outlined,
+                  size: 18,
+                  color: AppColors.warning,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'DELOAD WEEK SUGGESTED',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.warning,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(rec.reason, style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Same exercises, half the sets, 10 % lighter — for the next '
+              '6 sessions.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  child: GhostButton(
+                    label: 'Not now',
+                    expanded: true,
+                    onPressed: () async {
+                      await ref.read(workoutRepositoryProvider).dismissDeload();
+                      ref.invalidate(deloadRecommendationProvider);
+                    },
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  flex: 2,
+                  child: VoltButton(
+                    label: 'Apply deload',
+                    icon: Icons.check_rounded,
+                    height: 48,
+                    onPressed: () async {
+                      await ref.read(workoutRepositoryProvider).applyDeload();
+                      ref.invalidate(deloadRecommendationProvider);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Deload on: next 6 sessions run lighter.',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -140,6 +233,8 @@ class _TodayWorkoutCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final accent = _accentOf(template);
+    final program = ref.watch(activeProgramProvider);
+    final deload = ref.watch(settingsProvider).deloadActive;
     final sessions = ref.watch(recentSessionsProvider).value ?? const [];
     final doneToday = sessions.any(
       (s) => s.isComplete && s.date.isSameDay(DateTime.now()),
@@ -161,14 +256,20 @@ class _TodayWorkoutCard extends ConsumerWidget {
               Text(
                 doneToday
                     ? 'DONE TODAY'
-                    : (template == null ? 'REST DAY' : 'TODAY’S SESSION'),
+                    : (template == null
+                          ? 'REST DAY'
+                          : (program != null
+                                ? 'NEXT UP · ${program.name.toUpperCase()}'
+                                : 'TODAY’S SESSION')),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: doneToday ? AppColors.volt : accent,
                   letterSpacing: 1.6,
                 ),
               ),
               const Spacer(),
-              if (doneToday)
+              if (deload && !doneToday)
+                const VoltBadge('DELOAD', color: AppColors.warning)
+              else if (doneToday)
                 const VoltBadge('COMPLETE', icon: Icons.check, filled: true),
             ],
           ),

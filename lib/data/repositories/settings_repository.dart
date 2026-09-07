@@ -1,4 +1,5 @@
 import '../../domain/enums.dart';
+import '../../domain/program.dart';
 import '../db/database.dart';
 
 class AppSettings {
@@ -13,6 +14,10 @@ class AppSettings {
     this.stepGoal = 20000,
     this.firstRunComplete = false,
     this.lastSyncAt,
+    this.programId,
+    this.programCursor = 0,
+    this.programStartedAt,
+    this.deloadRemaining = 0,
   });
 
   final WeightUnit unit;
@@ -32,6 +37,17 @@ class AppSettings {
   final bool firstRunComplete;
   final DateTime? lastSyncAt;
 
+  /// Active program (null = plain weekday templates) and where in its
+  /// rotation the lifter is.
+  final String? programId;
+  final int programCursor;
+  final DateTime? programStartedAt;
+
+  /// Sessions left to run at deload intensity.
+  final int deloadRemaining;
+
+  bool get deloadActive => deloadRemaining > 0;
+
   int restForRole(ExerciseRole role) => switch (role) {
     ExerciseRole.primary || ExerciseRole.explosive => restSecondsPrimary,
     _ => restSeconds,
@@ -48,6 +64,10 @@ class AppSettings {
     int? stepGoal,
     bool? firstRunComplete,
     DateTime? lastSyncAt,
+    String? programId,
+    int? programCursor,
+    DateTime? programStartedAt,
+    int? deloadRemaining,
   }) {
     return AppSettings(
       unit: unit ?? this.unit,
@@ -60,6 +80,10 @@ class AppSettings {
       stepGoal: stepGoal ?? this.stepGoal,
       firstRunComplete: firstRunComplete ?? this.firstRunComplete,
       lastSyncAt: lastSyncAt ?? this.lastSyncAt,
+      programId: programId ?? this.programId,
+      programCursor: programCursor ?? this.programCursor,
+      programStartedAt: programStartedAt ?? this.programStartedAt,
+      deloadRemaining: deloadRemaining ?? this.deloadRemaining,
     );
   }
 }
@@ -111,6 +135,13 @@ class SettingsRepository {
       lastSyncAt: map[SettingKeys.lastSync] == null
           ? null
           : DateTime.tryParse(map[SettingKeys.lastSync]!),
+      programId: map[ProgramKeys.id],
+      programCursor: int.tryParse(map[ProgramKeys.cursor] ?? '') ?? 0,
+      programStartedAt: map[ProgramKeys.startedAt] == null
+          ? null
+          : DateTime.tryParse(map[ProgramKeys.startedAt]!),
+      deloadRemaining:
+          int.tryParse(map[ProgramKeys.deloadRemaining] ?? '') ?? 0,
     );
   }
 

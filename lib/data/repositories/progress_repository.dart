@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../../core/utils/date_x.dart';
 import '../../domain/enums.dart';
 import '../../domain/strength_math.dart';
+import '../../domain/program.dart';
 import '../db/database.dart';
 import '../db/seed_data.dart';
 
@@ -135,6 +136,19 @@ class BodyWeightSeries {
   double get deltaKg => movingAverageKg.length < 2
       ? 0
       : movingAverageKg.last - movingAverageKg.first;
+}
+
+/// Why a deload week is being suggested.
+class DeloadRecommendation {
+  const DeloadRecommendation({
+    required this.reason,
+    required this.stalledCount,
+    this.avgRpe,
+  });
+
+  final String reason;
+  final int stalledCount;
+  final double? avgRpe;
 }
 
 class ProgressRepository {
@@ -376,6 +390,104 @@ class ProgressRepository {
 
   /// Every exercise that has at least one logged set, most recently trained
   /// first — the Exercises tab list.
+  // ------------------------------------------------------- stalled / deload
+
+  /// Every exercise trained in the last [days] days that hasn't produced an
+  /// estimated-1RM PR in that window. PRs are detected on every logged set, so
+  /// a lift that's genuinely moving always clears this.
+  Future<Set<String>> stalledExerciseIds({int days = 28}) async {
+    final since = DateTime.now().dayStart.subtract(Duration(days: days));
+    final trained = <String>{};
+    for (final s in await _db.allSets()) {
+      if (s.deleted || s.isWarmup || s.completedAt.isBefore(since)) continue;
+      trained.add(s.exerciseId);
+    }
+    if (trained.isEmpty) return const {};
+
+    final prs =
+        await (_db.select(_db.personalRecords)..where(
+              (t) =>
+                  t.deleted.equals(false) &
+                  t.type.equalsValue(PrType.estimated1RM) &
+                  t.achievedAt.isBiggerOrEqualValue(since),
+            ))
+            .get();
+    final improved = prs.map((p) => p.exerciseId).toSet();
+    return trained.difference(improved);
+  }
+
+  /// Suggests a deload on either rule from the spec: every 7th program week,
+  /// or two consecutive full weeks at average RPE ≥ 8.8 with at least two
+  /// stalled lifts. Quiet while a deload is running or for three weeks after
+  /// one was applied or dismissed.
+  Future<DeloadRecommendation?> deloadRecommendation() async {
+    final now = DateTime.now();
+
+    final remaining =
+        int.tryParse(await _db.getSetting(ProgramKeys.deloadRemaining) ?? '') ??
+        0;
+    if (remaining > 0) return null;
+    for (final key in [ProgramKeys.lastDeloadAt, ProgramKeys.deloadDismissedAt]) {
+      final raw = await _db.getSetting(key);
+      final at = raw == null ? null : DateTime.tryParse(raw);
+      if (at != null && now.difference(at).inDays < 21) return null;
+    }
+
+    // Rule 1 — the calendar.
+    final startRaw = await _db.getSetting(ProgramKeys.startedAt);
+    final started = startRaw == null ? null : DateTime.tryParse(startRaw);
+    if (started != null) {
+      final week = now.dayStart.difference(started.dayStart).inDays ~/ 7 + 1;
+      if (week % 7 == 0) {
+        return DeloadRecommendation(
+          reason: 'Week $week of the program — a planned deload keeps the '
+              'next block moving.',
+          stalledCount: 0,
+        );
+      }
+    }
+
+    // Rule 2 — fatigue: the last two *full* weeks, not the one in progress.
+    final weekStart = now.weekStart;
+    final w1 = await _avgRpeBetween(
+      weekStart.subtract(const Duration(days: 14)),
+      weekStart.subtract(const Duration(days: 7)),
+    );
+    final w2 = await _avgRpeBetween(
+      weekStart.subtract(const Duration(days: 7)),
+      weekStart,
+    );
+    if (w1 == null || w2 == null || w1 < 8.8 || w2 < 8.8) return null;
+    final stalled = await stalledExerciseIds();
+    if (stalled.length < 2) return null;
+    return DeloadRecommendation(
+      reason: 'Average RPE ${w2.toStringAsFixed(1)} two weeks running and '
+          '${stalled.length} lifts stalled — back off before it backs you off.',
+      stalledCount: stalled.length,
+      avgRpe: w2,
+    );
+  }
+
+  /// Mean logged RPE over working sets in [from, to). Null when there isn't
+  /// enough RPE data to mean anything.
+  Future<double?> _avgRpeBetween(DateTime from, DateTime to) async {
+    final sessions = await _db.sessionsBetween(
+      from,
+      to.subtract(const Duration(milliseconds: 1)),
+    );
+    var sum = 0;
+    var n = 0;
+    for (final s in sessions) {
+      if (!s.isComplete) continue;
+      for (final set in await _db.setsForSession(s.id)) {
+        if (set.isWarmup || set.rpe == null) continue;
+        sum += set.rpe!;
+        n++;
+      }
+    }
+    return n < 6 ? null : sum / n;
+  }
+
   Future<List<(ExerciseRow, DateTime?, int)>> exerciseIndex() async {
     final exercises = await _db.allExercises();
     final sets = await _db.allSets();

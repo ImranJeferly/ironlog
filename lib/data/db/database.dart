@@ -2,7 +2,9 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../core/utils/date_x.dart';
 import '../../domain/enums.dart';
+import '../../domain/program.dart';
 import 'seed_data.dart';
 import 'tables.dart';
 
@@ -29,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.withExecutor(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -47,6 +49,12 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(exercises, exercises.isExplosive);
         await m.addColumn(exercises, exercises.primaryMuscle);
         await m.addColumn(exercises, exercises.secondaryMuscle);
+      }
+      // v4: per-day rep ranges on template exercises (the 6-day program
+      // prescribes different ranges for the same lift on different days).
+      if (from < 4) {
+        await m.addColumn(templateExercises, templateExercises.repMinOverride);
+        await m.addColumn(templateExercises, templateExercises.repMaxOverride);
       }
     },
     beforeOpen: (details) async {
@@ -293,21 +301,43 @@ class AppDatabase extends _$AppDatabase {
             updatedAt: Value(now),
           ),
         );
-        for (var i = 0; i < seed.exerciseIds.length; i++) {
+        final items = seed.items;
+        for (var i = 0; i < items.length; i++) {
+          final p = items[i];
           b.insert(
             templateExercises,
             TemplateExercisesCompanion.insert(
-              id: '${seed.id}__${seed.exerciseIds[i]}',
+              id: '${seed.id}__${p.exerciseId}',
               templateId: seed.id,
-              exerciseId: seed.exerciseIds[i],
+              exerciseId: p.exerciseId,
               orderIndex: i,
+              setsOverride: Value(p.sets),
+              repMinOverride: Value(p.repMin),
+              repMaxOverride: Value(p.repMax),
               updatedAt: Value(now),
             ),
           );
         }
       }
     });
+
+    await _activateProgramIfNeeded(now);
   }
+
+  /// Makes the seeded 6-day program the active rotation on first launch after
+  /// it ships. Guarded so a user who later switches programs isn't fought.
+  Future<void> _activateProgramIfNeeded(DateTime now) async {
+    const flag = 'program_${_programActivationVersion}_activated';
+    if (await getSetting(flag) != null) return;
+    if (await getSetting(ProgramKeys.id) == null) {
+      await setSetting(ProgramKeys.id, SeedData.program.id);
+      await setSetting(ProgramKeys.cursor, '0');
+      await setSetting(ProgramKeys.startedAt, now.dayStart.toIso8601String());
+    }
+    await setSetting(flag, 'done');
+  }
+
+  static const _programActivationVersion = 'ppl6v2';
 
   // ---------------------------------------------------------------- settings
 

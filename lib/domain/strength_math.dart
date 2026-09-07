@@ -2,10 +2,14 @@ import 'dart:math' as math;
 
 /// A single performed set, reduced to what the maths cares about.
 class SetPerformance {
-  const SetPerformance({required this.weightKg, required this.reps});
+  const SetPerformance({required this.weightKg, required this.reps, this.rpe});
 
   final double weightKg;
   final int reps;
+
+  /// Rate of perceived exertion (6–10) if it was logged. Progression only
+  /// awards a weight jump when the work was owned at RPE ≤ 9.
+  final int? rpe;
 
   double get volumeKg => weightKg * reps;
 

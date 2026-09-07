@@ -6,11 +6,11 @@ import '../../domain/enums.dart';
 import '../../domain/pr_detector.dart';
 import '../../domain/progression.dart';
 import '../../domain/session_view.dart';
+import '../../domain/program.dart';
 import '../../domain/strength_math.dart';
 import '../db/database.dart';
+import '../db/seed_data.dart';
 
-/// The result of logging a set — the UI uses this to decide whether to fire the
-/// PR celebration and start the rest timer.
 /// Thrown when a set is too empty to be real: 0 kg and at most 1 rep on an
 /// exercise that isn't bodyweight. Such rows are almost always mis-taps and
 /// would poison volume and PR history.
@@ -23,6 +23,8 @@ class PhantomSetException implements Exception {
   String toString() => message;
 }
 
+/// The result of logging a set — the UI uses this to decide whether to fire the
+/// PR celebration and start the rest timer.
 class LogSetResult {
   const LogSetResult({required this.setId, required this.prs});
 
@@ -43,12 +45,21 @@ class WorkoutRepository {
   // ------------------------------------------------------------- session CRUD
 
   /// Creates a session from a template, freezing each exercise's prescription
-  /// and the progression engine's suggestion at start time.
+  /// (the day's own sets / rep range when the program sets one) and the
+  /// progression engine's suggestion at start time.
+  ///
+  /// If a deload is in progress (see [applyDeload]) the session is built at
+  /// deload intensity — half the sets, −10 % load — and the counter ticks down.
   Future<String> startSessionFromTemplate(String templateId) async {
     final template = await _db.templateById(templateId);
     final rows = await _db.templateExerciseRows(templateId);
     final now = DateTime.now();
     final sessionId = _uuid.v4();
+
+    final deloadLeft =
+        int.tryParse(await _db.getSetting(ProgramKeys.deloadRemaining) ?? '') ??
+        0;
+    final deload = deloadLeft > 0;
 
     await _db.into(_db.sessions).insert(
       SessionsCompanion.insert(
@@ -56,7 +67,11 @@ class WorkoutRepository {
         date: now.dayStart,
         startedAt: now,
         templateId: Value(templateId),
-        templateName: Value(template?.name),
+        templateName: Value(
+          template == null
+              ? null
+              : (deload ? '${template.name} · Deload' : template.name),
+        ),
         updatedAt: Value(now),
       ),
     );
@@ -68,11 +83,36 @@ class WorkoutRepository {
         exercise: exercise,
         orderIndex: i,
         setsOverride: link.setsOverride,
+        repMinOverride: link.repMinOverride,
+        repMaxOverride: link.repMaxOverride,
+        deload: deload,
       );
+    }
+
+    if (deload) {
+      await _db.setSetting(ProgramKeys.deloadRemaining, '${deloadLeft - 1}');
     }
 
     return sessionId;
   }
+
+  /// Schedules the next [sessions] sessions at deload intensity.
+  Future<void> applyDeload({int sessions = 6}) async {
+    await _db.setSetting(ProgramKeys.deloadRemaining, '$sessions');
+    await _db.setSetting(
+      ProgramKeys.lastDeloadAt,
+      DateTime.now().dayStart.toIso8601String(),
+    );
+  }
+
+  Future<void> cancelDeload() =>
+      _db.setSetting(ProgramKeys.deloadRemaining, '0');
+
+  /// "Not now" on the deload banner — quiet for three weeks.
+  Future<void> dismissDeload() => _db.setSetting(
+    ProgramKeys.deloadDismissedAt,
+    DateTime.now().dayStart.toIso8601String(),
+  );
 
   /// An empty session the user fills in as they go.
   Future<String> startEmptySession({String? name}) async {
@@ -106,13 +146,35 @@ class WorkoutRepository {
     required ExerciseRow exercise,
     required int orderIndex,
     int? setsOverride,
+    int? repMinOverride,
+    int? repMaxOverride,
+    bool deload = false,
   }) async {
     final suggestion = await suggestionFor(
       exercise,
       excludingSessionId: sessionId,
       setsOverride: setsOverride,
+      repMinOverride: repMinOverride,
+      repMaxOverride: repMaxOverride,
     );
     final now = DateTime.now();
+
+    var targetSets = setsOverride ?? exercise.targetSets;
+    var suggested = suggestion.suggestedWeightKg;
+    var increase = suggestion.increaseFlagged;
+    if (deload) {
+      // Same exercises, half the sets (rounded up), −10 % load, no jumps.
+      final halved = (targetSets / 2).ceil();
+      targetSets = halved < 1 ? 1 : halved;
+      if (suggested != null) {
+        final base = suggestion.previousWeightKg ?? suggested;
+        suggested = StrengthMath.roundToIncrement(
+          base * 0.9,
+          exercise.incrementKg > 0 ? exercise.incrementKg : 2.5,
+        );
+      }
+      increase = false;
+    }
 
     await _db.into(_db.sessionExercises).insert(
       SessionExercisesCompanion.insert(
@@ -120,11 +182,11 @@ class WorkoutRepository {
         sessionId: sessionId,
         exerciseId: exercise.id,
         orderIndex: orderIndex,
-        targetSets: setsOverride ?? exercise.targetSets,
-        repRangeMin: exercise.repRangeMin,
-        repRangeMax: exercise.repRangeMax,
-        suggestedWeightKg: Value(suggestion.suggestedWeightKg),
-        increaseFlagged: Value(suggestion.increaseFlagged),
+        targetSets: targetSets,
+        repRangeMin: repMinOverride ?? exercise.repRangeMin,
+        repRangeMax: repMaxOverride ?? exercise.repRangeMax,
+        suggestedWeightKg: Value(suggested),
+        increaseFlagged: Value(increase),
         updatedAt: Value(now),
       ),
     );
@@ -135,6 +197,8 @@ class WorkoutRepository {
     ExerciseRow exercise, {
     String? excludingSessionId,
     int? setsOverride,
+    int? repMinOverride,
+    int? repMaxOverride,
   }) async {
     final lastSets = await _db.lastCompletedSetsForExercise(
       exercise.id,
@@ -142,14 +206,21 @@ class WorkoutRepository {
     );
     return ProgressionEngine.suggest(
       spec: ProgressionSpec(
-        role: exercise.role,
+        // Explosive work never auto-progresses, whichever role it was saved as.
+        role: exercise.isExplosive ? ExerciseRole.explosive : exercise.role,
         targetSets: setsOverride ?? exercise.targetSets,
-        repRangeMin: exercise.repRangeMin,
-        repRangeMax: exercise.repRangeMax,
+        repRangeMin: repMinOverride ?? exercise.repRangeMin,
+        repRangeMax: repMaxOverride ?? exercise.repRangeMax,
         incrementKg: exercise.incrementKg,
       ),
       lastSets: lastSets
-          .map((s) => SetPerformance(weightKg: s.weightKg, reps: s.reps))
+          .map(
+            (s) => SetPerformance(
+              weightKg: s.weightKg,
+              reps: s.reps,
+              rpe: s.rpe,
+            ),
+          )
           .toList(),
     );
   }
@@ -464,7 +535,29 @@ class WorkoutRepository {
       ),
     );
 
+    await _advanceRotation(session.templateId);
+
     return _db.sessionById(sessionId);
+  }
+
+  /// Moves the active program's cursor past the day just completed, so the
+  /// next session offered is the next one in the rotation whatever the date.
+  /// Completing a day out of order re-anchors the rotation there.
+  Future<void> _advanceRotation(String? templateId) async {
+    if (templateId == null) return;
+    final program = SeedData.program;
+    if (await _db.getSetting(ProgramKeys.id) != program.id) return;
+    if (!program.contains(templateId)) return;
+    await _db.setSetting(
+      ProgramKeys.cursor,
+      '${program.cursorAfter(templateId)}',
+    );
+    if (await _db.getSetting(ProgramKeys.startedAt) == null) {
+      await _db.setSetting(
+        ProgramKeys.startedAt,
+        DateTime.now().dayStart.toIso8601String(),
+      );
+    }
   }
 
   /// Throws away an abandoned session and everything attached to it. Used for
@@ -587,7 +680,13 @@ class WorkoutRepository {
         excludingSessionId: sessionId,
       );
       out[link.exerciseId] = ghosts
-          .map((s) => SetPerformance(weightKg: s.weightKg, reps: s.reps))
+          .map(
+            (s) => SetPerformance(
+              weightKg: s.weightKg,
+              reps: s.reps,
+              rpe: s.rpe,
+            ),
+          )
           .toList();
     }
     return out;

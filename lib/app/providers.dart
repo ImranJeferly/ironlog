@@ -8,6 +8,7 @@ import '../core/utils/date_x.dart';
 import '../core/utils/haptics.dart';
 import '../core/utils/stream_x.dart';
 import '../data/db/database.dart';
+import '../data/db/seed_data.dart';
 import '../data/export/csv_export.dart';
 import '../data/health/health_service.dart';
 import '../data/repositories/metrics_repository.dart';
@@ -19,6 +20,7 @@ import '../data/sync/auth_service.dart';
 import '../core/update/update_service.dart';
 import '../data/sync/sync_service.dart';
 import '../domain/enums.dart';
+import '../domain/program.dart';
 import '../domain/session_view.dart';
 import '../domain/strength_math.dart';
 
@@ -151,6 +153,40 @@ final todayTemplateProvider = Provider<TemplateRow?>((ref) {
     if (t.weekday == weekday) return t;
   }
   return null;
+});
+
+/// The active program, when settings point at the seeded rotation.
+final activeProgramProvider = Provider<ProgramDefinition?>((ref) {
+  final id = ref.watch(settingsProvider).programId;
+  return id == SeedData.program.id ? SeedData.program : null;
+});
+
+/// The workout to offer next: the program's next rotation day when a program
+/// is active (whatever the date), otherwise today's weekday template.
+final nextWorkoutProvider = Provider<TemplateRow?>((ref) {
+  final program = ref.watch(activeProgramProvider);
+  if (program == null) return ref.watch(todayTemplateProvider);
+  final id = program.dayAt(ref.watch(settingsProvider).programCursor);
+  for (final t in ref.watch(templatesProvider).value ?? const <TemplateRow>[]) {
+    if (t.id == id) return t;
+  }
+  return ref.watch(todayTemplateProvider);
+});
+
+/// Exercise ids with no e1RM PR in the last four weeks despite being trained.
+final stalledExercisesProvider = FutureProvider<Set<String>>((ref) {
+  ref.watch(analyticsRevisionProvider);
+  ref.watch(recentSessionsProvider);
+  return ref.watch(progressRepositoryProvider).stalledExerciseIds();
+});
+
+/// Non-null when a deload week should be suggested.
+final deloadRecommendationProvider = FutureProvider<DeloadRecommendation?>((
+  ref,
+) {
+  ref.watch(analyticsRevisionProvider);
+  ref.watch(settingsProvider);
+  return ref.watch(progressRepositoryProvider).deloadRecommendation();
 });
 
 /// The live exercise list of a template — drives the workout editor and the

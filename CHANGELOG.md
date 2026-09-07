@@ -40,3 +40,24 @@ All notable changes to IronLog. Newest first.
 - Custom-exercise sheet now picks primary + optional secondary muscle and an
   Explosive flag. New fields sync to the account.
 - Schema v3.
+
+### 3. Program: PPL 6-Day v2
+- **Six seeded days** — Push A / Pull A / Legs A / Push B / Pull B / Legs B —
+  each with its own sets × rep-range per exercise (template exercises gained
+  `rep_min_override` / `rep_max_override`; schema v4). Activated as the
+  program on first launch.
+- **Rotation, not weekdays.** Home offers the *next day in the rotation*;
+  finishing a day advances the cursor (finishing a day out of order
+  re-anchors there). A missed day never skips a workout.
+- **Starting loads** come from the last logged working weight; new exercises
+  open the sheet blank-ish and prompt on the first set.
+- **Double progression, RPE-gated.** Top of the rep range on every set *at
+  RPE ≤ 9* → +2.5 kg (upper) / +5 kg (lower) pre-filled next session. A set
+  ground out at RPE 10 repeats the weight instead.
+- **Stalled badge** on any exercise trained in the last 4 weeks without an
+  e1RM PR.
+- **Deload suggestion** on Home: every 7th program week, or two full weeks at
+  average RPE ≥ 8.8 with ≥ 2 stalled lifts. One tap applies it to the next 6
+  sessions (half the sets, −10 % load, no jumps); "Not now" snoozes it.
+- **Session clock** shows elapsed vs the 80-min target, turns amber at 80,
+  red at 90, and nudges you once past 90.

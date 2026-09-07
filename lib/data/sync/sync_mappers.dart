@@ -135,6 +135,8 @@ abstract final class SyncMappers {
     'exerciseId': r.exerciseId,
     'orderIndex': r.orderIndex,
     'setsOverride': r.setsOverride,
+    'repMinOverride': r.repMinOverride,
+    'repMaxOverride': r.repMaxOverride,
     'updatedAt': isoUtc(r.updatedAt),
     'deleted': r.deleted,
   };
@@ -158,6 +160,8 @@ abstract final class SyncMappers {
       exerciseId: Value(exerciseId),
       orderIndex: Value(_int(m['orderIndex']) ?? 0),
       setsOverride: Value(_int(m['setsOverride'])),
+      repMinOverride: Value(_int(m['repMinOverride'])),
+      repMaxOverride: Value(_int(m['repMaxOverride'])),
       updatedAt: Value(updatedAt),
       deleted: Value(_bool(m['deleted'])),
       synced: const Value(true),

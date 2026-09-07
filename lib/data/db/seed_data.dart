@@ -1,4 +1,5 @@
 import '../../domain/enums.dart';
+import '../../domain/program.dart';
 
 /// A seeded exercise definition. IDs are stable slugs so re-seeding is
 /// idempotent and Firestore documents keep the same keys across installs.
@@ -45,12 +46,24 @@ class SeedExercise {
   double get resolvedIncrementKg => incrementKg ?? primary.defaultIncrementKg;
 }
 
+/// One exercise slot in a seeded template, with the day's own prescription
+/// when it differs from the exercise default.
+class SeedPrescription {
+  const SeedPrescription(this.exerciseId, {this.sets, this.repMin, this.repMax});
+
+  final String exerciseId;
+  final int? sets;
+  final int? repMin;
+  final int? repMax;
+}
+
 class SeedTemplate {
   const SeedTemplate({
     required this.id,
     required this.name,
-    required this.exerciseIds,
     required this.orderIndex,
+    this.exerciseIds = const [],
+    this.prescriptions,
     this.weekday,
     this.cardioLabel,
     this.accentHex,
@@ -58,11 +71,19 @@ class SeedTemplate {
 
   final String id;
   final String name;
+
+  /// Plain list form — exercise defaults apply.
   final List<String> exerciseIds;
+
+  /// Prescribed form — per-slot sets / rep range. Wins over [exerciseIds].
+  final List<SeedPrescription>? prescriptions;
   final int orderIndex;
   final int? weekday;
   final String? cardioLabel;
   final String? accentHex;
+
+  List<SeedPrescription> get items =>
+      prescriptions ?? [for (final id in exerciseIds) SeedPrescription(id)];
 }
 
 /// The exercise library. Rep ranges follow the double-progression rule: the
@@ -456,7 +477,110 @@ abstract final class SeedData {
         'overhead-tricep-ext',
       ],
     ),
+
+    // ---------------- PPL 6-Day v2 (rotation, not weekday-bound) ----------
+    // Weaknesses first: chest, quads, hams. Sessions target 70–80 min.
+    SeedTemplate(
+      id: 'ppl6-push-a',
+      name: 'Push A',
+      accentHex: '#7C5CFF',
+      orderIndex: 10,
+      prescriptions: [
+        SeedPrescription('flat-db-press', sets: 4, repMin: 6, repMax: 8),
+        SeedPrescription('weighted-dips', sets: 3, repMin: 8, repMax: 10),
+        SeedPrescription('incline-db-press', sets: 3, repMin: 10, repMax: 12),
+        SeedPrescription('cable-chest-fly', sets: 3, repMin: 12, repMax: 15),
+        SeedPrescription('lateral-raise', sets: 4, repMin: 12, repMax: 15),
+        SeedPrescription('tricep-pulldown', sets: 3, repMin: 10, repMax: 12),
+      ],
+    ),
+    SeedTemplate(
+      id: 'ppl6-pull-a',
+      name: 'Pull A',
+      accentHex: '#2D9CFF',
+      orderIndex: 11,
+      prescriptions: [
+        SeedPrescription('weighted-pull-ups', sets: 4, repMin: 5, repMax: 8),
+        SeedPrescription('cable-row', sets: 3, repMin: 8, repMax: 12),
+        SeedPrescription('single-arm-db-row', sets: 3, repMin: 10, repMax: 12),
+        SeedPrescription('rear-delt-fly', sets: 3, repMin: 15, repMax: 15),
+        SeedPrescription('ez-bar-curl', sets: 3, repMin: 8, repMax: 12),
+        SeedPrescription('cross-body-hammer-curl', sets: 2, repMin: 12, repMax: 12),
+      ],
+    ),
+    SeedTemplate(
+      id: 'ppl6-legs-a',
+      name: 'Legs A',
+      accentHex: '#FF4D8D',
+      orderIndex: 12,
+      prescriptions: [
+        SeedPrescription('leg-press', sets: 4, repMin: 8, repMax: 12),
+        SeedPrescription('bulgarian-split-squat', sets: 3, repMin: 8, repMax: 10),
+        SeedPrescription('leg-extension', sets: 3, repMin: 12, repMax: 15),
+        SeedPrescription('lying-leg-curl', sets: 3, repMin: 10, repMax: 12),
+        SeedPrescription('calf-raise', sets: 4, repMin: 10, repMax: 15),
+        SeedPrescription('hanging-leg-raise', sets: 3, repMin: 12, repMax: 12),
+      ],
+    ),
+    SeedTemplate(
+      id: 'ppl6-push-b',
+      name: 'Push B',
+      accentHex: '#9D7CFF',
+      orderIndex: 13,
+      prescriptions: [
+        SeedPrescription('incline-db-press', sets: 4, repMin: 6, repMax: 8),
+        SeedPrescription('seated-shoulder-press', sets: 3, repMin: 8, repMax: 10),
+        SeedPrescription('machine-chest-press', sets: 3, repMin: 10, repMax: 12),
+        SeedPrescription('lateral-raise', sets: 4, repMin: 15, repMax: 15),
+        SeedPrescription('overhead-tricep-ext', sets: 3, repMin: 10, repMax: 12),
+        SeedPrescription('skull-crusher', sets: 2, repMin: 10, repMax: 10),
+      ],
+    ),
+    SeedTemplate(
+      id: 'ppl6-pull-b',
+      name: 'Pull B',
+      accentHex: '#4DB0FF',
+      orderIndex: 14,
+      prescriptions: [
+        SeedPrescription('chest-supported-row', sets: 4, repMin: 8, repMax: 10),
+        SeedPrescription('lat-pulldown', sets: 3, repMin: 10, repMax: 12),
+        SeedPrescription('cable-row', sets: 3, repMin: 12, repMax: 15),
+        SeedPrescription('shrugs', sets: 3, repMin: 10, repMax: 12),
+        SeedPrescription('incline-db-curl', sets: 3, repMin: 10, repMax: 12),
+        SeedPrescription('ez-bar-curl', sets: 2, repMin: 12, repMax: 12),
+      ],
+    ),
+    SeedTemplate(
+      id: 'ppl6-legs-b',
+      name: 'Legs B',
+      accentHex: '#FF6FA5',
+      orderIndex: 15,
+      prescriptions: [
+        SeedPrescription('romanian-deadlift', sets: 4, repMin: 6, repMax: 8),
+        SeedPrescription('seated-leg-curl', sets: 4, repMin: 10, repMax: 12),
+        SeedPrescription('leg-press', sets: 3, repMin: 12, repMax: 15),
+        SeedPrescription('walking-lunge', sets: 2, repMin: 10, repMax: 10),
+        SeedPrescription('calf-raise', sets: 4, repMin: 10, repMax: 15),
+        SeedPrescription('ab-wheel', sets: 3, repMin: 10, repMax: 10),
+      ],
+    ),
   ];
+
+  /// The active rotation: Push A → Pull A → Legs A → Push B → Pull B →
+  /// Legs B → (rest) → repeat. Target 6 sessions a week.
+  static const program = ProgramDefinition(
+    id: 'ppl6v2',
+    name: 'PPL 6-Day v2',
+    sessionsPerWeek: 6,
+    dayIds: [
+      'ppl6-push-a',
+      'ppl6-pull-a',
+      'ppl6-legs-a',
+      'ppl6-push-b',
+      'ppl6-pull-b',
+      'ppl6-legs-b',
+    ],
+  );
 
   /// Fallback gym days for adherence when no template has a weekday assigned.
   /// The live schedule comes from the templates table — Arms is a full

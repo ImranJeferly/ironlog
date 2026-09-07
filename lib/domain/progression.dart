@@ -60,6 +60,9 @@ class ProgressionSuggestion {
 /// > Work in a rep range (e.g. 3×8 means 8–10). Hit the top of the range on ALL
 /// > sets → app flags ↑ WEIGHT next session (+2.5 kg upper / +5 kg lower).
 abstract final class ProgressionEngine {
+  /// Highest RPE at which a top-of-range set still earns the weight jump.
+  static const maxRpeForIncrease = 9;
+
   /// [lastSets] must be the working sets of the most recent *completed* session
   /// containing this exercise, in set order. Warm-ups are excluded upstream.
   static ProgressionSuggestion suggest({
@@ -103,7 +106,23 @@ abstract final class ProgressionEngine {
     final loggedEnoughSets = setsAtWorkingWeight.length >= spec.targetSets;
     final allHitTop =
         setsAtWorkingWeight.every((s) => s.reps >= spec.repRangeMax);
-    final earned = loggedEnoughSets && allHitTop;
+    // A top-of-range set ground out at RPE 10 isn't owned yet — no jump.
+    final rpeOk = setsAtWorkingWeight.every(
+      (s) => s.rpe == null || s.rpe! <= ProgressionEngine.maxRpeForIncrease,
+    );
+    final earned = loggedEnoughSets && allHitTop && rpeOk;
+
+    if (loggedEnoughSets && allHitTop && !rpeOk) {
+      return ProgressionSuggestion(
+        suggestedWeightKg: workingWeight,
+        increaseFlagged: false,
+        targetReps: spec.repRangeMax,
+        ghostSets: lastSets,
+        previousWeightKg: workingWeight,
+        rationale: 'Hit ${spec.repRangeMax} on every set, but at RPE 10 — '
+            'repeat ${_fmt(workingWeight)} kg and own it at RPE ≤9 first.',
+      );
+    }
 
     if (earned) {
       // Guard against a stored increment of 0 leaving the weight unchanged and
