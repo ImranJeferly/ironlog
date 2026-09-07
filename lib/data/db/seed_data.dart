@@ -6,11 +6,13 @@ class SeedExercise {
   const SeedExercise({
     required this.id,
     required this.name,
-    required this.muscleGroup,
+    required this.primary,
     required this.role,
     required this.sets,
     required this.repMin,
     required this.repMax,
+    this.secondary,
+    this.isExplosive = false,
     this.isUnilateral = false,
     this.isBodyweight = false,
     this.incrementKg,
@@ -19,7 +21,15 @@ class SeedExercise {
 
   final String id;
   final String name;
-  final MuscleGroup muscleGroup;
+
+  /// Muscle that gets full volume credit.
+  final Muscle primary;
+
+  /// Muscle that gets half credit (0.5 set per set), if any.
+  final Muscle? secondary;
+
+  /// Power work: excluded from hypertrophy volume and auto-progression.
+  final bool isExplosive;
   final ExerciseRole role;
   final int sets;
   final int repMin;
@@ -29,8 +39,10 @@ class SeedExercise {
   final double? incrementKg;
   final String? notes;
 
-  double get resolvedIncrementKg =>
-      incrementKg ?? muscleGroup.defaultIncrementKg;
+  /// Coarse group, derived — kept for legacy charts and colours.
+  MuscleGroup get muscleGroup => primary.group;
+
+  double get resolvedIncrementKg => incrementKg ?? primary.defaultIncrementKg;
 }
 
 class SeedTemplate {
@@ -53,18 +65,30 @@ class SeedTemplate {
   final String? accentHex;
 }
 
-/// The exercise library. Rep ranges follow the plan's double-progression rule:
-/// the listed scheme is the bottom of the range, and you earn the weight jump
-/// by hitting the top of the range on every set.
+/// The exercise library. Rep ranges follow the double-progression rule: the
+/// listed scheme is the bottom of the range, and you earn the weight jump by
+/// hitting the top of the range on every set.
 ///
-/// 4×5 → 5–6 · 3×8 → 8–10 · 3×10 → 10–12 · 3×12 → 12–15 · 3×15 → 15–18 · 4×3 → 3
+/// Muscle attribution: `primary` gets a full set of volume, `secondary` half.
 abstract final class SeedData {
   static const exercises = <SeedExercise>[
-    // ---------------- PUSH ----------------
+    // ---------------- CHEST / PUSH ----------------
+    SeedExercise(
+      id: 'flat-db-press',
+      name: 'Flat DB Press',
+      primary: Muscle.chest,
+      secondary: Muscle.triceps,
+      role: ExerciseRole.primary,
+      sets: 4,
+      repMin: 6,
+      repMax: 8,
+      notes: 'Primary press on Push A. 2–3 reps in reserve.',
+    ),
     SeedExercise(
       id: 'incline-db-press',
       name: 'Incline DB Press',
-      muscleGroup: MuscleGroup.chest,
+      primary: Muscle.chest,
+      secondary: Muscle.triceps,
       role: ExerciseRole.primary,
       sets: 4,
       repMin: 5,
@@ -72,18 +96,20 @@ abstract final class SeedData {
       notes: 'Primary press. 2–3 reps in reserve, 5th top set optional.',
     ),
     SeedExercise(
-      id: 'seated-shoulder-press',
-      name: 'Seated Shoulder Press',
-      muscleGroup: MuscleGroup.shoulders,
+      id: 'machine-chest-press',
+      name: 'Machine Chest Press',
+      primary: Muscle.chest,
+      secondary: Muscle.triceps,
       role: ExerciseRole.secondary,
       sets: 3,
-      repMin: 8,
-      repMax: 10,
+      repMin: 10,
+      repMax: 12,
     ),
     SeedExercise(
       id: 'weighted-dips',
       name: 'Weighted Dips',
-      muscleGroup: MuscleGroup.chest,
+      primary: Muscle.chest,
+      secondary: Muscle.triceps,
       role: ExerciseRole.secondary,
       sets: 3,
       repMin: 8,
@@ -94,16 +120,48 @@ abstract final class SeedData {
     SeedExercise(
       id: 'cable-chest-fly',
       name: 'Cable Chest Fly',
-      muscleGroup: MuscleGroup.chest,
+      primary: Muscle.chest,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 12,
       repMax: 15,
     ),
+
+    // ---------------- SHOULDERS ----------------
+    SeedExercise(
+      id: 'seated-shoulder-press',
+      name: 'Seated Shoulder Press',
+      primary: Muscle.shoulders,
+      secondary: Muscle.triceps,
+      role: ExerciseRole.secondary,
+      sets: 3,
+      repMin: 8,
+      repMax: 10,
+    ),
+    SeedExercise(
+      id: 'lateral-raise',
+      name: 'Lateral Raise',
+      primary: Muscle.sideDelts,
+      role: ExerciseRole.isolation,
+      sets: 4,
+      repMin: 12,
+      repMax: 15,
+    ),
+    SeedExercise(
+      id: 'rear-delt-fly',
+      name: 'Rear Delt Fly',
+      primary: Muscle.rearDelts,
+      role: ExerciseRole.isolation,
+      sets: 3,
+      repMin: 15,
+      repMax: 18,
+    ),
+
+    // ---------------- TRICEPS ----------------
     SeedExercise(
       id: 'overhead-tricep-ext',
       name: 'Overhead Tricep Ext',
-      muscleGroup: MuscleGroup.triceps,
+      primary: Muscle.triceps,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 12,
@@ -112,18 +170,28 @@ abstract final class SeedData {
     SeedExercise(
       id: 'tricep-pulldown',
       name: 'Tricep Pulldown',
-      muscleGroup: MuscleGroup.triceps,
+      primary: Muscle.triceps,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 12,
       repMax: 15,
     ),
+    SeedExercise(
+      id: 'skull-crusher',
+      name: 'Skull Crusher',
+      primary: Muscle.triceps,
+      role: ExerciseRole.isolation,
+      sets: 2,
+      repMin: 10,
+      repMax: 12,
+    ),
 
-    // ---------------- PULL ----------------
+    // ---------------- BACK / PULL ----------------
     SeedExercise(
       id: 'weighted-pull-ups',
       name: 'Weighted Pull-ups',
-      muscleGroup: MuscleGroup.back,
+      primary: Muscle.back,
+      secondary: Muscle.biceps,
       role: ExerciseRole.primary,
       sets: 4,
       repMin: 5,
@@ -132,18 +200,37 @@ abstract final class SeedData {
       notes: 'Log added load only — 0 kg is bodyweight.',
     ),
     SeedExercise(
+      id: 'chest-supported-row',
+      name: 'Chest-Supported Row',
+      primary: Muscle.back,
+      role: ExerciseRole.primary,
+      sets: 4,
+      repMin: 8,
+      repMax: 10,
+    ),
+    SeedExercise(
       id: 'cable-row',
       name: 'Cable Row',
-      muscleGroup: MuscleGroup.back,
+      primary: Muscle.back,
       role: ExerciseRole.secondary,
       sets: 3,
       repMin: 8,
       repMax: 10,
     ),
     SeedExercise(
+      id: 'lat-pulldown',
+      name: 'Lat Pulldown',
+      primary: Muscle.back,
+      secondary: Muscle.biceps,
+      role: ExerciseRole.secondary,
+      sets: 3,
+      repMin: 10,
+      repMax: 12,
+    ),
+    SeedExercise(
       id: 'single-arm-db-row',
       name: 'Single-Arm DB Row',
-      muscleGroup: MuscleGroup.back,
+      primary: Muscle.back,
       role: ExerciseRole.secondary,
       sets: 3,
       repMin: 10,
@@ -151,9 +238,20 @@ abstract final class SeedData {
       isUnilateral: true,
     ),
     SeedExercise(
+      id: 'shrugs',
+      name: 'Shrugs',
+      primary: Muscle.traps,
+      role: ExerciseRole.isolation,
+      sets: 3,
+      repMin: 10,
+      repMax: 12,
+    ),
+
+    // ---------------- BICEPS ----------------
+    SeedExercise(
       id: 'ez-bar-curl',
       name: 'EZ Bar Curl',
-      muscleGroup: MuscleGroup.biceps,
+      primary: Muscle.biceps,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 10,
@@ -162,7 +260,7 @@ abstract final class SeedData {
     SeedExercise(
       id: 'cross-body-hammer-curl',
       name: 'Cross-Body Hammer Curl',
-      muscleGroup: MuscleGroup.biceps,
+      primary: Muscle.biceps,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 12,
@@ -170,21 +268,22 @@ abstract final class SeedData {
       isUnilateral: true,
     ),
     SeedExercise(
-      id: 'rear-delt-fly',
-      name: 'Rear Delt Fly',
-      muscleGroup: MuscleGroup.shoulders,
+      id: 'incline-db-curl',
+      name: 'Incline Curl',
+      primary: Muscle.biceps,
       role: ExerciseRole.isolation,
       sets: 3,
-      repMin: 15,
-      repMax: 18,
+      repMin: 12,
+      repMax: 15,
     ),
 
     // ---------------- LEGS ----------------
     SeedExercise(
       id: 'box-jump',
       name: 'Box Jump / Jump Squat',
-      muscleGroup: MuscleGroup.legs,
+      primary: Muscle.quads,
       role: ExerciseRole.explosive,
+      isExplosive: true,
       sets: 4,
       repMin: 3,
       repMax: 3,
@@ -192,9 +291,20 @@ abstract final class SeedData {
       notes: 'Max intent, never to failure. No auto weight progression.',
     ),
     SeedExercise(
+      id: 'leg-press',
+      name: 'Leg Press',
+      primary: Muscle.quads,
+      secondary: Muscle.glutes,
+      role: ExerciseRole.secondary,
+      sets: 3,
+      repMin: 10,
+      repMax: 12,
+    ),
+    SeedExercise(
       id: 'bulgarian-split-squat',
       name: 'Bulgarian Split Squat',
-      muscleGroup: MuscleGroup.legs,
+      primary: Muscle.quads,
+      secondary: Muscle.glutes,
       role: ExerciseRole.primary,
       sets: 4,
       repMin: 5,
@@ -203,36 +313,68 @@ abstract final class SeedData {
       notes: 'Primary leg movement — 4×5 per leg.',
     ),
     SeedExercise(
+      id: 'leg-extension',
+      name: 'Leg Extension',
+      primary: Muscle.quads,
+      role: ExerciseRole.isolation,
+      sets: 3,
+      repMin: 12,
+      repMax: 15,
+    ),
+    SeedExercise(
+      id: 'walking-lunge',
+      name: 'Walking Lunge',
+      primary: Muscle.quads,
+      secondary: Muscle.glutes,
+      role: ExerciseRole.secondary,
+      sets: 2,
+      repMin: 10,
+      repMax: 12,
+      isUnilateral: true,
+    ),
+    SeedExercise(
       id: 'romanian-deadlift',
       name: 'Romanian Deadlift',
-      muscleGroup: MuscleGroup.legs,
+      primary: Muscle.hamstrings,
+      secondary: Muscle.glutes,
       role: ExerciseRole.secondary,
       sets: 3,
       repMin: 8,
       repMax: 10,
     ),
     SeedExercise(
-      id: 'leg-press',
-      name: 'Leg Press',
-      muscleGroup: MuscleGroup.legs,
-      role: ExerciseRole.secondary,
+      id: 'lying-leg-curl',
+      name: 'Lying Leg Curl',
+      primary: Muscle.hamstrings,
+      role: ExerciseRole.isolation,
       sets: 3,
+      repMin: 10,
+      repMax: 12,
+    ),
+    SeedExercise(
+      id: 'seated-leg-curl',
+      name: 'Seated Leg Curl',
+      primary: Muscle.hamstrings,
+      role: ExerciseRole.isolation,
+      sets: 4,
       repMin: 10,
       repMax: 12,
     ),
     SeedExercise(
       id: 'calf-raise',
       name: 'Calf Raises',
-      muscleGroup: MuscleGroup.legs,
+      primary: Muscle.calves,
       role: ExerciseRole.isolation,
       sets: 4,
       repMin: 12,
       repMax: 15,
     ),
+
+    // ---------------- CORE ----------------
     SeedExercise(
       id: 'hanging-leg-raise',
       name: 'Hanging Leg Raise',
-      muscleGroup: MuscleGroup.core,
+      primary: Muscle.core,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 12,
@@ -242,23 +384,12 @@ abstract final class SeedData {
     SeedExercise(
       id: 'ab-wheel',
       name: 'Ab Wheel',
-      muscleGroup: MuscleGroup.core,
+      primary: Muscle.core,
       role: ExerciseRole.isolation,
       sets: 3,
       repMin: 10,
       repMax: 12,
       isBodyweight: true,
-    ),
-
-    // ---------------- EXTRA ----------------
-    SeedExercise(
-      id: 'incline-db-curl',
-      name: 'Incline Curl',
-      muscleGroup: MuscleGroup.biceps,
-      role: ExerciseRole.isolation,
-      sets: 3,
-      repMin: 12,
-      repMax: 15,
     ),
   ];
 

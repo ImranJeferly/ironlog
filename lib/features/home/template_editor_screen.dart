@@ -5,6 +5,7 @@ import '../../app/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/db/database.dart';
+import '../../domain/exercise_x.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
 import '../session/exercise_picker_sheet.dart';
@@ -177,7 +178,8 @@ class TemplateEditorScreen extends ConsumerWidget {
                                       '${link.setsOverride ?? exercise.targetSets}×'
                                       '${exercise.repRangeMin}–'
                                       '${exercise.repRangeMax} · '
-                                      '${exercise.muscleGroup.label}',
+                                      '${exercise.primary.label}'
+                                      '${exercise.secondary == null ? '' : ' + ${exercise.secondary!.label}'}',
                                       style: theme.textTheme.bodySmall,
                                     ),
                                   ],

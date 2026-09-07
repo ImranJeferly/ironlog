@@ -29,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.withExecutor(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -42,6 +42,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         await m.addColumn(sessions, sessions.durationSuspect);
       }
+      // v3: fine-grained muscle attribution + explosive flag on exercises.
+      if (from < 3) {
+        await m.addColumn(exercises, exercises.isExplosive);
+        await m.addColumn(exercises, exercises.primaryMuscle);
+        await m.addColumn(exercises, exercises.secondaryMuscle);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -53,9 +59,50 @@ class AppDatabase extends _$AppDatabase {
       // an exercise to SeedData in a later release backfills existing installs
       // without touching anything the user has edited.
       await seedIfNeeded();
+      await _backfillMuscleTaxonomy();
       await _repairDataIntegrity();
     },
   );
+
+  /// One-time backfill for installs that predate primary/secondary muscles:
+  /// seeded exercises get the spec's attribution by id, custom ones get their
+  /// coarse group's best-guess primary, and anything with the explosive role
+  /// gets the explosive flag. Untouched rows are left alone.
+  Future<void> _backfillMuscleTaxonomy() async {
+    const flag = 'muscle_taxonomy_v1';
+    if (await getSetting(flag) != null) return;
+    final now = DateTime.now();
+    final seedById = {for (final s in SeedData.exercises) s.id: s};
+
+    final rows = await select(exercises).get();
+    var touched = 0;
+    for (final row in rows) {
+      final seed = seedById[row.id];
+      final primary =
+          row.primaryMuscle ?? seed?.primary ?? Muscle.fromGroup(row.muscleGroup);
+      final secondary = row.secondaryMuscle ?? seed?.secondary;
+      final explosive =
+          row.isExplosive || (seed?.isExplosive ?? false) ||
+          row.role == ExerciseRole.explosive;
+      final unchanged =
+          row.primaryMuscle == primary &&
+          row.secondaryMuscle == secondary &&
+          row.isExplosive == explosive;
+      if (unchanged) continue;
+      await (update(exercises)..where((t) => t.id.equals(row.id))).write(
+        ExercisesCompanion(
+          primaryMuscle: Value(primary),
+          secondaryMuscle: Value(secondary),
+          isExplosive: Value(explosive),
+          updatedAt: Value(now),
+          synced: const Value(false),
+        ),
+      );
+      touched++;
+    }
+    debugPrint('IronLog: muscle taxonomy backfilled on $touched exercise(s)');
+    await setSetting(flag, 'done');
+  }
 
   /// Maximum plausible session length. Anything longer is almost always the
   /// app left open — it gets capped and flagged rather than counted.
@@ -199,6 +246,9 @@ class AppDatabase extends _$AppDatabase {
             incrementKg: seed.resolvedIncrementKg,
             isUnilateral: Value(seed.isUnilateral),
             isBodyweight: Value(seed.isBodyweight),
+            isExplosive: Value(seed.isExplosive),
+            primaryMuscle: Value(seed.primary),
+            secondaryMuscle: Value(seed.secondary),
             notes: Value(seed.notes),
             updatedAt: Value(now),
           ),

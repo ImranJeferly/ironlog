@@ -22,3 +22,21 @@ All notable changes to IronLog. Newest first.
   tombstones completed sessions with no working sets, and tombstones phantom
   sets (with their PRs). Counts are logged.
 - Schema v2: `sessions.duration_suspect`. The column syncs to the account.
+
+### 2. Exercise model
+- **Fine-grained muscles.** New `Muscle` taxonomy (Chest, Back, Traps,
+  Shoulders, Side Delts, Rear Delts, Biceps, Triceps, Quads, Hamstrings,
+  Glutes, Calves, Core); each rolls up to the old coarse group for colours.
+- **`primary_muscle` / `secondary_muscle` / `is_explosive`** on every
+  exercise. Secondary counts 0.5 toward volume; explosive is excluded from
+  hypertrophy volume and auto-progression.
+- **Seed attribution applied** per the spec (e.g. Dips → Chest/Triceps,
+  Pull-ups → Back/Biceps, RDL → Hamstrings/Glutes, Box Jump → Quads,
+  explosive). A one-time backfill fixes existing installs; custom exercises
+  get their group's best-guess primary.
+- **11 new exercises:** Flat DB Press, Lateral Raise, Leg Extension, Lying
+  Leg Curl, Seated Leg Curl, Chest-Supported Row, Lat Pulldown, Machine
+  Chest Press, Walking Lunge, Skull Crusher, Shrugs.
+- Custom-exercise sheet now picks primary + optional secondary muscle and an
+  Explosive flag. New fields sync to the account.
+- Schema v3.

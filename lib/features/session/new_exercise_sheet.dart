@@ -9,8 +9,9 @@ import '../../data/db/database.dart';
 import '../../domain/enums.dart';
 import '../../widgets/buttons.dart';
 
-/// Creates a custom exercise: name, muscle, sets × rep range, done. It goes
-/// into the library permanently and syncs to the account like everything else.
+/// Creates a custom exercise: name, primary (and optional secondary) muscle,
+/// sets × rep range, flags. It goes into the library permanently and syncs
+/// to the account like everything else.
 class NewExerciseSheet extends ConsumerStatefulWidget {
   const NewExerciseSheet({super.key});
 
@@ -30,12 +31,14 @@ class NewExerciseSheet extends ConsumerStatefulWidget {
 
 class _NewExerciseSheetState extends ConsumerState<NewExerciseSheet> {
   final _name = TextEditingController();
-  MuscleGroup _group = MuscleGroup.chest;
+  Muscle _primary = Muscle.chest;
+  Muscle? _secondary;
   int _sets = 3;
   int _repMin = 8;
   int _repMax = 12;
   bool _bodyweight = false;
   bool _perSide = false;
+  bool _explosive = false;
   bool _busy = false;
   String? _error;
 
@@ -60,12 +63,14 @@ class _NewExerciseSheetState extends ConsumerState<NewExerciseSheet> {
         .read(workoutRepositoryProvider)
         .createExercise(
           name: name,
-          muscleGroup: _group,
+          primary: _primary,
+          secondary: _secondary,
           targetSets: _sets,
           repRangeMin: _repMin,
           repRangeMax: _repMax,
           isBodyweight: _bodyweight,
           isUnilateral: _perSide,
+          isExplosive: _explosive,
         );
 
     if (!mounted) return;
@@ -108,18 +113,46 @@ class _NewExerciseSheetState extends ConsumerState<NewExerciseSheet> {
               ),
 
               const SizedBox(height: AppSpacing.md),
-              Text('MUSCLE', style: theme.textTheme.labelSmall),
+              Text('PRIMARY MUSCLE', style: theme.textTheme.labelSmall),
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final group in MuscleGroup.values)
-                    _GroupChip(
-                      group: group,
-                      selected: _group == group,
-                      onTap: () => setState(() => _group = group),
+                  for (final m in Muscle.values)
+                    _MuscleChip(
+                      muscle: m,
+                      selected: _primary == m,
+                      onTap: () => setState(() {
+                        _primary = m;
+                        if (_secondary == m) _secondary = null;
+                      }),
                     ),
+                ],
+              ),
+
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'SECONDARY MUSCLE · counts half',
+                style: theme.textTheme.labelSmall,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _MuscleChip(
+                    muscle: null,
+                    selected: _secondary == null,
+                    onTap: () => setState(() => _secondary = null),
+                  ),
+                  for (final m in Muscle.values)
+                    if (m != _primary)
+                      _MuscleChip(
+                        muscle: m,
+                        selected: _secondary == m,
+                        onTap: () => setState(() => _secondary = m),
+                      ),
                 ],
               ),
 
@@ -127,9 +160,7 @@ class _NewExerciseSheetState extends ConsumerState<NewExerciseSheet> {
               _StepRow(
                 label: 'Sets',
                 value: '$_sets',
-                onMinus: _sets <= 1
-                    ? null
-                    : () => setState(() => _sets--),
+                onMinus: _sets <= 1 ? null : () => setState(() => _sets--),
                 onPlus: _sets >= 8 ? null : () => setState(() => _sets++),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -176,6 +207,14 @@ class _NewExerciseSheetState extends ConsumerState<NewExerciseSheet> {
                   ),
                 ],
               ),
+              const SizedBox(height: AppSpacing.sm),
+              _FlagChip(
+                label: 'Explosive',
+                hint: 'power work — not counted as hypertrophy volume, '
+                    'no auto-progression',
+                value: _explosive,
+                onTap: () => setState(() => _explosive = !_explosive),
+              ),
 
               if (_error != null) ...[
                 const SizedBox(height: AppSpacing.sm),
@@ -201,20 +240,24 @@ class _NewExerciseSheetState extends ConsumerState<NewExerciseSheet> {
   }
 }
 
-class _GroupChip extends StatelessWidget {
-  const _GroupChip({
-    required this.group,
+/// A muscle chip; `null` renders the "None" option for the secondary picker.
+class _MuscleChip extends StatelessWidget {
+  const _MuscleChip({
+    required this.muscle,
     required this.selected,
     required this.onTap,
   });
 
-  final MuscleGroup group;
+  final Muscle? muscle;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.muscleColors[group.key] ?? AppColors.volt;
+    final m = muscle;
+    final accent = m == null
+        ? AppColors.textSecondary
+        : (AppColors.muscleColors[m.group.key] ?? AppColors.volt);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -230,7 +273,7 @@ class _GroupChip extends StatelessWidget {
           border: Border.all(color: selected ? accent : AppColors.border),
         ),
         child: Text(
-          group.label,
+          m?.label ?? 'None',
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,

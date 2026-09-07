@@ -29,6 +29,16 @@ class Exercises extends Table with SyncColumns {
 
   /// Weighted pull-ups / dips log *added* load, which can legitimately be 0.
   BoolColumn get isBodyweight => boolean().withDefault(const Constant(false))();
+
+  /// Power work (box jumps): excluded from hypertrophy volume and from
+  /// auto-progression.
+  BoolColumn get isExplosive => boolean().withDefault(const Constant(false))();
+
+  /// Fine-grained attribution for volume tracking. Primary gets a full set of
+  /// credit, secondary half. Nullable so rows that predate the taxonomy load;
+  /// resolve through `ExerciseMuscles` rather than reading these directly.
+  TextColumn get primaryMuscle => textEnum<Muscle>().nullable()();
+  TextColumn get secondaryMuscle => textEnum<Muscle>().nullable()();
   TextColumn get notes => text().nullable()();
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
   BoolColumn get archived => boolean().withDefault(const Constant(false))();

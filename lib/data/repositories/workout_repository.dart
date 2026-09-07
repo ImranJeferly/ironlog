@@ -597,29 +597,44 @@ class WorkoutRepository {
 
   /// Creates a custom exercise. It lives in the library (and syncs to the
   /// account) permanently — available in every future session and template.
+  ///
+  /// Pass [primary] (and optionally [secondary]) for full attribution; the
+  /// coarse [muscleGroup] is derived from it. Passing only [muscleGroup] is
+  /// still supported and picks that group's best-guess primary.
   Future<ExerciseRow?> createExercise({
     required String name,
-    required MuscleGroup muscleGroup,
     required int targetSets,
     required int repRangeMin,
     required int repRangeMax,
+    Muscle? primary,
+    Muscle? secondary,
+    MuscleGroup? muscleGroup,
     bool isBodyweight = false,
     bool isUnilateral = false,
+    bool isExplosive = false,
   }) async {
+    final resolvedPrimary =
+        primary ?? Muscle.fromGroup(muscleGroup ?? MuscleGroup.chest);
+    final group = muscleGroup ?? resolvedPrimary.group;
     final id = _uuid.v4();
     final now = DateTime.now();
     await _db.into(_db.exercises).insert(
       ExercisesCompanion.insert(
         id: id,
         name: name,
-        muscleGroup: muscleGroup,
-        role: ExerciseRole.secondary,
+        muscleGroup: group,
+        role: isExplosive ? ExerciseRole.explosive : ExerciseRole.secondary,
         targetSets: targetSets,
         repRangeMin: repRangeMin,
         repRangeMax: repRangeMax,
-        incrementKg: muscleGroup.defaultIncrementKg,
+        incrementKg: resolvedPrimary.defaultIncrementKg,
         isBodyweight: Value(isBodyweight),
         isUnilateral: Value(isUnilateral),
+        isExplosive: Value(isExplosive),
+        primaryMuscle: Value(resolvedPrimary),
+        secondaryMuscle: Value(
+          secondary == resolvedPrimary ? null : secondary,
+        ),
         isCustom: const Value(true),
         updatedAt: Value(now),
       ),

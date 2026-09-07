@@ -49,6 +49,47 @@ enum MuscleGroup {
   double get defaultIncrementKg => isLowerBody ? 5.0 : 2.5;
 }
 
+/// Fine-grained muscle taxonomy that volume tracking and progression run on.
+/// Every muscle rolls up to a coarse [MuscleGroup] via [group], which is what
+/// the legacy charts and colour palette key on.
+enum Muscle {
+  chest('Chest', 'chest', MuscleGroup.chest),
+  back('Back', 'back', MuscleGroup.back),
+  traps('Traps', 'traps', MuscleGroup.back),
+  shoulders('Shoulders', 'shoulders', MuscleGroup.shoulders),
+  sideDelts('Side Delts', 'side_delts', MuscleGroup.shoulders),
+  rearDelts('Rear Delts', 'rear_delts', MuscleGroup.shoulders),
+  biceps('Biceps', 'biceps', MuscleGroup.biceps),
+  triceps('Triceps', 'triceps', MuscleGroup.triceps),
+  quads('Quads', 'quads', MuscleGroup.legs),
+  hamstrings('Hamstrings', 'hamstrings', MuscleGroup.legs),
+  glutes('Glutes', 'glutes', MuscleGroup.legs),
+  calves('Calves', 'calves', MuscleGroup.legs),
+  core('Core', 'core', MuscleGroup.core);
+
+  const Muscle(this.label, this.key, this.group);
+
+  final String label;
+  final String key;
+  final MuscleGroup group;
+
+  bool get isLowerBody => group.isLowerBody;
+
+  double get defaultIncrementKg => group.defaultIncrementKg;
+
+  /// Best guess for exercises that predate the taxonomy (custom ones created
+  /// with only a coarse group).
+  static Muscle fromGroup(MuscleGroup g) => switch (g) {
+    MuscleGroup.chest => chest,
+    MuscleGroup.back => back,
+    MuscleGroup.shoulders => shoulders,
+    MuscleGroup.biceps => biceps,
+    MuscleGroup.triceps => triceps,
+    MuscleGroup.legs => quads,
+    MuscleGroup.core => core,
+  };
+}
+
 enum PhotoPose {
   front('Front'),
   side('Side'),
