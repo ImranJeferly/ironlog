@@ -18,6 +18,16 @@ abstract final class Notifications {
 
   static const _restChannelId = 'ironlog_rest';
   static const _restNotificationId = 1001;
+  static const _nutritionChannelId = 'ironlog_nutrition';
+  static const _nutritionNotificationId = 1002;
+
+  /// Payload carried by the nightly nutrition nudge; the shell opens the
+  /// Today card when it sees it.
+  static const routeToday = 'today';
+
+  /// Route requested by a tapped notification. The app shell listens and
+  /// clears it once handled.
+  static final pendingRoute = ValueNotifier<String?>(null);
 
   static Future<void> init() async {
     if (_ready) return;
@@ -31,11 +41,61 @@ abstract final class Notifications {
             requestSoundPermission: false,
           ),
         ),
+        onDidReceiveNotificationResponse: (response) {
+          if (response.payload != null) pendingRoute.value = response.payload;
+        },
       );
+      // Tapping a notification while the app was dead launches it — pick that
+      // route up too.
+      final launch = await _plugin.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp ?? false) {
+        pendingRoute.value = launch!.notificationResponse?.payload;
+      }
       await _initTimezone();
       _ready = true;
     } on Object catch (e) {
       debugPrint('IronLog: notifications unavailable ($e)');
+    }
+  }
+
+  static NotificationDetails get _nutritionDetails => const NotificationDetails(
+    android: AndroidNotificationDetails(
+      _nutritionChannelId,
+      'Daily log reminder',
+      channelDescription: 'Evening nudge to log protein and calories.',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      category: AndroidNotificationCategory.reminder,
+    ),
+    iOS: DarwinNotificationDetails(),
+  );
+
+  /// Keeps the 21:00 "log protein + kcal" reminder in step with the setting:
+  /// (re)schedules a daily repeat when [enabled], cancels it otherwise.
+  static Future<void> syncNutritionReminder({required bool enabled}) async {
+    if (!_ready) await init();
+    if (!_ready) return;
+    try {
+      await _plugin.cancel(id: _nutritionNotificationId);
+      if (!enabled) return;
+      if (!_tzReady) await _initTimezone();
+
+      final now = tz.TZDateTime.now(tz.local);
+      var at = tz.TZDateTime(tz.local, now.year, now.month, now.day, 21);
+      if (!at.isAfter(now)) at = at.add(const Duration(days: 1));
+
+      await _plugin.zonedSchedule(
+        id: _nutritionNotificationId,
+        title: 'Log protein + kcal',
+        body: 'Thirty seconds now keeps the trend honest.',
+        scheduledDate: at,
+        notificationDetails: _nutritionDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+        payload: routeToday,
+      );
+    } on Object catch (e) {
+      debugPrint('IronLog: could not schedule nutrition reminder ($e)');
     }
   }
 

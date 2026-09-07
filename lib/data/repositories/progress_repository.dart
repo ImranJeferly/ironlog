@@ -136,6 +136,21 @@ class BodyWeightSeries {
   double get deltaKg => movingAverageKg.length < 2
       ? 0
       : movingAverageKg.last - movingAverageKg.first;
+
+  /// Change over the last seven logged days on the smoothed line — the number
+  /// to hold against a kg/week target. Null until there's a week of data.
+  double? get weeklyDeltaKg {
+    if (movingAverageKg.length < 8) return null;
+    return movingAverageKg.last - movingAverageKg[movingAverageKg.length - 8];
+  }
+
+  /// [weeklyDeltaKg] as a percentage of body weight a week ago.
+  double? get weeklyDeltaPct {
+    final delta = weeklyDeltaKg;
+    if (delta == null) return null;
+    final base = movingAverageKg[movingAverageKg.length - 8];
+    return base <= 0 ? null : delta / base * 100;
+  }
 }
 
 /// Why a deload week is being suggested.

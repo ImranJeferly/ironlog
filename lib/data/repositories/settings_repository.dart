@@ -18,6 +18,9 @@ class AppSettings {
     this.programCursor = 0,
     this.programStartedAt,
     this.deloadRemaining = 0,
+    this.nutritionReminderEnabled = true,
+    this.bwTargetMinKg = 0.2,
+    this.bwTargetMaxKg = 0.35,
   });
 
   final WeightUnit unit;
@@ -48,6 +51,13 @@ class AppSettings {
 
   bool get deloadActive => deloadRemaining > 0;
 
+  /// Nightly 21:00 "log protein + kcal" nudge.
+  final bool nutritionReminderEnabled;
+
+  /// Body-weight target band, kg per week (default: lean bulk 0.2–0.35).
+  final double bwTargetMinKg;
+  final double bwTargetMaxKg;
+
   int restForRole(ExerciseRole role) => switch (role) {
     ExerciseRole.primary || ExerciseRole.explosive => restSecondsPrimary,
     _ => restSeconds,
@@ -68,6 +78,9 @@ class AppSettings {
     int? programCursor,
     DateTime? programStartedAt,
     int? deloadRemaining,
+    bool? nutritionReminderEnabled,
+    double? bwTargetMinKg,
+    double? bwTargetMaxKg,
   }) {
     return AppSettings(
       unit: unit ?? this.unit,
@@ -84,6 +97,10 @@ class AppSettings {
       programCursor: programCursor ?? this.programCursor,
       programStartedAt: programStartedAt ?? this.programStartedAt,
       deloadRemaining: deloadRemaining ?? this.deloadRemaining,
+      nutritionReminderEnabled:
+          nutritionReminderEnabled ?? this.nutritionReminderEnabled,
+      bwTargetMinKg: bwTargetMinKg ?? this.bwTargetMinKg,
+      bwTargetMaxKg: bwTargetMaxKg ?? this.bwTargetMaxKg,
     );
   }
 }
@@ -100,6 +117,10 @@ abstract final class SettingKeys {
   static const firstRun = 'first_run_complete';
   static const lastSync = 'last_sync_at';
   static const healthImported = 'health_history_imported';
+  static const nutritionReminder = 'nutrition_reminder_enabled';
+  static const bwTargetMin = 'bw_target_min_kg_wk';
+  static const bwTargetMax = 'bw_target_max_kg_wk';
+  static const bodyweightPromptSkips = 'bodyweight_prompt_skips';
 }
 
 class SettingsRepository {
@@ -142,8 +163,37 @@ class SettingsRepository {
           : DateTime.tryParse(map[ProgramKeys.startedAt]!),
       deloadRemaining:
           int.tryParse(map[ProgramKeys.deloadRemaining] ?? '') ?? 0,
+      nutritionReminderEnabled: map[SettingKeys.nutritionReminder] != 'false',
+      bwTargetMinKg:
+          double.tryParse(map[SettingKeys.bwTargetMin] ?? '') ?? 0.2,
+      bwTargetMaxKg:
+          double.tryParse(map[SettingKeys.bwTargetMax] ?? '') ?? 0.35,
     );
   }
+
+  Future<void> setNutritionReminder(bool on) =>
+      _db.setSetting(SettingKeys.nutritionReminder, '$on');
+
+  Future<void> setBwTargetMin(double kgPerWeek) => _db.setSetting(
+    SettingKeys.bwTargetMin,
+    (kgPerWeek.clamp(-1.0, 1.5)).toStringAsFixed(2),
+  );
+
+  Future<void> setBwTargetMax(double kgPerWeek) => _db.setSetting(
+    SettingKeys.bwTargetMax,
+    (kgPerWeek.clamp(-1.0, 1.5)).toStringAsFixed(2),
+  );
+
+  /// How often the pre-session weigh-in was skipped — kept so it's visible,
+  /// not to nag.
+  Future<int> bodyweightPromptSkips() async =>
+      int.tryParse(await _db.getSetting(SettingKeys.bodyweightPromptSkips) ?? '') ??
+      0;
+
+  Future<void> countBodyweightPromptSkip() async => _db.setSetting(
+    SettingKeys.bodyweightPromptSkips,
+    '${await bodyweightPromptSkips() + 1}',
+  );
 
   Future<void> setUnit(WeightUnit unit) =>
       _db.setSetting(SettingKeys.unit, unit.name);

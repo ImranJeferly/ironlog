@@ -13,6 +13,7 @@ import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
 import '../progress/exercise_detail_screen.dart';
 import '../session/active_session_screen.dart';
+import 'bodyweight_prompt.dart';
 import 'daily_metrics_card.dart';
 import 'template_picker_sheet.dart';
 
@@ -328,6 +329,8 @@ class _TodayWorkoutCard extends ConsumerWidget {
       await TemplatePickerSheet.show(context);
       return;
     }
+    await maybePromptBodyweight(context, ref);
+    if (!context.mounted) return;
     final id = await ref
         .read(workoutRepositoryProvider)
         .startSessionFromTemplate(template.id);

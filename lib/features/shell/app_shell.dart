@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/notifications.dart';
 import '../../core/utils/haptics.dart';
 import '../history/history_screen.dart';
 import '../home/home_screen.dart';
@@ -36,13 +37,29 @@ class _AppShellState extends ConsumerState<AppShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onResume());
+    Notifications.pendingRoute.addListener(_onNotificationRoute);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _onResume();
+      _onNotificationRoute();
+    });
   }
 
   @override
   void dispose() {
+    Notifications.pendingRoute.removeListener(_onNotificationRoute);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// A tapped notification asked for a screen — the nightly nutrition nudge
+  /// deep-links to the Today card on the Home tab.
+  void _onNotificationRoute() {
+    final route = Notifications.pendingRoute.value;
+    if (route == null || !mounted) return;
+    Notifications.pendingRoute.value = null;
+    if (route == Notifications.routeToday && _index != 0) {
+      setState(() => _index = 0);
+    }
   }
 
   @override
@@ -61,6 +78,11 @@ class _AppShellState extends ConsumerState<AppShell>
       // A week's window, not just today — catches up after days offline.
       ref.read(healthServiceProvider).syncRecent();
     }
+    // Cheap and idempotent: keeps the 21:00 nudge alive across reinstalls
+    // and reboots without a boot receiver.
+    Notifications.syncNutritionReminder(
+      enabled: settings.nutritionReminderEnabled,
+    );
     _maybeCheckForUpdate();
   }
 

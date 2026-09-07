@@ -17,6 +17,7 @@ import '../data/repositories/progress_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/repositories/workout_repository.dart';
 import '../data/sync/auth_service.dart';
+import '../core/notifications.dart';
 import '../core/update/update_service.dart';
 import '../data/sync/sync_service.dart';
 import '../domain/enums.dart';
@@ -115,6 +116,17 @@ class SettingsController extends Notifier<AppSettings> {
   }
 
   Future<void> setStepGoal(int steps) => _repo.setStepGoal(steps);
+
+  Future<void> setNutritionReminder(bool on) async {
+    await _repo.setNutritionReminder(on);
+    await Notifications.syncNutritionReminder(enabled: on);
+  }
+
+  Future<void> setBwTargetMin(double kgPerWeek) =>
+      _repo.setBwTargetMin(kgPerWeek);
+
+  Future<void> setBwTargetMax(double kgPerWeek) =>
+      _repo.setBwTargetMax(kgPerWeek);
 
   Future<void> completeFirstRun() => _repo.completeFirstRun();
 }
@@ -353,6 +365,14 @@ class SelectedMetricDate extends Notifier<DateTime> {
 final todayMetricsProvider = StreamProvider<DailyMetricRow?>((ref) {
   final date = ref.watch(selectedMetricDateProvider);
   return ref.watch(metricsRepositoryProvider).watchDay(date);
+});
+
+/// The last seven days of metrics (today included) — rolling averages.
+final recentMetricsProvider = StreamProvider<List<DailyMetricRow>>((ref) {
+  final today = DateTime.now().dayStart;
+  return ref
+      .watch(metricsRepositoryProvider)
+      .watchRange(today.subtract(const Duration(days: 6)), today);
 });
 
 // -------------------------------------------------------------------- photos

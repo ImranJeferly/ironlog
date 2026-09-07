@@ -8,6 +8,7 @@ import '../../data/db/database.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
 import '../session/active_session_screen.dart';
+import 'bodyweight_prompt.dart';
 import 'template_editor_screen.dart';
 
 /// "Pick a template or start empty" — the entry point to every session.
@@ -28,13 +29,29 @@ class TemplatePickerSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final templates = ref.watch(templatesProvider).value ?? const [];
 
-    // Today's workout goes first — it's what you're here for 9 times out of 10.
+    // The workout you're here for goes first: the program's next rotation day
+    // when a program is active, otherwise today's weekday template.
     final today = DateTime.now().weekday;
+    final program = ref.watch(activeProgramProvider);
+    final next = ref.watch(nextWorkoutProvider);
+    int rank(TemplateRow t) {
+      if (t.id == next?.id) return 0;
+      if (program != null && program.contains(t.id)) return 1;
+      if (program == null && t.weekday == today) return 0;
+      return 2;
+    }
     final sorted = [...templates]
       ..sort((a, b) {
-        final aToday = a.weekday == today ? 0 : 1;
-        final bToday = b.weekday == today ? 0 : 1;
-        if (aToday != bToday) return aToday - bToday;
+        final r = rank(a).compareTo(rank(b));
+        if (r != 0) return r;
+        if (program != null && program.contains(a.id) && program.contains(b.id)) {
+          // Keep rotation order within the program, starting from "next".
+          final n = program.length;
+          final base = next == null ? 0 : program.indexOf(next.id);
+          final ai = (program.indexOf(a.id) - base + n) % n;
+          final bi = (program.indexOf(b.id) - base + n) % n;
+          return ai.compareTo(bi);
+        }
         return a.orderIndex.compareTo(b.orderIndex);
       });
 
@@ -48,13 +65,20 @@ class TemplatePickerSheet extends ConsumerWidget {
             Text('START A SESSION', style: theme.textTheme.labelSmall),
             const SizedBox(height: AppSpacing.md),
             for (final template in sorted)
-              _TemplateRow(template: template, isToday: template.weekday == today),
+              _TemplateRow(
+                template: template,
+                badge: template.id == next?.id
+                    ? (program != null ? 'NEXT' : 'TODAY')
+                    : null,
+              ),
             const SizedBox(height: AppSpacing.sm),
             GhostButton(
               label: 'Empty session',
               icon: Icons.add,
               expanded: true,
               onPressed: () async {
+                await maybePromptBodyweight(context, ref);
+                if (!context.mounted) return;
                 final id = await ref
                     .read(workoutRepositoryProvider)
                     .startEmptySession();
@@ -71,10 +95,14 @@ class TemplatePickerSheet extends ConsumerWidget {
 }
 
 class _TemplateRow extends ConsumerWidget {
-  const _TemplateRow({required this.template, this.isToday = false});
+  const _TemplateRow({required this.template, this.badge});
 
   final TemplateRow template;
-  final bool isToday;
+
+  /// "NEXT" / "TODAY" for the workout you're here for; null otherwise.
+  final String? badge;
+
+  bool get isToday => badge != null;
 
   static const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -89,6 +117,8 @@ class _TemplateRow extends ConsumerWidget {
       color: AppColors.cardHigh,
       borderColor: isToday ? accent.withValues(alpha: 0.6) : null,
       onTap: () async {
+        await maybePromptBodyweight(context, ref);
+        if (!context.mounted) return;
         final id = await ref
             .read(workoutRepositoryProvider)
             .startSessionFromTemplate(template.id);
@@ -120,8 +150,8 @@ class _TemplateRow extends ConsumerWidget {
               ],
             ),
           ),
-          if (isToday)
-            const VoltBadge('TODAY', filled: true)
+          if (badge != null)
+            VoltBadge(badge!, filled: true)
           else if (template.weekday != null)
             Text(
               _dayNames[template.weekday! - 1],

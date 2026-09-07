@@ -61,3 +61,16 @@ All notable changes to IronLog. Newest first.
   sessions (half the sets, −10 % load, no jumps); "Not now" snoozes it.
 - **Session clock** shows elapsed vs the 80-min target, turns amber at 80,
   red at 90, and nudges you once past 90.
+
+### 6. Daily metrics, low friction
+- **Weigh-in prompt** when starting a session with no body weight logged in
+  the last 3 days — one wheel, prefilled with the last value. Skip is
+  allowed and counted.
+- **21:00 reminder** "Log protein + kcal"; tapping it opens the Today card.
+  Toggle in Settings › Reminders.
+- **Body-weight chart** now reports the weekly change in kg and % (on the
+  7-day line) against an **editable target band** (default lean bulk
+  0.20–0.35 kg/wk) and says under / on track / over.
+- **Steps** keep syncing from Health Connect; the card adds a 7-day rolling
+  average.
+- Today card fields (weight, kcal, protein, sleep) stay one-tap editable.

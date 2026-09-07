@@ -111,6 +111,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
 
+          const SectionHeader('Reminders'),
+          AppCard(
+            child: _SwitchRow(
+              title: 'Log protein + kcal at 21:00',
+              subtitle: 'A nightly nudge that opens the Today card.',
+              value: settings.nutritionReminderEnabled,
+              onChanged: controller.setNutritionReminder,
+            ),
+          ),
+
+          const SectionHeader('Body-weight goal'),
+          AppCard(
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Lean bulk: how much to gain per week. The body-weight '
+                    'chart grades the last 7 days against this band.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _RateRow(
+                  title: 'From',
+                  kgPerWeek: settings.bwTargetMinKg,
+                  unit: settings.unit,
+                  canIncrease: settings.bwTargetMinKg + 0.05 <=
+                      settings.bwTargetMaxKg + 1e-9,
+                  onChanged: controller.setBwTargetMin,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _RateRow(
+                  title: 'To',
+                  kgPerWeek: settings.bwTargetMaxKg,
+                  unit: settings.unit,
+                  canDecrease: settings.bwTargetMaxKg - 0.05 >=
+                      settings.bwTargetMinKg - 1e-9,
+                  onChanged: controller.setBwTargetMax,
+                ),
+              ],
+            ),
+          ),
+
           SectionHeader(HealthService.providerName),
           AppCard(
             child: Column(
@@ -769,6 +813,59 @@ class _SwitchRow extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.md),
         Switch(value: value, onChanged: enabled ? onChanged : null),
+      ],
+    );
+  }
+}
+
+/// A kg-per-week rate, stepped by 0.05 kg and shown in the user's unit.
+class _RateRow extends StatelessWidget {
+  const _RateRow({
+    required this.title,
+    required this.kgPerWeek,
+    required this.unit,
+    required this.onChanged,
+    this.canIncrease = true,
+    this.canDecrease = true,
+  });
+
+  final String title;
+  final double kgPerWeek;
+  final WeightUnit unit;
+  final ValueChanged<double> onChanged;
+  final bool canIncrease;
+  final bool canDecrease;
+
+  static const _step = 0.05;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
+        IconPill(
+          icon: Icons.remove,
+          size: 34,
+          onTap: !canDecrease || kgPerWeek - _step < -1.0
+              ? null
+              : () => onChanged(kgPerWeek - _step),
+        ),
+        SizedBox(
+          width: 104,
+          child: Text(
+            '${Fmt.signed(unit.fromKg(kgPerWeek))} ${unit.label}/wk',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium,
+          ),
+        ),
+        IconPill(
+          icon: Icons.add,
+          size: 34,
+          onTap: !canIncrease || kgPerWeek + _step > 1.5
+              ? null
+              : () => onChanged(kgPerWeek + _step),
+        ),
       ],
     );
   }

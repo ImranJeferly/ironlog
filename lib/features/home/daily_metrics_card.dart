@@ -33,6 +33,19 @@ class DailyMetricsCard extends ConsumerWidget {
     final steps = metrics?.steps;
     final stepsReached = (steps ?? 0) >= stepGoal;
 
+    // 7-day rolling average of synced steps (days without data don't count).
+    int? stepsAvg;
+    final recent = ref.watch(recentMetricsProvider).value;
+    if (recent != null) {
+      final counts = [
+        for (final m in recent)
+          if (m.steps != null) m.steps!,
+      ];
+      if (counts.isNotEmpty) {
+        stepsAvg = (counts.reduce((a, b) => a + b) / counts.length).round();
+      }
+    }
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,12 +94,16 @@ class DailyMetricsCard extends ConsumerWidget {
             children: [
               const Icon(Icons.sync, size: 12, color: AppColors.textTertiary),
               const SizedBox(width: 5),
-              Text(
-                steps == null
-                    ? 'Auto-syncs from ${HealthService.providerName}'
-                    : 'Synced from ${HealthService.providerName}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textTertiary,
+              Expanded(
+                child: Text(
+                  '${steps == null ? 'Auto-syncs from' : 'Synced from'} '
+                  '${HealthService.providerName}'
+                  '${stepsAvg == null ? '' : ' · 7-day avg ${Fmt.count(stepsAvg)}'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
                 ),
               ),
             ],

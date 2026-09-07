@@ -116,6 +116,20 @@ class MetricsRepository {
     );
   }
 
+  /// Most recent weigh-in inside the last [withinDays] days (today counts as
+  /// day 1), or null — drives the "weigh in?" prompt on session start.
+  Future<double?> latestWeightWithin({int withinDays = 3}) async {
+    final now = DateTime.now();
+    final rows = await _db.metricsBetween(
+      now.dayStart.subtract(Duration(days: withinDays - 1)),
+      now.dayEnd,
+    );
+    for (final row in rows.reversed) {
+      if (row.weightKg != null) return row.weightKg;
+    }
+    return null;
+  }
+
   /// Most recent logged body weight, looking back up to a year.
   Future<double?> latestWeightKg() async {
     final now = DateTime.now();
