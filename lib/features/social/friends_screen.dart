@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/date_x.dart';
 import '../../data/social/social_models.dart';
+import '../../data/social/social_repository.dart'
+    show SendOutcome, SendResult, describeSocialError;
 import '../../widgets/app_card.dart';
 import '../../widgets/brutal.dart' show BrutalHeader;
 import '../../widgets/buttons.dart';
@@ -35,6 +39,14 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     final enabled = ref.watch(socialEnabledProvider);
     final me = ref.watch(myProfileProvider).value;
     final requests = ref.watch(incomingRequestsProvider).value ?? const [];
+    // Any stream failing (almost always: rules not published) must be loud —
+    // otherwise it just looks like nobody has sent anything.
+    final streamError = [
+      ref.watch(chatsProvider),
+      ref.watch(friendsProvider),
+      ref.watch(incomingRequestsProvider),
+      ref.watch(outgoingRequestsProvider),
+    ].map((a) => a.error).firstWhere((e) => e != null, orElse: () => null);
 
     return SafeArea(
       bottom: false,
@@ -91,6 +103,38 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                 onChanged: (t) => setState(() => _tab = t),
               ),
             ),
+            if (streamError != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  0,
+                  AppSpacing.md,
+                  AppSpacing.sm,
+                ),
+                child: AppCard(
+                  edge: AppColors.danger,
+                  radius: AppRadii.cardSmall,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 18,
+                        color: AppColors.danger,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          describeSocialError(streamError),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             if (me != null && me.handle == null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -152,6 +196,22 @@ class _SignedOutState extends StatelessWidget {
   }
 }
 
+/// A stream failed. Say why instead of pretending the list is empty.
+class _LoadError extends StatelessWidget {
+  const _LoadError(this.error);
+
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    return EmptyState(
+      title: 'Can’t load this',
+      icon: Icons.error_outline,
+      message: describeSocialError(error),
+    );
+  }
+}
+
 // ------------------------------------------------------------------- chats
 
 class _ChatsList extends ConsumerWidget {
@@ -165,6 +225,7 @@ class _ChatsList extends ConsumerWidget {
 
     // Don't flash "no chats" while the first snapshot is still on its way.
     if (async.isLoading && !async.hasValue) return const SizedBox.shrink();
+    if (async.hasError) return _LoadError(async.error!);
     if (chats.isEmpty) {
       return const EmptyState(
         title: 'No chats yet',
@@ -310,6 +371,7 @@ class _FriendsList extends ConsumerWidget {
     final friends = async.value ?? const [];
 
     if (async.isLoading && !async.hasValue) return const SizedBox.shrink();
+    if (async.hasError) return _LoadError(async.error!);
     if (friends.isEmpty) {
       return EmptyState(
         title: 'No friends yet',
@@ -430,6 +492,8 @@ class _RequestsList extends ConsumerWidget {
         (incomingAsync.isLoading && !incomingAsync.hasValue) ||
         (outgoingAsync.isLoading && !outgoingAsync.hasValue);
     if (loading) return const SizedBox.shrink();
+    final error = incomingAsync.error ?? outgoingAsync.error;
+    if (error != null) return _LoadError(error);
     if (incoming.isEmpty && outgoing.isEmpty) {
       return const EmptyState(
         title: 'No pending requests',
@@ -601,12 +665,18 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
       _found = null;
     });
     final repo = ref.read(socialRepositoryProvider);
-    final profile = await repo.findByHandle(_controller.text);
+    UserProfile? profile;
+    String? error;
+    try {
+      profile = await repo.findByHandle(_controller.text);
+    } on Object catch (e) {
+      error = describeSocialError(e);
+    }
     if (!mounted) return;
     setState(() {
       _busy = false;
       _found = profile;
-      _message = profile == null ? 'Nobody has that handle.' : null;
+      _message = error ?? (profile == null ? 'Nobody has that handle.' : null);
     });
   }
 
@@ -614,12 +684,40 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
     final target = _found;
     if (target == null) return;
     setState(() => _busy = true);
-    final error = await ref.read(socialRepositoryProvider).sendRequest(target.uid);
+    SendResult? result;
+    String? error;
+    try {
+      result = await ref.read(socialRepositoryProvider).sendRequest(target.uid);
+    } on Object catch (e) {
+      error = describeSocialError(e);
+    }
     if (!mounted) return;
+
+    // Crossing requests auto-accept: don't say "sent" — take them to the chat.
+    if (result?.outcome == SendOutcome.nowFriends && result?.chatId != null) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result!.message ?? 'You’re now friends with ${target.displayName}.',
+          ),
+        ),
+      );
+      unawaited(
+        ChatScreen.open(context, chatId: result.chatId!, friendUid: target.uid),
+      );
+      return;
+    }
+
     setState(() {
       _busy = false;
-      _message = error ?? 'Request sent to ${target.displayName}.';
-      if (error == null) _found = null;
+      _message = switch (result?.outcome) {
+        SendOutcome.sent => 'Request sent to ${target.displayName}. '
+            'It shows under Requests › Sent until they accept.',
+        SendOutcome.noop => result?.message,
+        _ => error ?? result?.message,
+      };
+      if (result?.outcome == SendOutcome.sent) _found = null;
     });
   }
 

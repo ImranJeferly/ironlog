@@ -8,6 +8,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/date_x.dart';
 import '../../core/utils/format.dart';
 import '../../data/social/social_models.dart';
+import '../../data/social/social_repository.dart'
+    show SendOutcome, describeSocialError;
 import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
 import 'avatar.dart';
@@ -144,10 +146,21 @@ class FriendProfileScreen extends ConsumerWidget {
                     icon: Icons.person_add_alt_1,
                     height: 48,
                     onPressed: () async {
-                      final error = await repo.sendRequest(uid);
+                      String text;
+                      try {
+                        final r = await repo.sendRequest(uid);
+                        text = switch (r.outcome) {
+                          SendOutcome.sent => 'Request sent.',
+                          SendOutcome.nowFriends =>
+                            r.message ?? 'You’re friends now.',
+                          SendOutcome.noop => r.message ?? 'Nothing to do.',
+                        };
+                      } on Object catch (e) {
+                        text = describeSocialError(e);
+                      }
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(error ?? 'Request sent.')),
+                          SnackBar(content: Text(text)),
                         );
                       }
                     },

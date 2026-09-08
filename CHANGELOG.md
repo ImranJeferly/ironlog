@@ -12,7 +12,14 @@ no server code. It needs a real (non-guest) account.
 - **Friend requests.** Find someone by `@handle`, send a request, they accept
   (or decline), and only then does a chat open. Nothing — no chat, no
   profile stats — is reachable until both sides are friends. Removing a
-  friend closes the door again. Crossing requests auto-accept.
+  friend closes the door again. If you both send at the same time the
+  second send accepts the first, says so, and opens the chat instead of
+  claiming a request was sent. Your own sent requests sit under Requests ›
+  Sent until answered.
+- **Loud failures.** When Firestore rejects a read or write (typically the
+  rules aren't published yet) the Friends tab shows a red banner and each
+  list says why, instead of an empty "no requests" state; search and send
+  report the same reason.
 - **Chat, WhatsApp-style.** Text and voice notes (AAC, up to 90 s, stored
   inline in the message), swipe or long-press to reply with a quoted
   preview, copy, day separators, and per-message ticks: clock while sending,

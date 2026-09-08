@@ -6,6 +6,44 @@ import 'social_models.dart';
 
 enum _Claim { ok, taken, denied, failed }
 
+/// Outcome of [SocialRepository.sendRequest].
+enum SendOutcome {
+  /// A pending request now sits in their Requests tab.
+  sent,
+
+  /// They had already asked you — that request was accepted instead, so you
+  /// are friends and a chat exists.
+  nowFriends,
+
+  /// Nothing to do (already friends, or it's you).
+  noop,
+}
+
+class SendResult {
+  const SendResult(this.outcome, {this.message, this.chatId});
+
+  final SendOutcome outcome;
+  final String? message;
+
+  /// Set for [SendOutcome.nowFriends].
+  final String? chatId;
+}
+
+/// Human explanation for a Firestore failure — the one that matters most is
+/// "rules not deployed", which otherwise looks like an empty screen.
+String describeSocialError(Object error) {
+  if (error is FirebaseException) {
+    return switch (error.code) {
+      'permission-denied' =>
+        'Firestore rejected this (permission denied). The security rules in '
+            'firestore.rules aren\'t published in the Firebase console yet.',
+      'unavailable' => 'Firestore is unreachable — check your connection.',
+      _ => 'Firestore error: ${error.code}',
+    };
+  }
+  return 'Something went wrong: $error';
+}
+
 /// Friends, requests, chats and profiles — all in Firestore documents, no
 /// Storage. Photos and voice notes travel as inline blobs, which keeps the
 /// whole feature inside the free tier.
@@ -278,12 +316,23 @@ class SocialRepository {
         );
   }
 
-  /// Sends a request to [other]. Returns null on success or a reason.
-  Future<String?> sendRequest(String other) async {
+  /// Sends a request to [other]. Firestore errors propagate so the caller
+  /// can show [describeSocialError].
+  Future<SendResult> sendRequest(String other) async {
     final me = uid;
-    if (me == null) return 'Sign in first.';
-    if (other == me) return 'That’s you.';
-    if (await isFriend(other)) return 'Already friends.';
+    if (me == null) {
+      return const SendResult(SendOutcome.noop, message: 'Sign in first.');
+    }
+    if (other == me) {
+      return const SendResult(SendOutcome.noop, message: 'That’s you.');
+    }
+    if (await isFriend(other)) {
+      return SendResult(
+        SendOutcome.nowFriends,
+        message: 'Already friends.',
+        chatId: chatIdFor(me, other),
+      );
+    }
 
     // If they already asked me, accept instead of creating a crossing request.
     final reverse = await _requests
@@ -292,7 +341,11 @@ class SocialRepository {
     if (reverse.exists &&
         reverse.data()?['status'] == FriendRequestStatus.pending.name) {
       await acceptRequest(reverse.id);
-      return null;
+      return SendResult(
+        SendOutcome.nowFriends,
+        message: 'They had already asked you — you’re friends now.',
+        chatId: chatIdFor(me, other),
+      );
     }
 
     final mine = await _users.doc(me).get();
@@ -304,7 +357,7 @@ class SocialRepository {
       'fromName': mine.data()?['displayName'],
       'fromHandle': mine.data()?['handle'],
     });
-    return null;
+    return const SendResult(SendOutcome.sent);
   }
 
   Future<void> cancelRequest(String requestId) => _requests.doc(requestId).delete();
