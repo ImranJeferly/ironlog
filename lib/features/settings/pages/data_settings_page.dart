@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_x.dart';
 import '../../../data/sync/firebase_bootstrap.dart';
+import '../../../domain/enums.dart';
 import '../../../widgets/app_card.dart';
 import '../../../widgets/buttons.dart';
 import '../settings_widgets.dart';
