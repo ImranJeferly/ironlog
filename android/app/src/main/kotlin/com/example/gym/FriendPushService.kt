@@ -34,8 +34,10 @@ class FriendPushService : Service() {
             try {
                 context.startForegroundService(intent)
             } catch (e: Exception) {
-                // Background-start restriction (Android 12+). The keep-alive
-                // job retries from an allowed context.
+                // Background-start restriction (Android 12+). Once the user
+                // grants the battery exemption this is allowed from the
+                // keep-alive job too; until then the job's own catch-up reads
+                // still deliver notifications, just up to 15 minutes late.
             }
         }
 
@@ -54,7 +56,15 @@ class FriendPushService : Service() {
         super.onCreate()
         inbox = PushInbox(this)
         PushInbox.ensureChannels(this)
-        startForegroundCompat()
+        try {
+            startForegroundCompat()
+        } catch (e: Exception) {
+            // A sticky restart from the background without the battery
+            // exemption isn't allowed to go foreground (Android 12+). Bail
+            // quietly instead of crash-looping; the keep-alive job catches up.
+            stopSelf()
+            return
+        }
         FirebaseAuth.getInstance().addAuthStateListener(authListener)
     }
 

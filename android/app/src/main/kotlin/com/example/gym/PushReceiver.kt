@@ -60,7 +60,11 @@ class PushReceiver : BroadcastReceiver() {
                 "unread.$me" to 0L,
             ),
         )
-        batch.commit()
+        // Keep the process alive until the write is at least queued durably;
+        // a receiver that returns immediately can be killed before Firestore
+        // persists it when no service is running.
+        val pending = goAsync()
+        batch.commit().addOnCompleteListener { pending.finish() }
         // Android requires the notification to be updated or removed after a
         // RemoteInput reply, otherwise the spinner never stops.
         PushInbox.dismissChat(context, chatId)
