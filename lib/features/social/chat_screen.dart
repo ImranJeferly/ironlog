@@ -49,6 +49,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   ReplyRef? _reply;
   bool _visible = true;
 
+  /// When my oldest still-pending message first showed up; drives the
+  /// "waiting for connection" pill after a few seconds.
+  DateTime? _pendingSince;
+  Timer? _pendingTicker;
+  bool _kicking = false;
+
+  static const _stuckAfter = Duration(seconds: 8);
+
+  void _trackPending(List<ChatMessage>? messages, String? me) {
+    final anyPending =
+        me != null &&
+        (messages ?? const []).any(
+          (m) => m.from == me && m.status == MessageStatus.pending,
+        );
+    if (anyPending) {
+      _pendingSince ??= DateTime.now();
+      _pendingTicker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else if (_pendingSince != null) {
+      _pendingSince = null;
+      _pendingTicker?.cancel();
+      _pendingTicker = null;
+    }
+  }
+
+  bool get _stuck =>
+      _pendingSince != null &&
+      DateTime.now().difference(_pendingSince!) > _stuckAfter;
+
+  Future<void> _retryStuck() async {
+    if (_kicking) return;
+    setState(() => _kicking = true);
+    await ref.read(socialRepositoryProvider).kickNetwork();
+    if (mounted) setState(() => _kicking = false);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -62,6 +99,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void dispose() {
     PushService.setActiveChat(null);
     WidgetsBinding.instance.removeObserver(this);
+    _pendingTicker?.cancel();
     _recTicker?.cancel();
     _recorder.dispose();
     _input.dispose();
@@ -174,6 +212,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Receipts as messages arrive.
     ref.listen(chatMessagesProvider(widget.chatId), (_, next) {
       _receipts(next.value);
+      _trackPending(next.value, me);
     });
 
     final np = friend?.nowPlaying;
@@ -294,6 +333,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     },
                   ),
           ),
+          if (_stuck)
+            _StuckPill(busy: _kicking, onRetry: _retryStuck),
           _Composer(
             controller: _input,
             reply: _reply,
@@ -309,6 +350,64 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             onClearReply: () => setState(() => _reply = null),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shown when my messages have sat unacknowledged for a while — usually a
+/// Wi-Fi with no internet or a stalled stream after a network switch.
+class _StuckPill extends StatelessWidget {
+  const _StuckPill({required this.busy, required this.onRetry});
+
+  final bool busy;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, 6),
+      child: GestureDetector(
+        onTap: busy ? null : onRetry,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.cardHigh,
+            borderRadius: BorderRadius.circular(AppRadii.chip),
+            border: Border.all(color: AppColors.ember.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: busy
+                    ? const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.ember,
+                      )
+                    : const Icon(
+                        Icons.cloud_off_outlined,
+                        size: 14,
+                        color: AppColors.ember,
+                      ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  busy
+                      ? 'Reconnecting…'
+                      : 'Waiting for connection — messages will send when '
+                            'it’s back. Tap to retry now.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

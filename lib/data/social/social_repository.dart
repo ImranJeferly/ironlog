@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
@@ -452,24 +454,55 @@ class SocialRepository {
         );
   }
 
-  Future<void> _touchChat(
+  /// Members of a 1:1 chat from its id (`chatIdFor` joins the two uids with
+  /// an underscore; Firebase uids never contain one). Avoids a server read
+  /// on every send, which is what stalled the composer on a flaky link.
+  List<String> _membersOf(String chatId) {
+    final parts = chatId.split('_');
+    return parts.length == 2 && parts.every((p) => p.isNotEmpty)
+        ? parts
+        : const [];
+  }
+
+  /// Writes a message and the chat's "last message / unread" fields in one
+  /// atomic batch, and returns as soon as the write is queued locally.
+  /// Firestore shows it immediately (pending tick) and delivers when the
+  /// network allows; awaiting the server here only freezes the UI offline.
+  void _post(
     String chatId, {
     required String me,
+    required Map<String, dynamic> message,
     required String preview,
-  }) async {
-    final chat = await _chats.doc(chatId).get();
-    final members = [
-      for (final m in (chat.data()?['members'] as List? ?? const [])) '$m',
-    ];
+  }) {
+    final chat = _chats.doc(chatId);
+    final batch = _db.batch();
+    batch.set(chat.collection('messages').doc(), message);
     final updates = <String, dynamic>{
       'lastText': preview,
       'lastFrom': me,
       'lastAt': FieldValue.serverTimestamp(),
     };
-    for (final m in members) {
+    for (final m in _membersOf(chatId)) {
       if (m != me) updates['unread.$m'] = FieldValue.increment(1);
     }
-    await _chats.doc(chatId).update(updates);
+    batch.update(chat, updates);
+    unawaited(
+      batch.commit().catchError((Object e) {
+        debugPrint('IronLog: message write failed ($e)');
+      }),
+    );
+  }
+
+  /// Nudges a stalled connection: Firestore's stream can sit in back-off
+  /// after a network switch; a disable/enable cycle forces a reconnect and
+  /// flushes queued writes. Safe to call any time.
+  Future<void> kickNetwork() async {
+    try {
+      await _db.disableNetwork();
+      await _db.enableNetwork();
+    } on Object catch (e) {
+      debugPrint('IronLog: kickNetwork failed ($e)');
+    }
   }
 
   Future<void> sendText(
@@ -481,14 +514,18 @@ class SocialRepository {
     if (me == null) return;
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
-    await _chats.doc(chatId).collection('messages').add({
-      'from': me,
-      'kind': MessageKind.text.name,
-      'text': trimmed,
-      'replyTo': replyTo?.toMap(),
-      'sentAt': FieldValue.serverTimestamp(),
-    });
-    await _touchChat(chatId, me: me, preview: trimmed);
+    _post(
+      chatId,
+      me: me,
+      message: {
+        'from': me,
+        'kind': MessageKind.text.name,
+        'text': trimmed,
+        'replyTo': replyTo?.toMap(),
+        'sentAt': FieldValue.serverTimestamp(),
+      },
+      preview: trimmed,
+    );
   }
 
   /// Inline AAC bytes. Firestore documents cap at 1 MiB, so the recorder keeps
@@ -504,17 +541,17 @@ class SocialRepository {
     if (audio.length > 900 * 1024) {
       return 'That voice note is too long to send.';
     }
-    await _chats.doc(chatId).collection('messages').add({
-      'from': me,
-      'kind': MessageKind.voice.name,
-      'audio': Blob(audio),
-      'audioMs': durationMs,
-      'replyTo': replyTo?.toMap(),
-      'sentAt': FieldValue.serverTimestamp(),
-    });
-    await _touchChat(
+    _post(
       chatId,
       me: me,
+      message: {
+        'from': me,
+        'kind': MessageKind.voice.name,
+        'audio': Blob(audio),
+        'audioMs': durationMs,
+        'replyTo': replyTo?.toMap(),
+        'sentAt': FieldValue.serverTimestamp(),
+      },
       preview: '🎤 Voice message (${(durationMs / 1000).round()} s)',
     );
     return null;
@@ -561,16 +598,31 @@ class SocialRepository {
     final me = uid;
     if (me == null || !isAvailable) return;
     try {
-      final friends = await _users.doc(me).collection('friends').get();
+      // Cache first: the friend list rarely changes and this must not wait
+      // on the network mid-session.
+      QuerySnapshot<Map<String, dynamic>> friends;
+      try {
+        friends = await _users
+            .doc(me)
+            .collection('friends')
+            .get(const GetOptions(source: Source.cache));
+        if (friends.docs.isEmpty) throw StateError('empty cache');
+      } on Object {
+        friends = await _users.doc(me).collection('friends').get();
+      }
       for (final f in friends.docs) {
         final chatId = f.data()['chatId'] as String? ?? chatIdFor(me, f.id);
-        await _chats.doc(chatId).collection('messages').add({
-          'from': me,
-          'kind': MessageKind.system.name,
-          'text': text,
-          'sentAt': FieldValue.serverTimestamp(),
-        });
-        await _touchChat(chatId, me: me, preview: text);
+        _post(
+          chatId,
+          me: me,
+          message: {
+            'from': me,
+            'kind': MessageKind.system.name,
+            'text': text,
+            'sentAt': FieldValue.serverTimestamp(),
+          },
+          preview: text,
+        );
       }
     } on Object catch (e) {
       debugPrint('IronLog: broadcast failed ($e)');

@@ -16,6 +16,14 @@ no server code. It needs a real (non-guest) account.
   second send accepts the first, says so, and opens the chat instead of
   claiming a request was sent. Your own sent requests sit under Requests ›
   Sent until answered.
+- **Sending never blocks.** A message and the chat's last-message/unread
+  fields go out in one atomic batch that returns as soon as it's queued —
+  no server round-trip, no chat-document read first — so the composer
+  stays responsive on a flaky link and the pending tick resolves on its
+  own when the connection is back. If your messages sit unacknowledged
+  for more than 8 s the chat shows "Waiting for connection — tap to
+  retry", which forces Firestore to reconnect. PR/session broadcasts use
+  the same path.
 - **Loud failures.** When Firestore rejects a read or write (typically the
   rules aren't published yet) the Friends tab shows a red banner and each
   list says why, instead of an empty "no requests" state; search and send
