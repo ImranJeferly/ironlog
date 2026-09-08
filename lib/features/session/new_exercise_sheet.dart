@@ -279,11 +279,10 @@ class _MuscleChip extends StatelessWidget {
           ),
         ),
         child: Text(
-          (m?.label ?? 'None').toUpperCase(),
+          m?.label ?? 'None',
           style: AppText.display(
             size: 15,
-            letterSpacing: 1.2,
-            height: 1,
+            letterSpacing: 0.2,
             color: selected ? accent : AppColors.textSecondary,
           ),
         ),
@@ -310,15 +309,7 @@ class _StepRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Expanded(
-          child: Text(
-            label.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-            ),
-          ),
-        ),
+        Expanded(child: Text(label, style: theme.textTheme.titleSmall)),
         IconPill(icon: Icons.remove, size: 34, onTap: onMinus),
         SizedBox(
           width: 52,
@@ -373,6 +364,7 @@ class _FlagChip extends StatelessWidget {
               height: 18,
               decoration: BoxDecoration(
                 color: value ? AppColors.accent : Colors.transparent,
+                borderRadius: BorderRadius.circular(5),
                 border: Border.all(
                   color: value ? AppColors.accent : AppColors.textTertiary,
                   width: 1.5,
@@ -392,9 +384,8 @@ class _FlagChip extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    label.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontSize: 15,
+                    label,
+                    style: theme.textTheme.titleSmall?.copyWith(
                       color: value ? AppColors.textPrimary : AppColors.textSecondary,
                     ),
                   ),

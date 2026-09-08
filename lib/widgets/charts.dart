@@ -172,19 +172,19 @@ class TrendChart extends StatelessWidget {
                   for (var i = 0; i < s.values.length; i++)
                     FlSpot(i.toDouble(), s.values[i]),
                 ],
-                // Straight segments — the brutalist chart is a polyline, not
-                // a spline.
-                isCurved: false,
-                barWidth: s.dashed ? 2 : 2.5,
+                isCurved: true,
+                curveSmoothness: 0.25,
+                preventCurveOverShooting: true,
+                barWidth: s.dashed ? 2 : 3,
                 dashArray: s.dashed ? const [5, 5] : null,
                 gradient: s.gradient ?? AppColors.chartGradient,
                 dotData: FlDotData(
                   show: s.values.length <= 14 && !s.dashed,
                   getDotPainter: (spot, percent, bar, index) =>
-                      FlDotSquarePainter(
-                        size: 6,
+                      FlDotCirclePainter(
+                        radius: 3.5,
                         color: AppColors.bg,
-                        strokeWidth: 2,
+                        strokeWidth: 2.5,
                         strokeColor: AppColors.accent,
                       ),
                 ),
@@ -305,7 +305,9 @@ class GroupBarChart extends StatelessWidget {
                   BarChartRodData(
                     toY: data[i].value,
                     width: 18,
-                    borderRadius: BorderRadius.zero,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(6),
+                    ),
                     gradient: LinearGradient(
                       colors: [
                         data[i].color.withValues(alpha: 0.55),
@@ -371,22 +373,7 @@ class ChartCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 3,
-                          height: 11,
-                          color: AppColors.accent,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            title.toUpperCase(),
-                            style: theme.textTheme.labelSmall,
-                          ),
-                        ),
-                      ],
-                    ),
+                    Text(title.toUpperCase(), style: theme.textTheme.labelSmall),
                     if (headline != null) ...[
                       const SizedBox(height: 8),
                       Text(

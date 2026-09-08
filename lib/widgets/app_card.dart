@@ -106,14 +106,20 @@ class SectionHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(width: 3, height: 12, color: AppColors.accent),
+          Container(
+            width: 3,
+            height: 12,
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               title.toUpperCase(),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: AppColors.textSecondary,
-                fontSize: 14,
               ),
             ),
           ),
@@ -171,10 +177,12 @@ class StatTile extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            label.toUpperCase(),
+            label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall?.copyWith(fontSize: 12),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.textTertiary,
+            ),
           ),
         ],
       ),
@@ -212,7 +220,7 @@ class EmptyState extends StatelessWidget {
               height: 64,
               decoration: BoxDecoration(
                 color: AppColors.card,
-                borderRadius: BorderRadius.circular(AppRadii.cardSmall),
+                shape: BoxShape.circle,
                 border: Border.all(color: AppColors.borderStrong),
               ),
               child: Icon(icon, color: AppColors.textTertiary, size: 26),
@@ -244,7 +252,7 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-/// Hard-cornered stamp used for "↑ WEIGHT", "PR", "STALLED" and template tags.
+/// Pill badge used for "↑ WEIGHT", "PR", "STALLED" and template tags.
 class VoltBadge extends StatelessWidget {
   const VoltBadge(
     this.label, {
@@ -263,11 +271,11 @@ class VoltBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final fg = filled ? AppColors.bg : color;
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 5, 8, 4),
+      padding: const EdgeInsets.fromLTRB(9, 5, 9, 5),
       decoration: BoxDecoration(
-        color: filled ? color : color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(AppRadii.chip),
-        border: Border.all(color: color.withValues(alpha: filled ? 1 : 0.6)),
+        color: filled ? color : color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: filled ? 1 : 0.45)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

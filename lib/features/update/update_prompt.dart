@@ -23,7 +23,6 @@ Future<void> promptForUpdate(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const HazardStripes(height: 6, background: AppColors.bg),
             Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
@@ -136,7 +135,7 @@ Future<void> _downloadWithProgress(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'DOWNLOADING UPDATE',
+            'Downloading update…',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: AppSpacing.md),
@@ -151,7 +150,7 @@ Future<void> _downloadWithProgress(
                   SegmentBar(value: value, segments: 20),
                 const SizedBox(height: 8),
                 Text(
-                  value <= 0 ? 'STARTING…' : '${(value * 100).round()}%',
+                  value <= 0 ? 'Starting…' : '${(value * 100).round()}%',
                   style: AppText.numeric(
                     size: 13,
                     color: AppColors.textSecondary,

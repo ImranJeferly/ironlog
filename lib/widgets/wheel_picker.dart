@@ -77,22 +77,33 @@ class _NumberWheelState extends State<NumberWheel> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Selection band behind the centre item: a rack slot — two hard
-          // rules with a short red tick on each side.
+          // Selection band behind the centre item, with a red tick each side.
           IgnorePointer(
             child: Container(
               height: widget.itemExtent,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.025),
-                border: const Border.symmetric(
-                  horizontal: BorderSide(color: AppColors.borderStrong),
-                ),
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(AppRadii.card),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(width: 10, height: 2, color: AppColors.accent),
-                  Container(width: 10, height: 2, color: AppColors.accent),
+                  Container(
+                    width: 10,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Container(
+                    width: 10,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ],
               ),
             ),

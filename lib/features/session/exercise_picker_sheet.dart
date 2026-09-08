@@ -6,7 +6,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
-import '../../widgets/brutal.dart';
 import 'new_exercise_sheet.dart';
 
 /// Picks an exercise from the library (or creates a brand-new one) and adds
@@ -102,18 +101,17 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const HazardStripes(height: 6, background: AppColors.bg),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.lg,
-                  AppSpacing.md,
+                  AppSpacing.lg,
                   AppSpacing.lg,
                   AppSpacing.sm,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('ADD EXERCISE', style: theme.textTheme.headlineMedium),
+                    Text('Add exercise', style: theme.textTheme.headlineMedium),
                     const SizedBox(height: AppSpacing.sm),
                     TextField(
                       autofocus: false,
@@ -169,9 +167,12 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                         child: Row(
                           children: [
                             Container(
-                              width: 26,
-                              height: 26,
-                              color: AppColors.accent,
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: AppColors.accent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                               child: const Icon(
                                 Icons.add,
                                 size: 18,
@@ -184,12 +185,8 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'CREATE YOUR OWN EXERCISE',
-                                    style: theme.textTheme.labelSmall
-                                        ?.copyWith(
-                                          color: AppColors.textPrimary,
-                                          fontSize: 15,
-                                        ),
+                                    'Create your own exercise',
+                                    style: theme.textTheme.titleSmall,
                                   ),
                                   Text(
                                     'Saved to your library forever.',
@@ -240,12 +237,10 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                                       const SizedBox(height: 2),
                                       Text(
                                         '${exercise.role.label} · '
-                                                '${exercise.targetSets}×'
-                                                '${exercise.repRangeMin}–'
-                                                '${exercise.repRangeMax}'
-                                            .toUpperCase(),
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(fontSize: 11.5),
+                                        '${exercise.targetSets}×'
+                                        '${exercise.repRangeMin}–'
+                                        '${exercise.repRangeMax}',
+                                        style: theme.textTheme.bodySmall,
                                       ),
                                     ],
                                   ),
@@ -283,9 +278,8 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
           child: Text(
             label,
             style: AppText.display(
-              size: 15,
-              letterSpacing: 1.4,
-              height: 1,
+              size: 14,
+              letterSpacing: 0.3,
               color: active ? AppColors.textPrimary : AppColors.textSecondary,
             ),
           ),
@@ -302,13 +296,13 @@ class IconPillGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 26,
-      height: 26,
+      width: 28,
+      height: 28,
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.borderStrong),
-        borderRadius: BorderRadius.circular(AppRadii.chip),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: const Icon(Icons.add, size: 16, color: AppColors.textSecondary),
+      child: const Icon(Icons.add, size: 16, color: AppColors.accent),
     );
   }
 }

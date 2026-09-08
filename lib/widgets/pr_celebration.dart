@@ -121,8 +121,14 @@ class _PrCelebrationState extends State<PrCelebration>
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: AppColors.card,
-                    border: Border.all(color: AppColors.accent, width: 2),
+                    border: Border.all(color: AppColors.accent, width: 1.5),
                     borderRadius: BorderRadius.circular(AppRadii.card),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accent.withValues(alpha: 0.35),
+                        blurRadius: 40,
+                      ),
+                    ],
                   ),
                   child: Stack(
                     children: [
@@ -130,17 +136,13 @@ class _PrCelebrationState extends State<PrCelebration>
                         'PR',
                         size: 220,
                         color: AppColors.accent,
-                        opacity: 0.10,
+                        opacity: 0.06,
                         alignment: Alignment.centerRight,
                         offset: Offset(30, 0),
                       ),
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const HazardStripes(
-                            height: 8,
-                            background: AppColors.bg,
-                          ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(
                               AppSpacing.lg,

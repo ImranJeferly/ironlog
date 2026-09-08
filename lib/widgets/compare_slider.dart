@@ -83,8 +83,7 @@ class _CompareSliderState extends State<CompareSlider> {
                         height: 36,
                         decoration: BoxDecoration(
                           color: AppColors.accent,
-                          borderRadius: BorderRadius.circular(AppRadii.chip),
-                          border: Border.all(color: AppColors.textPrimary),
+                          shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.4),
@@ -93,7 +92,7 @@ class _CompareSliderState extends State<CompareSlider> {
                           ],
                         ),
                         child: const Icon(
-                          Icons.code,
+                          Icons.unfold_more,
                           size: 20,
                           color: AppColors.textPrimary,
                         ),

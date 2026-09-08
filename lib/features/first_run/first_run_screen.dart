@@ -42,12 +42,12 @@ class _FirstRunScreenState extends ConsumerState<FirstRunScreen> {
                 width: 96,
                 height: 96,
               ),
-              const SizedBox(height: AppSpacing.sm),
-              const HazardStripes(height: 6),
+              const SizedBox(height: AppSpacing.md),
+              const IronRule(leadWidth: 40, thickness: 3),
               const SizedBox(height: AppSpacing.md),
               Text(
                 'IronLog',
-                style: theme.textTheme.displaySmall?.copyWith(fontSize: 64),
+                style: theme.textTheme.displaySmall?.copyWith(fontSize: 56),
               ),
               const SizedBox(height: 6),
               Text(

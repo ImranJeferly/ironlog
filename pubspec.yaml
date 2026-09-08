@@ -89,18 +89,12 @@ flutter:
 
   assets:
     - assets/branding/
-    - assets/textures/
 
   # Type system (all Google Fonts, bundled so the app works fully offline):
-  #   BebasNeue      — headlines, eyebrows, buttons (sharp condensed caps)
-  #   Barlow         — body / UI copy
-  #   BarlowCondensed— dense secondary titles
-  #   ChakraPetch    — numerals only (weights, reps, timers, stats)
+  #   BarlowCondensed — headlines, eyebrows, buttons (sharp, condensed)
+  #   Barlow          — body / UI copy
+  #   ChakraPetch     — numerals only (weights, reps, timers, stats)
   fonts:
-    - family: BebasNeue
-      fonts:
-        - asset: fonts/BebasNeue-Regular.ttf
-          weight: 400
     - family: Barlow
       fonts:
         - asset: fonts/Barlow-Regular.ttf

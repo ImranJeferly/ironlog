@@ -686,8 +686,9 @@ class _ExerciseTrack extends StatelessWidget {
                     height: 6,
                     decoration: BoxDecoration(
                       color: _colorFor(i),
+                      borderRadius: BorderRadius.circular(999),
                       border: i == current
-                          ? Border.all(color: AppColors.textPrimary, width: 1)
+                          ? Border.all(color: AppColors.accent, width: 1)
                           : null,
                     ),
                   ),
@@ -752,9 +753,12 @@ class _ElapsedTextState extends State<_ElapsedText> {
         Container(
           width: 6,
           height: 6,
-          color: over
-              ? AppColors.danger
-              : (near ? AppColors.warning : AppColors.accent),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: over
+                ? AppColors.danger
+                : (near ? AppColors.warning : AppColors.accent),
+          ),
         ),
         const SizedBox(width: 6),
         Text(
@@ -807,12 +811,9 @@ class _RestBar extends ConsumerWidget {
           ),
           const SizedBox(width: 10),
           Text(
-            done ? 'REST OVER — GO' : Fmt.clock(state.remaining),
+            done ? 'Rest over — go' : Fmt.clock(state.remaining),
             style: done
-                ? theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.accent,
-                    fontSize: 15,
-                  )
+                ? AppText.display(size: 17, color: AppColors.accent)
                 : AppText.numeric(size: 18, letterSpacing: 0),
           ),
           const SizedBox(width: 12),
@@ -839,12 +840,8 @@ class _RestBar extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(AppRadii.chip),
                 ),
                 child: Text(
-                  '+30S',
-                  style: AppText.eyebrow(
-                    size: 12,
-                    color: AppColors.accent,
-                    letterSpacing: 1,
-                  ),
+                  '+30s',
+                  style: AppText.display(size: 13, color: AppColors.accent),
                 ),
               ),
             ),
@@ -922,23 +919,25 @@ class _ExercisePage extends ConsumerWidget {
                   Row(
                     children: [
                       Container(
-                        width: 12,
-                        height: 2,
-                        color:
-                            AppColors.muscleColors[exercise.muscleGroup.key] ??
-                            AppColors.accent,
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color:
+                              AppColors.muscleColors[exercise
+                                  .muscleGroup
+                                  .key] ??
+                              AppColors.accent,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
                           '${exercise.schemeLabel} · ${exercise.muscleGroup.label}'
-                                  '${exercise.exercise.isUnilateral ? ' · per side' : ''}'
-                              .toUpperCase(),
+                          '${exercise.exercise.isUnilateral ? ' · per side' : ''}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                          style: theme.textTheme.bodySmall,
                         ),
                       ),
                     ],
@@ -993,8 +992,8 @@ class _ExercisePage extends ConsumerWidget {
           const SizedBox(height: AppSpacing.sm),
           Center(
             child: Text(
-              'ALL SETS DONE — SWIPE ON OR HIT NEXT',
-              style: theme.textTheme.labelSmall?.copyWith(
+              'All sets done — swipe on or hit Next.',
+              style: theme.textTheme.bodySmall?.copyWith(
                 color: AppColors.accent,
               ),
             ),
@@ -1154,15 +1153,12 @@ class _WrapUpPage extends ConsumerWidget {
         AppSpacing.lg,
       ),
       children: [
-        Text('FINISH UP', style: theme.textTheme.headlineLarge),
+        Text('Finish up', style: theme.textTheme.headlineLarge),
         const SizedBox(height: 4),
         Text(
           '$doneCount of ${view.exercises.length} exercises done · '
-                  '${view.totalSets} sets logged'
-              .toUpperCase(),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: AppColors.textSecondary,
-          ),
+          '${view.totalSets} sets logged',
+          style: theme.textTheme.bodySmall,
         ),
         const SizedBox(height: AppSpacing.sm),
         const IronRule(),
@@ -1233,8 +1229,8 @@ class _OptionRow extends StatelessWidget {
       enabled: enabled,
       leading: Icon(icon, size: 20, color: effective),
       title: Text(
-        label.toUpperCase(),
-        style: AppText.display(size: 18, color: effective, letterSpacing: 1.2),
+        label,
+        style: AppText.display(size: 17, color: effective, letterSpacing: 0.2),
       ),
       onTap: enabled
           ? () {

@@ -58,8 +58,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               children: [
                 Row(
                   children: [
-                    Container(width: 3, height: 12, color: AppColors.accent),
-                    const SizedBox(width: 8),
                     Text('CONSISTENCY', style: theme.textTheme.labelSmall),
                     const Spacer(),
                     Text(
@@ -122,8 +120,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          const IronRule(),
           const SizedBox(height: AppSpacing.md),
 
           if (_showPrs)
@@ -252,8 +248,8 @@ class _SessionRow extends ConsumerWidget {
                 ),
               ),
               Text(
-                Dates.relativeDay(session.date).toUpperCase(),
-                style: theme.textTheme.labelSmall,
+                Dates.relativeDay(session.date),
+                style: theme.textTheme.bodySmall,
               ),
             ],
           ),
@@ -318,7 +314,7 @@ class _Pill extends StatelessWidget {
           Icon(icon, size: 12, color: AppColors.textTertiary),
           const SizedBox(width: 5),
           Text(
-            label.toUpperCase(),
+            label,
             style: AppText.numeric(
               size: 11,
               letterSpacing: 0,
@@ -379,9 +375,8 @@ class _PrFeedRow extends ConsumerWidget {
                   style: theme.textTheme.titleSmall,
                 ),
                 Text(
-                  '${pr.type.label} · ${Dates.dayMonth(pr.achievedAt)}'
-                      .toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(fontSize: 11.5),
+                  '${pr.type.label} · ${Dates.dayMonth(pr.achievedAt)}',
+                  style: theme.textTheme.bodySmall,
                 ),
               ],
             ),

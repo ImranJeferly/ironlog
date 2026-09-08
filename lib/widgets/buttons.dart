@@ -4,8 +4,8 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/haptics.dart';
 
-/// The primary CTA — a hard red slab with Bebas caps. Pressing it drops the
-/// slab onto its shadow and taps a haptic.
+/// The primary CTA — a red slab with a soft red glow. Presses squash it a
+/// touch and tap a haptic.
 class VoltButton extends StatefulWidget {
   const VoltButton({
     super.key,
@@ -39,7 +39,6 @@ class _VoltButtonState extends State<VoltButton> {
     final fg = enabled
         ? widget.foreground
         : widget.foreground.withValues(alpha: 0.5);
-    final drop = enabled && !_down ? 4.0 : 0.0;
 
     final button = GestureDetector(
       onTapDown: enabled ? (_) => setState(() => _down = true) : null,
@@ -51,75 +50,52 @@ class _VoltButtonState extends State<VoltButton> {
               widget.onPressed!();
             }
           : null,
-      child: SizedBox(
-        height: widget.height + 4,
-        child: Stack(
-          children: [
-            // Hard offset shadow — the slab sits on it and drops when pressed.
-            Positioned.fill(
-              top: 4,
-              left: 4,
-              right: -4,
-              bottom: 0,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: enabled
-                        ? AppColors.accentDeep.withValues(alpha: 0.9)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(AppRadii.chip),
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1,
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          height: widget.height,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: enabled ? widget.color : widget.color.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(AppRadii.cardSmall + 2),
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: widget.color.withValues(alpha: _down ? 0.15 : 0.35),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (widget.icon != null) ...[
+                Icon(widget.icon, size: 20, color: fg),
+                const SizedBox(width: 8),
+              ],
+              // Long labels shrink instead of overflowing.
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    widget.label,
+                    maxLines: 1,
+                    style: AppText.display(
+                      size: widget.height >= 52 ? 19 : 17,
+                      color: fg,
+                      letterSpacing: 0.3,
+                    ),
                   ),
                 ),
               ),
-            ),
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 90),
-              curve: Curves.easeOut,
-              left: 4 - drop,
-              right: drop,
-              top: 4 - drop,
-              bottom: drop,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                decoration: BoxDecoration(
-                  color: enabled
-                      ? widget.color
-                      : widget.color.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(AppRadii.chip),
-                ),
-                child: Row(
-                  mainAxisSize: widget.expanded
-                      ? MainAxisSize.max
-                      : MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (widget.icon != null) ...[
-                      Icon(widget.icon, size: 20, color: fg),
-                      const SizedBox(width: 10),
-                    ],
-                    // Long labels shrink instead of overflowing the slab.
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        // Bebas has no lowercase — the face does the shouting,
-                        // so labels stay as written (and findable in tests).
-                        child: Text(
-                          widget.label,
-                          maxLines: 1,
-                          style: AppText.display(
-                            size: widget.height >= 52 ? 20 : 17,
-                            color: fg,
-                            letterSpacing: 1.6,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -130,7 +106,7 @@ class _VoltButtonState extends State<VoltButton> {
   }
 }
 
-/// Outlined slab for secondary actions.
+/// Outlined button for secondary actions.
 class GhostButton extends StatelessWidget {
   const GhostButton({
     super.key,
@@ -160,18 +136,18 @@ class GhostButton extends StatelessWidget {
                 Haptics.light();
                 onPressed!();
               },
-        borderRadius: BorderRadius.circular(AppRadii.chip),
+        borderRadius: BorderRadius.circular(AppRadii.cardSmall + 2),
         splashFactory: NoSplash.splashFactory,
         highlightColor: Colors.white.withValues(alpha: 0.04),
         child: Container(
           height: height,
           padding: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadii.chip),
+            borderRadius: BorderRadius.circular(AppRadii.cardSmall + 2),
             border: Border.all(
               color: color == AppColors.textSecondary
                   ? AppColors.borderStrong
-                  : color.withValues(alpha: 0.7),
+                  : color.withValues(alpha: 0.6),
             ),
           ),
           child: Row(
@@ -192,8 +168,7 @@ class GhostButton extends StatelessWidget {
                     style: AppText.display(
                       size: 16,
                       color: color,
-                      letterSpacing: 1.4,
-                      height: 1,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ),
@@ -208,8 +183,8 @@ class GhostButton extends StatelessWidget {
   }
 }
 
-/// Segmented selector (kg/lb, day/week/month, front/side/back) — hard cells
-/// separated by hairlines, red fill on the active one.
+/// Segmented selector (kg/lb, day/week/month, front/side/back) — a rounded
+/// track with a red fill on the active cell.
 class PillToggle<T> extends StatelessWidget {
   const PillToggle({
     super.key,
@@ -229,17 +204,17 @@ class PillToggle<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(AppRadii.chip),
-        border: Border.all(color: AppColors.borderStrong),
+        borderRadius: BorderRadius.circular(AppRadii.cardSmall + 2),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         children: [
           for (var i = 0; i < values.length; i++) ...[
-            if (i > 0) const SizedBox(width: 3),
+            if (i > 0) const SizedBox(width: 4),
             _segment(context, values[i], values[i] == selected),
           ],
         ],
@@ -263,15 +238,14 @@ class PillToggle<T> extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? AppColors.accent : Colors.transparent,
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BorderRadius.circular(AppRadii.chip),
         ),
         child: Text(
           labelOf(value),
           style: AppText.display(
             size: 15,
             color: active ? AppColors.textPrimary : AppColors.textSecondary,
-            letterSpacing: 1.4,
-            height: 1,
+            letterSpacing: 0.4,
           ),
         ),
       ),
@@ -281,7 +255,7 @@ class PillToggle<T> extends StatelessWidget {
   }
 }
 
-/// Square icon button used in app bars and card corners.
+/// Rounded-square icon button used in app bars and card corners.
 class IconPill extends StatelessWidget {
   const IconPill({
     super.key,
@@ -315,8 +289,8 @@ class IconPill extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           color: background ?? AppColors.card,
-          borderRadius: BorderRadius.circular(AppRadii.chip),
-          border: Border.all(color: AppColors.borderStrong),
+          borderRadius: BorderRadius.circular(size * 0.3),
+          border: Border.all(color: AppColors.border),
         ),
         child: Icon(icon, size: size * 0.45, color: color),
       ),
@@ -328,7 +302,7 @@ class IconPill extends StatelessWidget {
   }
 }
 
-/// Square red tick box for the cardio / sauna checkmarks.
+/// Red tick box for the cardio / sauna checkmarks.
 class VoltCheck extends StatelessWidget {
   const VoltCheck({
     super.key,
@@ -358,7 +332,7 @@ class VoltCheck extends StatelessWidget {
           color: value ? AppColors.voltDim : AppColors.card,
           borderRadius: BorderRadius.circular(AppRadii.cardSmall),
           border: Border.all(
-            color: value ? AppColors.accent : AppColors.borderStrong,
+            color: value ? AppColors.accent : AppColors.border,
           ),
         ),
         child: Row(
@@ -369,7 +343,7 @@ class VoltCheck extends StatelessWidget {
               height: 22,
               decoration: BoxDecoration(
                 color: value ? AppColors.accent : Colors.transparent,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color: value ? AppColors.accent : AppColors.textTertiary,
                   width: 1.5,
@@ -399,8 +373,7 @@ class VoltCheck extends StatelessWidget {
                 style: AppText.display(
                   size: 16,
                   color: value ? AppColors.textPrimary : AppColors.textSecondary,
-                  letterSpacing: 1.2,
-                  height: 1,
+                  letterSpacing: 0.2,
                 ),
               ),
             ),

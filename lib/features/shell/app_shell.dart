@@ -6,7 +6,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/notifications.dart';
 import '../../core/utils/haptics.dart';
-import '../../widgets/brutal.dart';
 import '../history/history_screen.dart';
 import '../home/home_screen.dart';
 import '../photos/photos_screen.dart';
@@ -134,8 +133,8 @@ class _TabSpec {
   final IconData activeIcon;
 }
 
-/// Full-bleed steel nav bar — a hard slab with a hazard edge, not a floating
-/// pill. The active tab carries a red top bar and a filled icon.
+/// Floating nav pill — deliberately not a Material NavigationBar. The active
+/// tab sits in a red-tinted cell with a red icon.
 class _NavBar extends StatelessWidget {
   const _NavBar({
     required this.tabs,
@@ -149,38 +148,32 @@ class _NavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: AppColors.card,
-        border: Border(top: BorderSide(color: AppColors.borderStrong)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          0,
+          AppSpacing.md,
+          AppSpacing.sm,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.55),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
           children: [
-            const HazardStripes(
-              height: 3,
-              color: AppColors.steel,
-              stripeWidth: 6,
-              gap: 10,
-            ),
-            SizedBox(
-              height: 58,
-              child: Row(
-                children: [
-                  for (var i = 0; i < tabs.length; i++) ...[
-                    if (i > 0)
-                      const VerticalDivider(
-                        width: 1,
-                        thickness: 1,
-                        color: AppColors.border,
-                      ),
-                    Expanded(child: _item(context, i)),
-                  ],
-                ],
-              ),
-            ),
+            for (var i = 0; i < tabs.length; i++)
+              Expanded(child: _item(context, i)),
           ],
         ),
       ),
@@ -194,45 +187,40 @@ class _NavBar extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => onChanged(i),
-      child: Stack(
-        children: [
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            top: 0,
-            left: active ? 0 : 24,
-            right: active ? 0 : 24,
-            child: Container(
-              height: 3,
-              color: active ? AppColors.accent : Colors.transparent,
-            ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: active ? AppColors.voltDim : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadii.cardSmall),
+          border: Border.all(
+            color: active
+                ? AppColors.accent.withValues(alpha: 0.35)
+                : Colors.transparent,
           ),
-          Positioned.fill(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  active ? tab.activeIcon : tab.icon,
-                  size: 20,
-                  color: active ? AppColors.textPrimary : AppColors.textTertiary,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  // Bebas renders caps; keep the label as written so it
-                  // stays findable by name.
-                  tab.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: AppText.eyebrow(
-                    size: 12,
-                    letterSpacing: 1.6,
-                    color: active ? AppColors.accent : AppColors.textTertiary,
-                  ),
-                ),
-              ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              active ? tab.activeIcon : tab.icon,
+              size: 20,
+              color: active ? AppColors.accent : AppColors.textTertiary,
             ),
-          ),
-        ],
+            const SizedBox(height: 3),
+            Text(
+              tab.label,
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              style: AppText.display(
+                size: 12,
+                letterSpacing: 0.4,
+                color: active ? AppColors.accent : AppColors.textTertiary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

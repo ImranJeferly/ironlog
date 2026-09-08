@@ -57,7 +57,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      Dates.dayMonthYear(now).toUpperCase(),
+                      Dates.dayMonthYear(now),
                       style: theme.textTheme.headlineLarge,
                     ),
                   ],
@@ -385,8 +385,12 @@ class _PlanLine extends ConsumerWidget {
 
     return Row(
       children: [
-        Container(width: 14, height: 2, color: AppColors.textTertiary),
-        const SizedBox(width: 8),
+        const Icon(
+          Icons.format_list_bulleted,
+          size: 14,
+          color: AppColors.textTertiary,
+        ),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
             parts.join('  ·  '),
@@ -428,8 +432,12 @@ class _NextUpLine extends ConsumerWidget {
         next.weekday == (DateTime.now().weekday % 7) + 1;
     return Row(
       children: [
-        Container(width: 14, height: 2, color: AppColors.textTertiary),
-        const SizedBox(width: 8),
+        const Icon(
+          Icons.event_repeat,
+          size: 14,
+          color: AppColors.textTertiary,
+        ),
+        const SizedBox(width: 6),
         Text(
           'Next up: ${next.name} · '
           '${isTomorrow ? 'tomorrow' : _dayNames[next.weekday! - 1]}',
@@ -520,7 +528,14 @@ class _LiveDotState extends State<_LiveDot>
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: Tween<double>(begin: 0.35, end: 1).animate(_c),
-      child: Container(width: 8, height: 8, color: AppColors.accent),
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: const BoxDecoration(
+          color: AppColors.accent,
+          shape: BoxShape.circle,
+        ),
+      ),
     );
   }
 }
@@ -743,12 +758,22 @@ class _WeekStrip extends ConsumerWidget {
           child: done
               ? const Icon(Icons.check, size: 16, color: AppColors.textPrimary)
               : (past && scheduled
-                    ? Container(width: 10, height: 2, color: AppColors.steel)
+                    ? Container(
+                        width: 10,
+                        height: 2,
+                        decoration: BoxDecoration(
+                          color: AppColors.steel,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      )
                     : (scheduled
                           ? Container(
-                              width: 5,
-                              height: 5,
-                              color: AppColors.textTertiary,
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: AppColors.textTertiary,
+                                shape: BoxShape.circle,
+                              ),
                             )
                           : null)),
         ),
@@ -803,9 +828,8 @@ class _PrRow extends ConsumerWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${pr.type.label} · ${Dates.relativeDay(pr.achievedAt)}'
-                      .toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(fontSize: 11.5),
+                  '${pr.type.label} · ${Dates.relativeDay(pr.achievedAt)}',
+                  style: theme.textTheme.bodySmall,
                 ),
               ],
             ),

@@ -63,7 +63,14 @@ class TemplateEditorScreen extends ConsumerWidget {
                     onTap: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 12),
-                  Container(width: 4, height: 30, color: accent),
+                  Container(
+                    width: 4,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -74,13 +81,10 @@ class TemplateEditorScreen extends ConsumerWidget {
                           style: theme.textTheme.headlineMedium,
                         ),
                         Text(
-                          (rows.isEmpty
-                                  ? 'Changes apply to future sessions'
-                                  : '${rows.length} exercises · drag to reorder')
-                              .toUpperCase(),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontSize: 12,
-                          ),
+                          rows.isEmpty
+                              ? 'Changes apply to future sessions'
+                              : '${rows.length} exercises · drag to reorder',
+                          style: theme.textTheme.bodySmall,
                         ),
                       ],
                     ),
@@ -186,10 +190,8 @@ class TemplateEditorScreen extends ConsumerWidget {
                                         ),
                                         Text(
                                           '  ·  ${exercise.primary.label}'
-                                                  '${exercise.secondary == null ? '' : ' + ${exercise.secondary!.label}'}'
-                                              .toUpperCase(),
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(fontSize: 11.5),
+                                          '${exercise.secondary == null ? '' : ' + ${exercise.secondary!.label}'}',
+                                          style: theme.textTheme.bodySmall,
                                         ),
                                       ],
                                     ),

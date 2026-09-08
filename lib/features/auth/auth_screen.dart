@@ -132,14 +132,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               ),
             ),
           ),
-          const Stencil(
-            'IRON',
-            size: 200,
-            color: AppColors.textPrimary,
-            opacity: 0.04,
-            alignment: Alignment.bottomLeft,
-            offset: Offset(-8, 30),
-          ),
           SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
@@ -152,11 +144,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 140),
-              const HazardStripes(height: 6),
+              const IronRule(leadWidth: 40, thickness: 3),
               const SizedBox(height: AppSpacing.md),
               Text(
                 'IronLog',
-                style: theme.textTheme.displaySmall?.copyWith(fontSize: 64),
+                style: theme.textTheme.displaySmall?.copyWith(fontSize: 56),
               ),
               const SizedBox(height: 6),
               Text(

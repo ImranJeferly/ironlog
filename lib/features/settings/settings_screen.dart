@@ -12,7 +12,7 @@ import '../../data/health/health_service.dart';
 import '../../data/sync/firebase_bootstrap.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
-import '../../widgets/brutal.dart';
+import '../../widgets/brutal.dart' show BrutalHeader;
 import '../../widgets/buttons.dart';
 import '../home/template_editor_screen.dart';
 import '../update/update_prompt.dart';
@@ -357,16 +357,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           const SizedBox(height: AppSpacing.lg),
-          const HazardStripes(
-            height: 4,
-            color: AppColors.steel,
-            stripeWidth: 6,
-            gap: 10,
-          ),
-          const SizedBox(height: AppSpacing.sm),
           Center(
             child: Text(
-              'IRONLOG · OFFLINE-FIRST · BUILT FOR THE RACK',
+              'IRONLOG · OFFLINE-FIRST',
               style: theme.textTheme.labelSmall,
             ),
           ),
@@ -584,13 +577,17 @@ class _TrainingDayRow extends ConsumerWidget {
           onTap: () => TemplateEditorScreen.open(context, template.id),
           child: Row(
             children: [
-              Container(width: 4, height: 16, color: accent),
+              Container(
+                width: 4,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  template.name,
-                  style: theme.textTheme.headlineSmall?.copyWith(fontSize: 20),
-                ),
+                child: Text(template.name, style: theme.textTheme.titleSmall),
               ),
               const Icon(
                 Icons.edit_outlined,
@@ -600,9 +597,10 @@ class _TrainingDayRow extends ConsumerWidget {
               const SizedBox(width: 10),
               Text(
                 template.weekday == null
-                    ? 'OFF SCHEDULE'
-                    : _dayNames[template.weekday! - 1].toUpperCase(),
-                style: theme.textTheme.labelSmall?.copyWith(
+                    ? 'Off schedule'
+                    : _dayNames[template.weekday! - 1],
+                style: AppText.display(
+                  size: 14,
                   color: template.weekday == null
                       ? AppColors.textTertiary
                       : accent,
@@ -672,9 +670,7 @@ class _DayChip extends StatelessWidget {
         child: Text(
           label,
           style: AppText.display(
-            size: 15,
-            letterSpacing: 0,
-            height: 1,
+            size: 14,
             color: selected
                 ? (accent == AppColors.textPrimary
                       ? AppColors.bg

@@ -5,12 +5,11 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 
-/// Graphic vocabulary of the brutalist skin: hazard stripes, grain, stencil
-/// watermarks, steel panels, hard rules. Everything here is painted — no
-/// bitmaps — so it stays crisp at any size and costs nothing to ship.
+/// Accent vocabulary of the skin: hero panels with a red glow, thin red-led
+/// rules, index tags, rounded gauges, page headers. Everything is painted so
+/// it stays crisp at any size.
 
-/// Diagonal warning stripes. Used as thin strips under headers, on the
-/// active-session banner and as the top edge of the nav bar.
+/// Diagonal stripes. Kept for the volume target band; used sparingly.
 class HazardStripes extends StatelessWidget {
   const HazardStripes({
     super.key,
@@ -92,44 +91,15 @@ class _HazardPainter extends CustomPainter {
       old.angle != angle;
 }
 
-/// Film grain laid over the whole app. Tiled from a tiny bundled PNG so it is
-/// effectively free to draw; ignores pointer events.
-class GrainOverlay extends StatelessWidget {
-  const GrainOverlay({super.key, this.opacity = 0.055});
-
-  final double opacity;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Opacity(
-        opacity: opacity,
-        child: const DecoratedBox(
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/textures/noise.png'),
-              repeat: ImageRepeat.repeat,
-              scale: 1.6,
-            ),
-          ),
-          child: SizedBox.expand(),
-        ),
-      ),
-    );
-  }
-}
-
-/// Giant outlined caps bleeding off the edge of a panel — the poster-style
-/// watermark behind hero cards ("PUSH", "PR", "REST").
+/// Faint oversized word behind a hero panel. Kept very quiet — a texture,
+/// not a headline.
 class Stencil extends StatelessWidget {
   const Stencil(
     this.text, {
     super.key,
     this.size = 120,
     this.color = AppColors.textPrimary,
-    this.opacity = 0.07,
-    this.strokeWidth = 1.2,
-    this.filled = false,
+    this.opacity = 0.04,
     this.alignment = Alignment.bottomRight,
     this.offset = const Offset(12, 18),
   });
@@ -138,8 +108,6 @@ class Stencil extends StatelessWidget {
   final double size;
   final Color color;
   final double opacity;
-  final double strokeWidth;
-  final bool filled;
   final Alignment alignment;
   final Offset offset;
 
@@ -160,14 +128,10 @@ class Stencil extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: AppFonts.display,
                   fontSize: size,
+                  fontWeight: FontWeight.w700,
                   height: 0.85,
-                  letterSpacing: 1,
-                  foreground: filled
-                      ? (Paint()..color = color.withValues(alpha: opacity))
-                      : (Paint()
-                          ..style = PaintingStyle.stroke
-                          ..strokeWidth = strokeWidth
-                          ..color = color.withValues(alpha: opacity * 2.2)),
+                  letterSpacing: -2,
+                  color: color.withValues(alpha: opacity),
                 ),
               ),
             ),
@@ -178,8 +142,8 @@ class Stencil extends StatelessWidget {
   }
 }
 
-/// Raised steel surface for hero cards: brushed diagonal gradient, a red edge
-/// bar and an optional stencil watermark. Hard corners, thick outline.
+/// Hero surface: rounded card with a red-tinted gradient, a red outline and
+/// a soft glow — the card that starts a session.
 class SteelPanel extends StatelessWidget {
   const SteelPanel({
     super.key,
@@ -188,7 +152,7 @@ class SteelPanel extends StatelessWidget {
     this.accent = AppColors.accent,
     this.stencil,
     this.stencilSize = 132,
-    this.stripes = true,
+    this.stripes = false,
     this.onTap,
     this.margin,
   });
@@ -198,65 +162,58 @@ class SteelPanel extends StatelessWidget {
   final Color accent;
   final String? stencil;
   final double stencilSize;
+
+  /// Unused — kept so call sites don't churn.
   final bool stripes;
   final VoidCallback? onTap;
   final EdgeInsetsGeometry? margin;
 
   @override
   Widget build(BuildContext context) {
-    final panel = ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadii.card),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color.lerp(AppColors.cardHigh, accent, 0.10)!,
-                    AppColors.card,
-                    AppColors.bg,
-                  ],
-                  stops: const [0, 0.55, 1],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
-          ),
-          if (stencil != null)
-            Stencil(stencil!, size: stencilSize, color: accent, opacity: 0.09),
-          // Accent edge bar.
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: Container(width: 4, color: accent),
-          ),
-          if (stripes)
-            Positioned(
-              right: 0,
-              top: 0,
-              left: 4,
-              child: HazardStripes(
-                height: 4,
-                color: accent.withValues(alpha: 0.55),
-                stripeWidth: 6,
-                gap: 8,
-              ),
-            ),
-          Padding(padding: padding, child: child),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.borderStrong),
-                  borderRadius: BorderRadius.circular(AppRadii.card),
-                ),
-              ),
-            ),
+    final panel = Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.16),
+            blurRadius: 32,
+            offset: const Offset(0, 10),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color.lerp(AppColors.card, accent, 0.18)!,
+                      AppColors.card,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+            ),
+            if (stencil != null)
+              Stencil(stencil!, size: stencilSize, color: accent),
+            Padding(padding: padding, child: child),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: accent.withValues(alpha: 0.45)),
+                    borderRadius: BorderRadius.circular(AppRadii.card),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
 
@@ -271,14 +228,14 @@ class SteelPanel extends StatelessWidget {
   }
 }
 
-/// A thick rule with a short red lead — the brutalist section divider.
+/// A hairline with a short red lead — the section divider.
 class IronRule extends StatelessWidget {
   const IronRule({
     super.key,
-    this.color = AppColors.borderStrong,
+    this.color = AppColors.border,
     this.lead = AppColors.accent,
-    this.leadWidth = 28,
-    this.thickness = 2,
+    this.leadWidth = 24,
+    this.thickness = 1.5,
     this.padding = EdgeInsets.zero,
   });
 
@@ -294,7 +251,14 @@ class IronRule extends StatelessWidget {
       padding: padding,
       child: Row(
         children: [
-          Container(width: leadWidth, height: thickness, color: lead),
+          Container(
+            width: leadWidth,
+            height: thickness,
+            decoration: BoxDecoration(
+              color: lead,
+              borderRadius: BorderRadius.circular(thickness),
+            ),
+          ),
           Expanded(child: Container(height: thickness, color: color)),
         ],
       ),
@@ -302,7 +266,7 @@ class IronRule extends StatelessWidget {
   }
 }
 
-/// Small square index marker ("01", "02"…) used in exercise lists.
+/// Small rounded index marker ("01", "02"…) used in exercise lists.
 class IndexTag extends StatelessWidget {
   const IndexTag(
     this.index, {
@@ -325,14 +289,14 @@ class IndexTag extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: filled ? color : Colors.transparent,
-        border: Border.all(color: color.withValues(alpha: filled ? 1 : 0.7)),
-        borderRadius: BorderRadius.circular(AppRadii.chip),
+        border: Border.all(color: color.withValues(alpha: filled ? 1 : 0.6)),
+        borderRadius: BorderRadius.circular(size * 0.3),
       ),
       child: Text(
         index.toString().padLeft(2, '0'),
         style: AppText.numeric(
           size: size * 0.42,
-          color: filled ? AppColors.bg : color,
+          color: filled ? AppColors.textPrimary : color,
           letterSpacing: 0,
         ),
       ),
@@ -340,13 +304,13 @@ class IndexTag extends StatelessWidget {
   }
 }
 
-/// Hard-edged progress gauge: segmented like a weight rack, not a pill.
+/// Rounded progress gauge with a soft glow on the filled part.
 class SegmentBar extends StatelessWidget {
   const SegmentBar({
     super.key,
     required this.value,
     this.segments = 12,
-    this.height = 10,
+    this.height = 8,
     this.color = AppColors.accent,
     this.track = AppColors.cardHigh,
     this.gap = 2,
@@ -354,39 +318,56 @@ class SegmentBar extends StatelessWidget {
 
   /// 0–1.
   final double value;
+
+  /// Unused — kept so call sites don't churn.
   final int segments;
   final double height;
   final Color color;
   final Color track;
+
+  /// Unused — kept so call sites don't churn.
   final double gap;
 
   @override
   Widget build(BuildContext context) {
-    final lit = (value.clamp(0.0, 1.0) * segments).round();
+    final fill = value.clamp(0.0, 1.0);
     return SizedBox(
       height: height,
-      child: Row(
-        children: [
-          for (var i = 0; i < segments; i++) ...[
-            if (i > 0) SizedBox(width: gap),
-            Expanded(
-              child: AnimatedContainer(
-                duration: Duration(milliseconds: 220 + i * 18),
-                curve: Curves.easeOut,
-                decoration: BoxDecoration(
-                  color: i < lit ? color : track,
-                  borderRadius: BorderRadius.circular(1),
-                ),
+      child: LayoutBuilder(
+        builder: (context, c) => Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: track,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeOutCubic,
+              width: c.maxWidth * fill,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: fill > 0
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.45),
+                          blurRadius: 10,
+                        ),
+                      ]
+                    : null,
               ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
 }
 
-/// Page header: giant Bebas title with an eyebrow above and a rule below.
+/// Page header: condensed title with an optional red eyebrow above and a
+/// thin rule below.
 class BrutalHeader extends StatelessWidget {
   const BrutalHeader({
     super.key,
@@ -425,7 +406,7 @@ class BrutalHeader extends StatelessWidget {
                   children: [
                     if (eyebrow != null) ...[
                       Text(
-                        eyebrow!,
+                        eyebrow!.toUpperCase(),
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: AppColors.accent,
                         ),

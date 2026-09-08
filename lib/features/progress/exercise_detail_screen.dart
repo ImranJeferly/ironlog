@@ -185,11 +185,8 @@ class _ExerciseDetailScreenState extends ConsumerState<ExerciseDetailScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              pr.type.label.toUpperCase(),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: AppColors.textPrimary,
-                                fontSize: 14,
-                              ),
+                              pr.type.label,
+                              style: theme.textTheme.titleSmall,
                             ),
                           ),
                           Text(
@@ -204,10 +201,8 @@ class _ExerciseDetailScreenState extends ConsumerState<ExerciseDetailScreen> {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            Dates.dayMonth(pr.achievedAt).toUpperCase(),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontSize: 11.5,
-                            ),
+                            Dates.dayMonth(pr.achievedAt),
+                            style: theme.textTheme.bodySmall,
                           ),
                         ],
                       ),

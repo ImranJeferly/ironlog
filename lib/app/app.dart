@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme.dart';
-import '../widgets/brutal.dart';
 import 'app_gate.dart';
 
 class IronLogApp extends ConsumerWidget {
@@ -27,14 +26,7 @@ class IronLogApp extends ConsumerWidget {
               maxScaleFactor: 1.2,
             ),
           ),
-          // Film grain over everything — the one texture the whole skin
-          // shares. Pointer-transparent, drawn from a tiny tiled PNG.
-          child: Stack(
-            children: [
-              child ?? const SizedBox.shrink(),
-              const GrainOverlay(),
-            ],
-          ),
+          child: child ?? const SizedBox.shrink(),
         );
       },
     );

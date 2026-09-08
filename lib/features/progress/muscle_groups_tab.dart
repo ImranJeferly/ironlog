@@ -200,13 +200,7 @@ class _MuscleBar extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    muscle.label.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontSize: 15,
-                    ),
-                  ),
+                  child: Text(muscle.label, style: theme.textTheme.titleSmall),
                 ),
                 Text(
                   _fmtSets(sets),
@@ -243,7 +237,12 @@ class _MuscleBar extends StatelessWidget {
                   final w = c.maxWidth;
                   return Stack(
                     children: [
-                      Container(color: AppColors.cardHigh),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.cardHigh,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
                       if (t != null)
                         Positioned(
                           left: w * (t.min / scaleMax).clamp(0.0, 1.0),
@@ -251,18 +250,23 @@ class _MuscleBar extends StatelessWidget {
                               w * ((t.max - t.min) / scaleMax).clamp(0.0, 1.0),
                           top: 0,
                           bottom: 0,
-                          child: const HazardStripes(
-                            height: 8,
-                            color: AppColors.steel,
-                            stripeWidth: 3,
-                            gap: 4,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: AppColors.textPrimary.withValues(
+                                alpha: 0.14,
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
                           ),
                         ),
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 450),
                         curve: Curves.easeOutCubic,
                         width: w * fill,
-                        color: color,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                       ),
                     ],
                   );
@@ -335,22 +339,12 @@ class _MuscleSheetState extends ConsumerState<_MuscleSheet> {
 
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          0,
-          AppSpacing.lg,
-          AppSpacing.lg,
-        ),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const HazardStripes(height: 6, background: AppColors.bg),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              widget.muscle.label.toUpperCase(),
-              style: theme.textTheme.headlineLarge,
-            ),
+            Text(widget.muscle.label, style: theme.textTheme.headlineLarge),
             const SizedBox(height: 4),
             RichText(
               text: TextSpan(
@@ -471,15 +465,7 @@ class _TargetRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Expanded(
-          child: Text(
-            label.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-            ),
-          ),
-        ),
+        Expanded(child: Text(label, style: theme.textTheme.titleSmall)),
         IconPill(icon: Icons.remove, size: 34, onTap: onMinus),
         SizedBox(
           width: 52,

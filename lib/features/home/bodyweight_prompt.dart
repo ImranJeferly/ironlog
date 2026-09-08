@@ -5,7 +5,6 @@ import '../../app/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
-import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/wheel_picker.dart';
 
@@ -38,7 +37,6 @@ Future<void> maybePromptBodyweight(BuildContext context, WidgetRef ref) async {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const HazardStripes(height: 6, background: AppColors.bg),
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Column(

@@ -88,10 +88,13 @@ class SessionSummaryScreen extends ConsumerWidget {
                     Container(
                       width: 22,
                       height: 22,
-                      color: AppColors.accent,
+                      decoration: const BoxDecoration(
+                        color: AppColors.accent,
+                        shape: BoxShape.circle,
+                      ),
                       child: const Icon(
                         Icons.check,
-                        size: 16,
+                        size: 15,
                         color: AppColors.textPrimary,
                       ),
                     ),

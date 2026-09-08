@@ -61,7 +61,6 @@ class TemplatePickerSheet extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const HazardStripes(height: 6, background: AppColors.bg),
           Flexible(
             child: ListView(
               shrinkWrap: true,

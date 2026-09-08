@@ -268,14 +268,13 @@ class DailyMetricsCard extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const HazardStripes(height: 6, background: AppColors.bg),
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      title.toUpperCase(),
+                      title,
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: AppSpacing.sm),

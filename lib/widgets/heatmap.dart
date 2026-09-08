@@ -97,7 +97,7 @@ class CalendarHeatmap extends StatelessWidget {
             color: future
                 ? Colors.transparent
                 : _colorFor(value, maxValue),
-            borderRadius: BorderRadius.circular(1.5),
+            borderRadius: BorderRadius.circular(3.5),
             border: day.isSameDay(today)
                 ? Border.all(color: AppColors.textPrimary, width: 1.4)
                 : null,
@@ -152,7 +152,7 @@ class HeatmapLegend extends StatelessWidget {
       height: 10,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(1.5),
+        borderRadius: BorderRadius.circular(3),
       ),
     ),
   );

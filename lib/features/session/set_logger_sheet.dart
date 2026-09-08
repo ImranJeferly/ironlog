@@ -7,7 +7,6 @@ import '../../core/utils/haptics.dart';
 import '../../domain/enums.dart';
 import '../../domain/session_view.dart';
 import '../../widgets/app_card.dart';
-import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/wheel_picker.dart';
 
@@ -137,7 +136,6 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const HazardStripes(height: 6, background: AppColors.bg),
             Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.lg,
@@ -162,13 +160,12 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          (setNo == null
-                                  ? 'Edit set'
-                                  : 'Set $setNo of ${exercise.targetSets} · '
-                                        'target ${exercise.link.repRangeMin}–'
-                                        '${exercise.link.repRangeMax}')
-                              .toUpperCase(),
-                          style: theme.textTheme.labelSmall,
+                          setNo == null
+                              ? 'Edit set'
+                              : 'Set $setNo of ${exercise.targetSets} · '
+                                    'target ${exercise.link.repRangeMin}–'
+                                    '${exercise.link.repRangeMax}',
+                          style: theme.textTheme.bodySmall,
                         ),
                       ],
                     ),
@@ -267,8 +264,6 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
               // ---- RPE (6–10; required on an exercise's last set) ----
               Row(
                 children: [
-                  Container(width: 3, height: 12, color: AppColors.accent),
-                  const SizedBox(width: 8),
                   Text(
                     'HOW DID IT FEEL?',
                     style: theme.textTheme.labelSmall?.copyWith(
@@ -278,7 +273,7 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
                   if (requireRpe) ...[
                     const SizedBox(width: 6),
                     Text(
-                      _rpe == null ? '· REQUIRED ON THE LAST SET' : '· ✓',
+                      _rpe == null ? '· required on the last set' : '· ✓',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: _rpe == null
                             ? AppColors.warning
@@ -450,10 +445,9 @@ class _RpeChip extends StatelessWidget {
             ),
             const SizedBox(height: 3),
             Text(
-              level.label.toUpperCase(),
-              style: AppText.eyebrow(
-                size: 10,
-                letterSpacing: 1,
+              level.label,
+              style: AppText.display(
+                size: 11,
                 color: selected ? AppColors.textPrimary : AppColors.textTertiary,
               ),
             ),

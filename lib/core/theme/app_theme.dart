@@ -3,12 +3,13 @@ import 'package:flutter/services.dart';
 
 import 'app_colors.dart';
 
-/// Radii — deliberately hard. Brutalist surfaces are cut, not rounded.
+/// Radii — soft surfaces, sharp type. The aggression comes from the red and
+/// the condensed face, not from cut corners.
 abstract final class AppRadii {
-  static const card = 6.0;
-  static const cardSmall = 4.0;
-  static const chip = 3.0;
-  static const sheet = 12.0;
+  static const card = 18.0;
+  static const cardSmall = 12.0;
+  static const chip = 10.0;
+  static const sheet = 24.0;
 }
 
 abstract final class AppSpacing {
@@ -21,13 +22,13 @@ abstract final class AppSpacing {
 
 /// Font families bundled in pubspec.
 abstract final class AppFonts {
-  /// Sharp condensed caps — headlines, eyebrows, buttons, nav.
-  static const display = 'BebasNeue';
+  /// Sharp condensed grotesk — headlines, eyebrows, buttons, nav.
+  static const display = 'BarlowCondensed';
 
   /// UI copy.
   static const body = 'Barlow';
 
-  /// Dense secondary titles and table cells.
+  /// Same face as [display]; kept as a named slot for table cells.
   static const condensed = 'BarlowCondensed';
 
   /// Numerals only: weights, reps, timers, stat headlines.
@@ -56,16 +57,16 @@ abstract final class AppText {
     fontFeatures: _tabular,
   );
 
-  /// Bebas display caps.
+  /// Condensed bold display — headlines and button labels.
   static TextStyle display({
     double size = 28,
     Color color = AppColors.textPrimary,
-    double letterSpacing = 0.8,
-    double height = 0.95,
+    double letterSpacing = 0,
+    double height = 1.0,
   }) => TextStyle(
     fontFamily: AppFonts.display,
     fontSize: size,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w700,
     letterSpacing: letterSpacing,
     height: height,
     color: color,
@@ -73,13 +74,13 @@ abstract final class AppText {
 
   /// Small tracked caps used for eyebrows and badges.
   static TextStyle eyebrow({
-    double size = 13,
+    double size = 12,
     Color color = AppColors.textTertiary,
-    double letterSpacing = 2,
+    double letterSpacing = 1.4,
   }) => TextStyle(
     fontFamily: AppFonts.display,
     fontSize: size,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w600,
     letterSpacing: letterSpacing,
     height: 1,
     color: color,
@@ -125,7 +126,7 @@ abstract final class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         iconTheme: const IconThemeData(color: AppColors.textPrimary, size: 22),
-        titleTextStyle: AppText.display(size: 26, letterSpacing: 1),
+        titleTextStyle: AppText.display(size: 24),
         systemOverlayStyle: const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.light,
@@ -244,44 +245,43 @@ abstract final class AppTheme {
         color: AppColors.textPrimary,
         fontFeatures: _tabular,
       ),
-      // Big titles ("PUSH A", "REST & RECOVER") — Bebas caps.
+      // Big titles ("Push A", "Rest & recover") — condensed bold.
       displaySmall: TextStyle(
         fontFamily: AppFonts.display,
-        fontSize: 44,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 0.6,
-        height: 0.92,
+        fontSize: 38,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.3,
+        height: 1.0,
         color: AppColors.textPrimary,
       ),
       headlineLarge: TextStyle(
         fontFamily: AppFonts.display,
-        fontSize: 40,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 0.8,
-        height: 0.95,
+        fontSize: 34,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.2,
+        height: 1.0,
         color: AppColors.textPrimary,
       ),
       headlineMedium: TextStyle(
         fontFamily: AppFonts.display,
-        fontSize: 30,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 0.8,
-        height: 1.0,
+        fontSize: 27,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.1,
+        height: 1.05,
         color: AppColors.textPrimary,
       ),
       headlineSmall: TextStyle(
         fontFamily: AppFonts.display,
-        fontSize: 24,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 0.8,
-        height: 1.0,
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        height: 1.05,
         color: AppColors.textPrimary,
       ),
       titleLarge: TextStyle(
         fontFamily: AppFonts.condensed,
-        fontSize: 21,
+        fontSize: 20,
         fontWeight: FontWeight.w700,
-        letterSpacing: 0.2,
+        letterSpacing: 0.1,
         color: AppColors.textPrimary,
       ),
       titleMedium: TextStyle(
@@ -315,13 +315,13 @@ abstract final class AppTheme {
         fontWeight: FontWeight.w500,
         color: AppColors.textSecondary,
       ),
-      // Section eyebrows: Bebas caps, wide tracking.
+      // Section eyebrows: condensed caps, tracked.
       labelSmall: TextStyle(
         fontFamily: AppFonts.display,
-        fontSize: 13,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 2,
-        height: 1,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.4,
+        height: 1.1,
         color: AppColors.textTertiary,
       ),
       labelMedium: TextStyle(
@@ -334,9 +334,9 @@ abstract final class AppTheme {
       // Buttons and nav.
       labelLarge: TextStyle(
         fontFamily: AppFonts.display,
-        fontSize: 17,
-        fontWeight: FontWeight.w400,
-        letterSpacing: 1.4,
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.3,
         height: 1,
         color: AppColors.textPrimary,
       ),
