@@ -14,6 +14,9 @@ import 'package:gym/features/session/active_session_screen.dart';
 import 'package:gym/features/session/session_summary_screen.dart';
 import 'package:gym/features/session/set_logger_sheet.dart';
 import 'package:gym/widgets/buttons.dart';
+import 'package:gym/features/settings/pages/data_settings_page.dart';
+import 'package:gym/features/settings/pages/session_settings_page.dart';
+import 'package:gym/features/settings/pages/training_settings_page.dart';
 import 'package:gym/features/settings/settings_screen.dart';
 import 'package:gym/features/shell/app_shell.dart';
 import 'package:gym/widgets/wheel_picker.dart';
@@ -269,41 +272,41 @@ void main() {
       });
     });
 
-    testWidgets('settings exposes units, rest, health, sync and export', (
+    testWidgets('settings shows the profile and one row per area', (
       tester,
     ) async {
       await withScreen(tester, const SettingsScreen(), () async {
-        // Top of the list: the account and the training-day schedule.
         expect(find.text('Guest'), findsOneWidget);
-        expect(find.text('Push'), findsOneWidget);
-        expect(find.text('Arms'), findsOneWidget);
-
-        // The rest are further down the scrolling list.
         for (final label in [
-          'Weight unit',
-          'Auto-start after each set',
-          'Haptics',
-          'Firebase sync',
-          'Export CSV',
+          'Training',
+          'Session',
+          HealthService.providerName,
+          'Sync & data',
+          'About',
         ]) {
-          await tester.scrollUntilVisible(
-            find.text(label),
-            300,
-            maxScrolls: 30,
-          );
-          expect(find.text(label), findsOneWidget);
+          expect(find.text(label), findsOneWidget, reason: label);
         }
+        // The detail no longer lives here.
+        expect(find.text('Weight unit'), findsNothing);
+        expect(find.text('Firebase sync'), findsNothing);
       });
     });
 
-    testWidgets('switching to lb persists the unit', (tester) async {
-      await withScreen(tester, const SettingsScreen(), () async {
-        // Units now live below the account/training-day cards.
+    testWidgets('training page: schedule, units, and lb persists', (
+      tester,
+    ) async {
+      await withScreen(tester, const TrainingSettingsPage(), () async {
+        expect(find.text('Push'), findsOneWidget);
+        expect(find.text('Arms'), findsOneWidget);
+
         // scrollUntilVisible stops once the ListView has *built* the row,
-        // which can still be in the cache extent below the fold — the
-        // settings list has grown — so bring it fully on-screen before
-        // tapping.
-        await tester.scrollUntilVisible(find.text('LB'), 300, maxScrolls: 30);
+        // which can still be in the cache extent below the fold, so bring
+        // it fully on-screen before tapping.
+        await tester.scrollUntilVisible(
+          find.text('Weight unit'),
+          300,
+          maxScrolls: 30,
+        );
         await tester.ensureVisible(find.text('LB'));
         await tester.pump(const Duration(milliseconds: 300));
         await tester.tap(find.text('LB'));
@@ -311,6 +314,22 @@ void main() {
 
         final settings = await SettingsRepository(db).read();
         expect(settings.unit.label, 'lb');
+      });
+    });
+
+    testWidgets('session page exposes the rest timer and haptics', (
+      tester,
+    ) async {
+      await withScreen(tester, const SessionSettingsPage(), () async {
+        expect(find.text('Auto-start after each set'), findsOneWidget);
+        expect(find.text('Haptics'), findsOneWidget);
+      });
+    });
+
+    testWidgets('data page exposes sync and export', (tester) async {
+      await withScreen(tester, const DataSettingsPage(), () async {
+        expect(find.text('Firebase sync'), findsOneWidget);
+        expect(find.text('Export CSV'), findsOneWidget);
       });
     });
   });

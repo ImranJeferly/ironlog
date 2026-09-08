@@ -22,6 +22,12 @@ All notable changes to IronLog. Newest first.
   progress tabs, volume bars with a target band, exercise detail, history,
   photos, settings, auth, first run and the updater.
 - Logo recoloured to red; launcher icons regenerated; splash is black.
+- **Settings reorganised.** The tab now shows your profile (avatar, account,
+  sessions / streak / PRs / 4-week adherence, sign in or out) and one row
+  per area; the detail moved to sub-pages: Training (days, units,
+  body-weight goal), Session (rest timer, haptics, reminders), Health
+  Connect (link, step goal, manual sync), Sync & data (Firebase, CSV) and
+  About (version, updates).
 
 ## Unreleased — training-quality overhaul
 
