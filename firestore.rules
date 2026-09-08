@@ -55,14 +55,13 @@ service cloud.firestore {
     }
 
     // ------------------------------------------------------- friendRequests
-    // Doc id is "{from}_{to}". The app only ever queries its own requests
-    // (from == me or to == me); listing is open to signed-in users so those
-    // queries never fail rule evaluation. Reading a single doc, and every
-    // write, is limited to the two people involved.
+    // Doc id is "{from}_{to}". Reads are open to signed-in users: the app
+    // queries its own requests, and before sending one it *gets* the reverse
+    // doc, which usually doesn't exist — a rule that touches resource.data
+    // fails on a missing doc and surfaces as permission-denied. Writes are
+    // limited to the two people involved.
     match /friendRequests/{id} {
-      allow list: if signedIn();
-      allow get: if signedIn()
-          && (resource.data.from == me() || resource.data.to == me());
+      allow read: if signedIn();
       allow create: if signedIn()
           && request.resource.data.from == me()
           && request.resource.data.to != me();
