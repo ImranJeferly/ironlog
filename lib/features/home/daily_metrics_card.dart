@@ -9,6 +9,7 @@ import '../../core/utils/haptics.dart';
 import '../../data/health/health_service.dart';
 import '../../data/repositories/metrics_repository.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/wheel_picker.dart';
 
@@ -53,57 +54,32 @@ class DailyMetricsCard extends ConsumerWidget {
           // ---- steps (auto-synced from Health Connect / Samsung Health) ----
           // Read-only on purpose: steps always come from the device's health
           // store, never typed in, so the count can't drift from reality.
-          Row(
-            children: [
-              Icon(
-                Icons.directions_walk,
-                size: 18,
-                color: stepsReached ? AppColors.volt : AppColors.textSecondary,
-              ),
-              const SizedBox(width: 8),
-              Text('Steps', style: theme.textTheme.titleSmall),
-              const Spacer(),
-              Text(
-                '${Fmt.count(steps ?? 0)} / ${Fmt.count(stepGoal)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: stepsReached ? AppColors.volt : null,
-                ),
-              ),
-            ],
+          _GaugeHeader(
+            icon: Icons.directions_walk,
+            label: 'Steps',
+            value: Fmt.count(steps ?? 0),
+            goal: Fmt.count(stepGoal),
+            reached: stepsReached,
           ),
           const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(
-                begin: 0,
-                end: ((steps ?? 0) / stepGoal).clamp(0.0, 1.0),
-              ),
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, _) => LinearProgressIndicator(
-                value: value,
-                minHeight: 8,
-                backgroundColor: AppColors.cardHigh,
-                valueColor: const AlwaysStoppedAnimation(AppColors.volt),
-              ),
-            ),
+          SegmentBar(
+            value: ((steps ?? 0) / stepGoal).clamp(0.0, 1.0),
+            segments: 16,
+            color: stepsReached ? AppColors.accent : AppColors.textPrimary,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Row(
             children: [
               const Icon(Icons.sync, size: 12, color: AppColors.textTertiary),
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  '${steps == null ? 'Auto-syncs from' : 'Synced from'} '
-                  '${HealthService.providerName}'
-                  '${stepsAvg == null ? '' : ' · 7-day avg ${Fmt.count(stepsAvg)}'}',
+                  '${steps == null ? 'AUTO-SYNCS FROM' : 'SYNCED FROM'} '
+                  '${HealthService.providerName.toUpperCase()}'
+                  '${stepsAvg == null ? '' : ' · 7-DAY AVG ${Fmt.count(stepsAvg)}'}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textTertiary,
-                  ),
+                  style: theme.textTheme.labelSmall?.copyWith(fontSize: 11.5),
                 ),
               ),
             ],
@@ -112,44 +88,21 @@ class DailyMetricsCard extends ConsumerWidget {
           const Divider(height: AppSpacing.lg * 1.4),
 
           // ---- water ----
-          Row(
-            children: [
-              const Icon(
-                Icons.local_drink_outlined,
-                size: 18,
-                color: AppColors.chartTo,
-              ),
-              const SizedBox(width: 8),
-              Text('Water', style: theme.textTheme.titleSmall),
-              const Spacer(),
-              Text(
-                '${Fmt.water(water)} / ${Fmt.water(_waterGoalMl)}',
-                style: theme.textTheme.bodySmall,
-              ),
-            ],
+          _GaugeHeader(
+            icon: Icons.water_drop_outlined,
+            label: 'Water',
+            value: Fmt.water(water),
+            goal: Fmt.water(_waterGoalMl),
+            reached: water >= _waterGoalMl,
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(
-                      begin: 0,
-                      end: (water / _waterGoalMl).clamp(0.0, 1.0),
-                    ),
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) => LinearProgressIndicator(
-                      value: value,
-                      minHeight: 8,
-                      backgroundColor: AppColors.cardHigh,
-                      valueColor: const AlwaysStoppedAnimation(
-                        AppColors.chartTo,
-                      ),
-                    ),
-                  ),
+                child: SegmentBar(
+                  value: (water / _waterGoalMl).clamp(0.0, 1.0),
+                  segments: 12,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(width: 12),
@@ -312,48 +265,57 @@ class DailyMetricsCard extends ConsumerWidget {
       isScrollControlled: true,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title.toUpperCase(),
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                NumberWheel(
-                  values: values,
-                  index: index,
-                  accent: AppColors.volt,
-                  fontSize: 46,
-                  labelOf: (v) => v.toStringAsFixed(decimals),
-                  onChanged: (i) => setState(() => index = i),
-                ),
-                Text(suffix, style: Theme.of(context).textTheme.bodyMedium),
-                const SizedBox(height: AppSpacing.lg),
-                Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const HazardStripes(height: 6, background: AppColors.bg),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: GhostButton(
-                        label: 'Cancel',
-                        expanded: true,
-                        onPressed: () => Navigator.of(context).pop(false),
-                      ),
+                    Text(
+                      title.toUpperCase(),
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      flex: 2,
-                      child: VoltButton(
-                        label: 'Save',
-                        height: 48,
-                        onPressed: () => Navigator.of(context).pop(true),
-                      ),
+                    const SizedBox(height: AppSpacing.sm),
+                    NumberWheel(
+                      values: values,
+                      index: index,
+                      accent: AppColors.accent,
+                      fontSize: 46,
+                      labelOf: (v) => v.toStringAsFixed(decimals),
+                      onChanged: (i) => setState(() => index = i),
+                    ),
+                    Text(
+                      suffix.toUpperCase(),
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GhostButton(
+                            label: 'Cancel',
+                            expanded: true,
+                            onPressed: () => Navigator.of(context).pop(false),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          flex: 2,
+                          child: VoltButton(
+                            label: 'Save',
+                            height: 48,
+                            onPressed: () => Navigator.of(context).pop(true),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -362,6 +324,63 @@ class DailyMetricsCard extends ConsumerWidget {
     if (saved ?? false) {
       await onSave(values[index]);
     }
+  }
+}
+
+/// "STEPS   8,412 / 20,000" — icon, caps label, numeric readout.
+class _GaugeHeader extends StatelessWidget {
+  const _GaugeHeader({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.goal,
+    required this.reached,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String goal;
+  final bool reached;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: reached ? AppColors.accent : AppColors.textSecondary,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            fontSize: 15,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: AppText.numeric(
+            size: 16,
+            color: reached ? AppColors.accent : AppColors.textPrimary,
+            letterSpacing: 0,
+          ),
+        ),
+        Text(
+          ' / $goal',
+          style: AppText.numeric(
+            size: 12,
+            color: AppColors.textTertiary,
+            letterSpacing: 0,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -394,19 +413,19 @@ class _MiniButton extends StatelessWidget {
         width: wide ? 64 : 34,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: accent ? AppColors.chartTo : AppColors.cardHigh,
+          color: accent ? AppColors.accent : AppColors.cardHigh,
           borderRadius: BorderRadius.circular(AppRadii.chip),
           border: Border.all(
-            color: accent ? AppColors.chartTo : AppColors.border,
+            color: accent ? AppColors.accent : AppColors.borderStrong,
           ),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
+          style: AppText.numeric(
+            size: 13,
+            letterSpacing: 0,
             color: accent
-                ? Colors.white
+                ? AppColors.textPrimary
                 : (enabled ? AppColors.textSecondary : AppColors.textTertiary),
           ),
         ),
@@ -455,10 +474,13 @@ class _MetricField extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textTertiary,
-                    ),
+                    style: theme.textTheme.labelSmall?.copyWith(fontSize: 12),
                   ),
+                ),
+                const Icon(
+                  Icons.edit_outlined,
+                  size: 12,
+                  color: AppColors.textTertiary,
                 ),
               ],
             ),
@@ -472,11 +494,14 @@ class _MetricField extends StatelessWidget {
                     value,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.headlineSmall,
+                    style: AppText.numeric(size: 22),
                   ),
                 ),
-                const SizedBox(width: 3),
-                Text(suffix, style: theme.textTheme.bodySmall),
+                const SizedBox(width: 4),
+                Text(
+                  suffix,
+                  style: theme.textTheme.labelSmall?.copyWith(fontSize: 12),
+                ),
               ],
             ),
           ],

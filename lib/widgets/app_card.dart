@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 
-/// The standard surface: 20 px radius, hairline outline, generous padding.
+/// The standard surface: hard corners, 1 px outline, optional accent edge.
 class AppCard extends StatelessWidget {
   const AppCard({
     super.key,
@@ -15,6 +15,8 @@ class AppCard extends StatelessWidget {
     this.radius = AppRadii.card,
     this.gradient,
     this.margin,
+    this.edge,
+    this.edgeWidth = 3,
   });
 
   final Widget child;
@@ -25,6 +27,11 @@ class AppCard extends StatelessWidget {
   final double radius;
   final Gradient? gradient;
   final EdgeInsetsGeometry? margin;
+
+  /// Colour of a vertical bar on the left edge — the brutalist "this row
+  /// matters" mark. Null for none.
+  final Color? edge;
+  final double edgeWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -41,8 +48,25 @@ class AppCard extends StatelessWidget {
       child: child,
     );
 
-    final card = onTap == null
+    final withEdge = edge == null
         ? content
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(radius),
+            child: Stack(
+              children: [
+                content,
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(width: edgeWidth, color: edge),
+                ),
+              ],
+            ),
+          );
+
+    final card = onTap == null
+        ? withEdge
         : Material(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(radius),
@@ -51,7 +75,7 @@ class AppCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(radius),
               splashFactory: NoSplash.splashFactory,
               highlightColor: Colors.white.withValues(alpha: 0.03),
-              child: content,
+              child: withEdge,
             ),
           );
 
@@ -59,7 +83,7 @@ class AppCard extends StatelessWidget {
   }
 }
 
-/// Uppercase eyebrow above a group of content.
+/// Uppercase eyebrow above a group of content, with a short red lead rule.
 class SectionHeader extends StatelessWidget {
   const SectionHeader(this.title, {super.key, this.trailing, this.padding});
 
@@ -69,6 +93,7 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding:
           padding ??
@@ -79,11 +104,17 @@ class SectionHeader extends StatelessWidget {
             AppSpacing.sm,
           ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          Container(width: 3, height: 12, color: AppColors.accent),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               title.toUpperCase(),
-              style: Theme.of(context).textTheme.labelSmall,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
             ),
           ),
           ?trailing,
@@ -93,7 +124,7 @@ class SectionHeader extends StatelessWidget {
   }
 }
 
-/// Compact metric readout: value on top, label underneath.
+/// Compact metric readout: numeric value on top, caps label underneath.
 class StatTile extends StatelessWidget {
   const StatTile({
     super.key,
@@ -117,6 +148,7 @@ class StatTile extends StatelessWidget {
       onTap: onTap,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       radius: AppRadii.cardSmall,
+      edge: accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -131,19 +163,18 @@ class StatTile extends StatelessWidget {
             child: Text(
               value,
               maxLines: 1,
-              style: theme.textTheme.headlineSmall?.copyWith(
+              style: AppText.numeric(
+                size: 22,
                 color: accent ?? AppColors.textPrimary,
               ),
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 6),
           Text(
-            label,
+            label.toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.textTertiary,
-            ),
+            style: theme.textTheme.labelSmall?.copyWith(fontSize: 12),
           ),
         ],
       ),
@@ -181,8 +212,8 @@ class EmptyState extends StatelessWidget {
               height: 64,
               decoration: BoxDecoration(
                 color: AppColors.card,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(AppRadii.cardSmall),
+                border: Border.all(color: AppColors.borderStrong),
               ),
               child: Icon(icon, color: AppColors.textTertiary, size: 26),
             ),
@@ -190,7 +221,7 @@ class EmptyState extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium,
+              style: theme.textTheme.headlineSmall,
             ),
             if (message != null) ...[
               const SizedBox(height: 6),
@@ -213,13 +244,13 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-/// Volt-on-dark badge used for "↑ WEIGHT", "PR" and template tags.
+/// Hard-cornered stamp used for "↑ WEIGHT", "PR", "STALLED" and template tags.
 class VoltBadge extends StatelessWidget {
   const VoltBadge(
     this.label, {
     super.key,
     this.icon,
-    this.color = AppColors.volt,
+    this.color = AppColors.accent,
     this.filled = false,
   });
 
@@ -230,32 +261,24 @@ class VoltBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fg = filled ? AppColors.bg : color;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.fromLTRB(8, 5, 8, 4),
       decoration: BoxDecoration(
-        color: filled ? color : color.withValues(alpha: 0.12),
+        color: filled ? color : color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(AppRadii.chip),
-        border: Border.all(color: color.withValues(alpha: filled ? 1 : 0.35)),
+        border: Border.all(color: color.withValues(alpha: filled ? 1 : 0.6)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(
-              icon,
-              size: 13,
-              color: filled ? AppColors.bg : color,
-            ),
+            Icon(icon, size: 12, color: fg),
             const SizedBox(width: 4),
           ],
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-              color: filled ? AppColors.bg : color,
-            ),
+            style: AppText.eyebrow(size: 12, color: fg, letterSpacing: 1.4),
           ),
         ],
       ),

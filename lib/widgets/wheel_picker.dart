@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_theme.dart';
 import '../core/utils/haptics.dart';
 
 /// Big-numeral wheel. Neighbouring values fade and blur out so the selected
@@ -76,13 +77,23 @@ class _NumberWheelState extends State<NumberWheel> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Selection band behind the centre item.
+          // Selection band behind the centre item: a rack slot — two hard
+          // rules with a short red tick on each side.
           IgnorePointer(
             child: Container(
               height: widget.itemExtent,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.03),
-                borderRadius: BorderRadius.circular(18),
+                color: Colors.white.withValues(alpha: 0.025),
+                border: const Border.symmetric(
+                  horizontal: BorderSide(color: AppColors.borderStrong),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(width: 10, height: 2, color: AppColors.accent),
+                  Container(width: 10, height: 2, color: AppColors.accent),
+                ],
               ),
             ),
           ),
@@ -112,8 +123,9 @@ class _NumberWheelState extends State<NumberWheel> {
                 final text = Text(
                   _label(widget.values[index]),
                   style: TextStyle(
+                    fontFamily: AppFonts.numeric,
                     fontSize: widget.fontSize,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -2,
                     height: 1,
                     color: (distance == 0 ? widget.accent : AppColors.textPrimary)

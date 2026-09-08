@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/db/database.dart';
 import '../../domain/exercise_x.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../session/exercise_picker_sheet.dart';
 
@@ -39,7 +40,7 @@ class TemplateEditorScreen extends ConsumerWidget {
     }
     final rows =
         ref.watch(templateExercisesProvider(templateId)).value ?? const [];
-    final accent = _accent(template?.accentHex);
+    final accent = AppColors.forTemplateName(template?.name);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -52,23 +53,17 @@ class TemplateEditorScreen extends ConsumerWidget {
                 AppSpacing.md,
                 AppSpacing.sm,
                 AppSpacing.md,
-                AppSpacing.sm,
+                0,
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   IconPill(
                     icon: Icons.arrow_back,
                     onTap: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 12),
-                  Container(
-                    width: 4,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: accent,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+                  Container(width: 4, height: 30, color: accent),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -76,19 +71,31 @@ class TemplateEditorScreen extends ConsumerWidget {
                       children: [
                         Text(
                           template?.name ?? 'Workout',
-                          style: theme.textTheme.headlineSmall,
+                          style: theme.textTheme.headlineMedium,
                         ),
                         Text(
-                          rows.isEmpty
-                              ? 'Changes apply to future sessions'
-                              : '${rows.length} exercises · drag to reorder',
-                          style: theme.textTheme.bodySmall,
+                          (rows.isEmpty
+                                  ? 'Changes apply to future sessions'
+                                  : '${rows.length} exercises · drag to reorder')
+                              .toUpperCase(),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
               ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                0,
+              ),
+              child: IronRule(),
             ),
             Expanded(
               child: rows.isEmpty
@@ -100,7 +107,7 @@ class TemplateEditorScreen extends ConsumerWidget {
                   : ReorderableListView.builder(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md,
-                        AppSpacing.sm,
+                        AppSpacing.md,
                         AppSpacing.md,
                         120,
                       ),
@@ -118,20 +125,21 @@ class TemplateEditorScreen extends ConsumerWidget {
                       },
                       itemBuilder: (context, i) {
                         final (link, exercise) = rows[i];
+                        final muscle =
+                            AppColors.muscleColors[exercise.muscleGroup.key] ??
+                            AppColors.accent;
                         return AppCard(
                           key: ValueKey(link.id),
-                          margin: const EdgeInsets.only(bottom: 8),
+                          margin: const EdgeInsets.only(bottom: 6),
                           radius: AppRadii.cardSmall,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
+                          edge: muscle,
+                          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
                           child: Row(
                             children: [
                               ReorderableDragStartListener(
                                 index: i,
                                 child: const Padding(
-                                  padding: EdgeInsets.only(right: 10),
+                                  padding: EdgeInsets.only(right: 8),
                                   child: Icon(
                                     Icons.drag_indicator,
                                     size: 20,
@@ -139,18 +147,7 @@ class TemplateEditorScreen extends ConsumerWidget {
                                   ),
                                 ),
                               ),
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color:
-                                      AppColors.muscleColors[exercise
-                                          .muscleGroup
-                                          .key] ??
-                                      AppColors.volt,
-                                ),
-                              ),
+                              IndexTag(i + 1),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -174,13 +171,27 @@ class TemplateEditorScreen extends ConsumerWidget {
                                         ],
                                       ],
                                     ),
-                                    Text(
-                                      '${link.setsOverride ?? exercise.targetSets}×'
-                                      '${exercise.repRangeMin}–'
-                                      '${exercise.repRangeMax} · '
-                                      '${exercise.primary.label}'
-                                      '${exercise.secondary == null ? '' : ' + ${exercise.secondary!.label}'}',
-                                      style: theme.textTheme.bodySmall,
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '${link.setsOverride ?? exercise.targetSets}×'
+                                          '${link.repMinOverride ?? exercise.repRangeMin}–'
+                                          '${link.repMaxOverride ?? exercise.repRangeMax}',
+                                          style: AppText.numeric(
+                                            size: 12.5,
+                                            color: AppColors.textSecondary,
+                                            letterSpacing: 0,
+                                          ),
+                                        ),
+                                        Text(
+                                          '  ·  ${exercise.primary.label}'
+                                                  '${exercise.secondary == null ? '' : ' + ${exercise.secondary!.label}'}'
+                                              .toUpperCase(),
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(fontSize: 11.5),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -230,11 +241,5 @@ class TemplateEditorScreen extends ConsumerWidget {
         const SnackBar(content: Text('Removed — future sessions skip it.')),
       );
     }
-  }
-
-  static Color _accent(String? hex) {
-    if (hex == null || hex.length < 7) return AppColors.volt;
-    final parsed = int.tryParse(hex.substring(1), radix: 16);
-    return parsed == null ? AppColors.volt : Color(0xFF000000 | parsed);
   }
 }

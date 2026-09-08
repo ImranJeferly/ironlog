@@ -153,7 +153,7 @@ class _AccountSheetState extends ConsumerState<AccountSheet> {
             children: [
               Text(
                 widget.createMode ? 'CREATE ACCOUNT' : 'SIGN IN',
-                style: theme.textTheme.labelSmall,
+                style: theme.textTheme.headlineMedium,
               ),
               const SizedBox(height: 6),
               Text(

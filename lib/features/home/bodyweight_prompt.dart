@@ -5,6 +5,7 @@ import '../../app/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/wheel_picker.dart';
 
@@ -34,54 +35,63 @@ Future<void> maybePromptBodyweight(BuildContext context, WidgetRef ref) async {
       builder: (context, setState) {
         final theme = Theme.of(context);
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('WEIGH IN?', style: theme.textTheme.labelSmall),
-                const SizedBox(height: 4),
-                Text(
-                  lastKg == null
-                      ? 'No weigh-in yet — log one to start the trend.'
-                      : 'Last logged ${Fmt.weight(lastKg, unit)} — still about right?',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                NumberWheel(
-                  values: values,
-                  index: index,
-                  accent: AppColors.volt,
-                  fontSize: 46,
-                  labelOf: (v) => v.toStringAsFixed(1),
-                  onChanged: (i) => setState(() => index = i),
-                ),
-                Text(unit.label, style: theme.textTheme.bodyMedium),
-                const SizedBox(height: AppSpacing.lg),
-                Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const HazardStripes(height: 6, background: AppColors.bg),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: GhostButton(
-                        label: 'Skip',
-                        expanded: true,
-                        onPressed: () => Navigator.of(context).pop(false),
-                      ),
+                    Text('WEIGH IN?', style: theme.textTheme.headlineMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      lastKg == null
+                          ? 'No weigh-in yet — log one to start the trend.'
+                          : 'Last logged ${Fmt.weight(lastKg, unit)} — still about right?',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall,
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      flex: 2,
-                      child: VoltButton(
-                        label: 'Save & start',
-                        height: 48,
-                        icon: Icons.check_rounded,
-                        onPressed: () => Navigator.of(context).pop(true),
-                      ),
+                    const SizedBox(height: AppSpacing.sm),
+                    NumberWheel(
+                      values: values,
+                      index: index,
+                      accent: AppColors.accent,
+                      fontSize: 46,
+                      labelOf: (v) => v.toStringAsFixed(1),
+                      onChanged: (i) => setState(() => index = i),
+                    ),
+                    Text(
+                      unit.label.toUpperCase(),
+                      style: theme.textTheme.labelSmall,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GhostButton(
+                            label: 'Skip',
+                            expanded: true,
+                            onPressed: () => Navigator.of(context).pop(false),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          flex: 2,
+                          child: VoltButton(
+                            label: 'Save & start',
+                            height: 48,
+                            icon: Icons.check_rounded,
+                            onPressed: () => Navigator.of(context).pop(true),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

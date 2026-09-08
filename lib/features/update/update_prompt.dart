@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/update/update_service.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 
 /// Shows the "update available" sheet and, on confirm, downloads + installs.
@@ -19,7 +20,11 @@ Future<void> promptForUpdate(
       final theme = Theme.of(context);
       final notes = info.notes.trim();
       return SafeArea(
-        child: Padding(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const HazardStripes(height: 6, background: AppColors.bg),
+            Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -32,11 +37,14 @@ Future<void> promptForUpdate(
                     height: 40,
                     decoration: BoxDecoration(
                       color: AppColors.voltDim,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppRadii.chip),
+                      border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: const Icon(
                       Icons.system_update,
-                      color: AppColors.volt,
+                      color: AppColors.accent,
                       size: 20,
                     ),
                   ),
@@ -47,11 +55,15 @@ Future<void> promptForUpdate(
                       children: [
                         Text(
                           'Update available',
-                          style: theme.textTheme.titleMedium,
+                          style: theme.textTheme.headlineSmall,
                         ),
                         Text(
                           info.versionName,
-                          style: theme.textTheme.bodySmall,
+                          style: AppText.numeric(
+                            size: 13,
+                            color: AppColors.textSecondary,
+                            letterSpacing: 0,
+                          ),
                         ),
                       ],
                     ),
@@ -95,6 +107,8 @@ Future<void> promptForUpdate(
               ),
             ],
           ),
+            ),
+          ],
         ),
       );
     },
@@ -121,27 +135,28 @@ Future<void> _downloadWithProgress(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Downloading update…', style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            'DOWNLOADING UPDATE',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const SizedBox(height: AppSpacing.md),
           ValueListenableBuilder<double>(
             valueListenable: progress,
             builder: (context, value, _) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: value <= 0 ? null : value,
-                    minHeight: 8,
-                    backgroundColor: AppColors.card,
-                    valueColor:
-                        const AlwaysStoppedAnimation(AppColors.volt),
-                  ),
-                ),
+                if (value <= 0)
+                  const LinearProgressIndicator(minHeight: 8)
+                else
+                  SegmentBar(value: value, segments: 20),
                 const SizedBox(height: 8),
                 Text(
-                  value <= 0 ? 'Starting…' : '${(value * 100).round()}%',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  value <= 0 ? 'STARTING…' : '${(value * 100).round()}%',
+                  style: AppText.numeric(
+                    size: 13,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0,
+                  ),
                 ),
               ],
             ),

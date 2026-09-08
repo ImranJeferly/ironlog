@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/db/database.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../session/active_session_screen.dart';
 import 'bodyweight_prompt.dart';
@@ -56,47 +57,65 @@ class TemplatePickerSheet extends ConsumerWidget {
       });
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('START A SESSION', style: theme.textTheme.labelSmall),
-            const SizedBox(height: AppSpacing.md),
-            for (final template in sorted)
-              _TemplateRow(
-                template: template,
-                badge: template.id == next?.id
-                    ? (program != null ? 'NEXT' : 'TODAY')
-                    : null,
-              ),
-            const SizedBox(height: AppSpacing.sm),
-            GhostButton(
-              label: 'Empty session',
-              icon: Icons.add,
-              expanded: true,
-              onPressed: () async {
-                await maybePromptBodyweight(context, ref);
-                if (!context.mounted) return;
-                final id = await ref
-                    .read(workoutRepositoryProvider)
-                    .startEmptySession();
-                if (!context.mounted) return;
-                Navigator.of(context).pop();
-                await ActiveSessionScreen.open(context, id);
-              },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const HazardStripes(height: 6, background: AppColors.bg),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              children: [
+                Text(
+                  'START A SESSION',
+                  style: theme.textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 6),
+                const IronRule(),
+                const SizedBox(height: AppSpacing.md),
+                for (var i = 0; i < sorted.length; i++)
+                  _TemplateRow(
+                    index: i + 1,
+                    template: sorted[i],
+                    badge: sorted[i].id == next?.id
+                        ? (program != null ? 'NEXT' : 'TODAY')
+                        : null,
+                  ),
+                const SizedBox(height: AppSpacing.sm),
+                GhostButton(
+                  label: 'Empty session',
+                  icon: Icons.add,
+                  expanded: true,
+                  color: AppColors.textPrimary,
+                  onPressed: () async {
+                    await maybePromptBodyweight(context, ref);
+                    if (!context.mounted) return;
+                    final id = await ref
+                        .read(workoutRepositoryProvider)
+                        .startEmptySession();
+                    if (!context.mounted) return;
+                    Navigator.of(context).pop();
+                    await ActiveSessionScreen.open(context, id);
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
 class _TemplateRow extends ConsumerWidget {
-  const _TemplateRow({required this.template, this.badge});
+  const _TemplateRow({
+    required this.index,
+    required this.template,
+    this.badge,
+  });
 
+  final int index;
   final TemplateRow template;
 
   /// "NEXT" / "TODAY" for the workout you're here for; null otherwise.
@@ -104,18 +123,20 @@ class _TemplateRow extends ConsumerWidget {
 
   bool get isToday => badge != null;
 
-  static const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const _dayNames = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final accent = _accent(template.accentHex);
+    final accent = AppColors.forTemplateName(template.name);
 
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       radius: AppRadii.cardSmall,
-      color: AppColors.cardHigh,
-      borderColor: isToday ? accent.withValues(alpha: 0.6) : null,
+      color: isToday ? AppColors.cardHigh : AppColors.card,
+      borderColor: isToday ? accent.withValues(alpha: 0.7) : null,
+      edge: accent,
+      padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
       onTap: () async {
         await maybePromptBodyweight(context, ref);
         if (!context.mounted) return;
@@ -128,20 +149,13 @@ class _TemplateRow extends ConsumerWidget {
       },
       child: Row(
         children: [
-          Container(
-            width: 4,
-            height: 38,
-            decoration: BoxDecoration(
-              color: accent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          IndexTag(index, color: isToday ? accent : AppColors.textTertiary),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(template.name, style: theme.textTheme.titleMedium),
+                Text(template.name, style: theme.textTheme.headlineSmall),
                 if (template.cardioLabel != null)
                   Text(
                     template.cardioLabel!,
@@ -151,14 +165,11 @@ class _TemplateRow extends ConsumerWidget {
             ),
           ),
           if (badge != null)
-            VoltBadge(badge!, filled: true)
+            VoltBadge(badge!, filled: true, color: accent)
           else if (template.weekday != null)
             Text(
               _dayNames[template.weekday! - 1],
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textTertiary,
-                fontWeight: FontWeight.w700,
-              ),
+              style: theme.textTheme.labelSmall,
             ),
           const SizedBox(width: 10),
           IconPill(
@@ -173,11 +184,5 @@ class _TemplateRow extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  static Color _accent(String? hex) {
-    if (hex == null || hex.length < 7) return AppColors.volt;
-    final parsed = int.tryParse(hex.substring(1), radix: 16);
-    return parsed == null ? AppColors.volt : Color(0xFF000000 | parsed);
   }
 }

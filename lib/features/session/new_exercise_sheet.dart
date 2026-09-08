@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/haptics.dart';
 import '../../data/db/database.dart';
 import '../../domain/enums.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 
 /// Creates a custom exercise: name, primary (and optional secondary) muscle,
@@ -93,12 +94,14 @@ class _NewExerciseSheetState extends ConsumerState<NewExerciseSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('NEW EXERCISE', style: theme.textTheme.labelSmall),
-              const SizedBox(height: 6),
+              Text('NEW EXERCISE', style: theme.textTheme.headlineMedium),
+              const SizedBox(height: 4),
               Text(
                 'Saved to your library forever — use it in any workout.',
                 style: theme.textTheme.bodySmall,
               ),
+              const SizedBox(height: AppSpacing.sm),
+              const IronRule(),
               const SizedBox(height: AppSpacing.md),
 
               TextField(
@@ -266,17 +269,21 @@ class _MuscleChip extends StatelessWidget {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 7),
         decoration: BoxDecoration(
-          color: selected ? accent.withValues(alpha: 0.2) : AppColors.cardHigh,
+          color: selected ? accent.withValues(alpha: 0.16) : AppColors.cardHigh,
           borderRadius: BorderRadius.circular(AppRadii.chip),
-          border: Border.all(color: selected ? accent : AppColors.border),
+          border: Border.all(
+            color: selected ? accent : AppColors.borderStrong,
+            width: selected ? 1.5 : 1,
+          ),
         ),
         child: Text(
-          m?.label ?? 'None',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
+          (m?.label ?? 'None').toUpperCase(),
+          style: AppText.display(
+            size: 15,
+            letterSpacing: 1.2,
+            height: 1,
             color: selected ? accent : AppColors.textSecondary,
           ),
         ),
@@ -303,14 +310,22 @@ class _StepRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Expanded(child: Text(label, style: theme.textTheme.titleSmall)),
+        Expanded(
+          child: Text(
+            label.toUpperCase(),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+            ),
+          ),
+        ),
         IconPill(icon: Icons.remove, size: 34, onTap: onMinus),
         SizedBox(
           width: 52,
           child: Text(
             value,
             textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium,
+            style: AppText.numeric(size: 20, letterSpacing: 0),
           ),
         ),
         IconPill(icon: Icons.add, size: 34, onTap: onPlus),
@@ -348,19 +363,45 @@ class _FlagChip extends StatelessWidget {
           color: value ? AppColors.voltDim : AppColors.cardHigh,
           borderRadius: BorderRadius.circular(AppRadii.cardSmall),
           border: Border.all(
-            color: value ? AppColors.volt : AppColors.border,
+            color: value ? AppColors.accent : AppColors.borderStrong,
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              label,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: value ? AppColors.volt : AppColors.textPrimary,
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                color: value ? AppColors.accent : Colors.transparent,
+                border: Border.all(
+                  color: value ? AppColors.accent : AppColors.textTertiary,
+                  width: 1.5,
+                ),
+              ),
+              child: value
+                  ? const Icon(
+                      Icons.check,
+                      size: 13,
+                      color: AppColors.textPrimary,
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label.toUpperCase(),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontSize: 15,
+                      color: value ? AppColors.textPrimary : AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(hint, style: theme.textTheme.bodySmall),
+                ],
               ),
             ),
-            Text(hint, style: theme.textTheme.bodySmall),
           ],
         ),
       ),

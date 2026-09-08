@@ -10,6 +10,7 @@ import '../../data/db/database.dart';
 import '../../data/repositories/progress_repository.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../progress/exercise_detail_screen.dart';
 import '../session/active_session_screen.dart';
@@ -37,11 +38,11 @@ class HomeScreen extends ConsumerWidget {
           AppSpacing.md,
           AppSpacing.md,
           AppSpacing.md,
-          120,
+          96,
         ),
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
                 child: Column(
@@ -49,20 +50,25 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     Text(
                       Dates.weekdayLong(now).toUpperCase(),
-                      style: theme.textTheme.labelSmall,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppColors.accent,
+                        fontSize: 14,
+                      ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
-                      Dates.dayMonthYear(now),
-                      style: theme.textTheme.headlineMedium,
+                      Dates.dayMonthYear(now).toUpperCase(),
+                      style: theme.textTheme.headlineLarge,
                     ),
                   ],
                 ),
               ),
-              _StreakChip(streak: consistency?.currentStreak ?? 0),
+              _StreakBlock(streak: consistency?.currentStreak ?? 0),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.sm),
+          const IronRule(),
+          const SizedBox(height: AppSpacing.md),
 
           if (active != null)
             _ResumeCard(session: active)
@@ -83,7 +89,11 @@ class HomeScreen extends ConsumerWidget {
               'Recent PRs',
               trailing: Text(
                 '${prs.length}',
-                style: theme.textTheme.bodySmall,
+                style: AppText.numeric(
+                  size: 13,
+                  color: AppColors.textTertiary,
+                  letterSpacing: 0,
+                ),
               ),
             ),
             for (final pr in prs.take(3)) _PrRow(pr: pr, unit: unit),
@@ -108,12 +118,8 @@ class _DeloadBanner extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.md),
       child: AppCard(
-        borderColor: AppColors.warning.withValues(alpha: 0.5),
-        gradient: LinearGradient(
-          colors: [AppColors.warning.withValues(alpha: 0.12), AppColors.card],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        edge: AppColors.ember,
+        borderColor: AppColors.ember.withValues(alpha: 0.5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -122,14 +128,14 @@ class _DeloadBanner extends ConsumerWidget {
                 const Icon(
                   Icons.battery_alert_outlined,
                   size: 18,
-                  color: AppColors.warning,
+                  color: AppColors.ember,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'DELOAD WEEK SUGGESTED',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.warning,
-                    letterSpacing: 1.6,
+                    color: AppColors.ember,
+                    fontSize: 14,
                   ),
                 ),
               ],
@@ -162,6 +168,8 @@ class _DeloadBanner extends ConsumerWidget {
                     label: 'Apply deload',
                     icon: Icons.check_rounded,
                     height: 48,
+                    color: AppColors.ember,
+                    foreground: AppColors.bg,
                     onPressed: () async {
                       await ref.read(workoutRepositoryProvider).applyDeload();
                       ref.invalidate(deloadRecommendationProvider);
@@ -186,8 +194,9 @@ class _DeloadBanner extends ConsumerWidget {
   }
 }
 
-class _StreakChip extends StatelessWidget {
-  const _StreakChip({required this.streak});
+/// Streak counter as a stamped block: big numeral, caps label under it.
+class _StreakBlock extends StatelessWidget {
+  const _StreakBlock({required this.streak});
 
   final int streak;
 
@@ -195,27 +204,42 @@ class _StreakChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final hot = streak > 0;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       decoration: BoxDecoration(
         color: hot ? AppColors.voltDim : AppColors.card,
         borderRadius: BorderRadius.circular(AppRadii.chip),
-        border: Border.all(color: hot ? AppColors.volt : AppColors.border),
+        border: Border.all(
+          color: hot ? AppColors.accent : AppColors.borderStrong,
+        ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.local_fire_department,
-            size: 17,
-            color: hot ? AppColors.volt : AppColors.textTertiary,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.local_fire_department,
+                size: 16,
+                color: hot ? AppColors.accent : AppColors.textTertiary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '$streak',
+                style: AppText.numeric(
+                  size: 22,
+                  color: hot ? AppColors.textPrimary : AppColors.textTertiary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 6),
+          const SizedBox(height: 3),
           Text(
-            '$streak',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: hot ? AppColors.volt : AppColors.textTertiary,
+            'STREAK',
+            style: AppText.eyebrow(
+              size: 11,
+              color: hot ? AppColors.accent : AppColors.textTertiary,
             ),
           ),
         ],
@@ -224,7 +248,7 @@ class _StreakChip extends StatelessWidget {
   }
 }
 
-/// The hero card: what you're training today and the button that starts it.
+/// The hero: what you're training next and the button that starts it.
 class _TodayWorkoutCard extends ConsumerWidget {
   const _TodayWorkoutCard({required this.template});
 
@@ -233,57 +257,51 @@ class _TodayWorkoutCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final accent = _accentOf(template);
     final program = ref.watch(activeProgramProvider);
     final deload = ref.watch(settingsProvider).deloadActive;
     final sessions = ref.watch(recentSessionsProvider).value ?? const [];
     final doneToday = sessions.any(
       (s) => s.isComplete && s.date.isSameDay(DateTime.now()),
     );
+    final accent = doneToday ? AppColors.textSecondary : AppColors.accent;
+    final title = template?.name ?? 'Rest & recover';
 
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      gradient: LinearGradient(
-        colors: [accent.withValues(alpha: 0.16), AppColors.card],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderColor: accent.withValues(alpha: 0.35),
+    return SteelPanel(
+      accent: accent,
+      stencil: _stencilFor(template),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(
-                doneToday
-                    ? 'DONE TODAY'
-                    : (template == null
-                          ? 'REST DAY'
-                          : (program != null
-                                ? 'NEXT UP · ${program.name.toUpperCase()}'
-                                : 'TODAY’S SESSION')),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: doneToday ? AppColors.volt : accent,
-                  letterSpacing: 1.6,
+              Expanded(
+                child: Text(
+                  doneToday
+                      ? 'DONE TODAY'
+                      : (template == null
+                            ? 'REST DAY'
+                            : (program != null
+                                  ? 'NEXT UP · ${program.name.toUpperCase()}'
+                                  : 'TODAY’S SESSION')),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: accent,
+                    fontSize: 14,
+                  ),
                 ),
               ),
-              const Spacer(),
               if (deload && !doneToday)
-                const VoltBadge('DELOAD', color: AppColors.warning)
+                const VoltBadge('DELOAD', color: AppColors.ember)
               else if (doneToday)
                 const VoltBadge('COMPLETE', icon: Icons.check, filled: true),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            template?.name ?? 'Rest & recover',
-            style: theme.textTheme.displaySmall,
-          ),
-          const SizedBox(height: 6),
+          Text(title, style: theme.textTheme.displaySmall),
+          const SizedBox(height: 8),
           if (template != null)
             _PlanLine(template: template!)
           else
-            _NextUpLine(),
+            const _NextUpLine(),
           const SizedBox(height: AppSpacing.lg),
           if (doneToday)
             GhostButton(
@@ -291,6 +309,7 @@ class _TodayWorkoutCard extends ConsumerWidget {
               icon: Icons.add,
               expanded: true,
               height: 52,
+              color: AppColors.textPrimary,
               onPressed: () => TemplatePickerSheet.show(context),
             )
           else
@@ -311,6 +330,7 @@ class _TodayWorkoutCard extends ConsumerWidget {
                   size: 56,
                   tooltip: 'Pick another workout',
                   background: AppColors.cardHigh,
+                  color: AppColors.textPrimary,
                   onTap: () => TemplatePickerSheet.show(context),
                 ),
               ],
@@ -318,6 +338,13 @@ class _TodayWorkoutCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// "PUSH", "PULL", "LEGS", "REST" — the first word, poster-sized.
+  static String _stencilFor(TemplateRow? template) {
+    final name = template?.name;
+    if (name == null || name.isEmpty) return 'REST';
+    return name.split(' ').first;
   }
 
   static Future<void> _start(
@@ -336,13 +363,6 @@ class _TodayWorkoutCard extends ConsumerWidget {
         .startSessionFromTemplate(template.id);
     if (!context.mounted) return;
     await ActiveSessionScreen.open(context, id);
-  }
-
-  static Color _accentOf(TemplateRow? template) {
-    final hex = template?.accentHex;
-    if (hex == null || hex.length < 7) return AppColors.volt;
-    final parsed = int.tryParse(hex.substring(1), radix: 16);
-    return parsed == null ? AppColors.volt : Color(0xFF000000 | parsed);
   }
 }
 
@@ -365,12 +385,8 @@ class _PlanLine extends ConsumerWidget {
 
     return Row(
       children: [
-        const Icon(
-          Icons.format_list_bulleted,
-          size: 14,
-          color: AppColors.textTertiary,
-        ),
-        const SizedBox(width: 6),
+        Container(width: 14, height: 2, color: AppColors.textTertiary),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
             parts.join('  ·  '),
@@ -412,12 +428,8 @@ class _NextUpLine extends ConsumerWidget {
         next.weekday == (DateTime.now().weekday % 7) + 1;
     return Row(
       children: [
-        const Icon(
-          Icons.event_repeat,
-          size: 14,
-          color: AppColors.textTertiary,
-        ),
-        const SizedBox(width: 6),
+        Container(width: 14, height: 2, color: AppColors.textTertiary),
+        const SizedBox(width: 8),
         Text(
           'Next up: ${next.name} · '
           '${isTomorrow ? 'tomorrow' : _dayNames[next.weekday! - 1]}',
@@ -439,28 +451,31 @@ class _ResumeCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final elapsed = DateTime.now().difference(session.startedAt);
 
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      borderColor: AppColors.volt,
-      gradient: const LinearGradient(
-        colors: [Color(0xFF1C2109), AppColors.card],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
+    return SteelPanel(
+      stencil: 'LIVE',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
+              const _LiveDot(),
+              const SizedBox(width: 8),
               Text(
                 'IN PROGRESS',
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.volt,
-                  letterSpacing: 1.6,
+                  color: AppColors.accent,
+                  fontSize: 14,
                 ),
               ),
               const Spacer(),
-              Text(Fmt.duration(elapsed), style: theme.textTheme.bodySmall),
+              Text(
+                Fmt.duration(elapsed),
+                style: AppText.numeric(
+                  size: 14,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -476,6 +491,36 @@ class _ResumeCard extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Pulsing red square — "recording".
+class _LiveDot extends StatefulWidget {
+  const _LiveDot();
+
+  @override
+  State<_LiveDot> createState() => _LiveDotState();
+}
+
+class _LiveDotState extends State<_LiveDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.35, end: 1).animate(_c),
+      child: Container(width: 8, height: 8, color: AppColors.accent),
     );
   }
 }
@@ -499,17 +544,44 @@ class _AdherenceCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: Text('THIS WEEK', style: theme.textTheme.labelSmall),
+                child: Text(
+                  'THIS WEEK',
+                  style: theme.textTheme.labelSmall?.copyWith(fontSize: 14),
+                ),
               ),
-              Text(
-                '$done of $target sessions · ${Fmt.percent(adherence)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: adherence >= 1
-                      ? AppColors.volt
-                      : AppColors.textSecondary,
-                  fontWeight: FontWeight.w700,
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$done',
+                      style: AppText.numeric(
+                        size: 20,
+                        color: adherence >= 1
+                            ? AppColors.accent
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' / $target',
+                      style: AppText.numeric(
+                        size: 14,
+                        color: AppColors.textTertiary,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '  ${Fmt.percent(adherence)}',
+                      style: AppText.eyebrow(
+                        size: 13,
+                        color: adherence >= 1
+                            ? AppColors.accent
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -517,13 +589,15 @@ class _AdherenceCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           _WeekStrip(consistency: consistency),
           const SizedBox(height: AppSpacing.md),
+          const Divider(),
+          const SizedBox(height: AppSpacing.md),
           Row(
             children: [
               Expanded(
                 child: _ConsistencyStat(
                   value: '$streak',
                   label: 'session streak',
-                  accent: streak >= target ? AppColors.volt : null,
+                  accent: streak >= target ? AppColors.accent : null,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -531,7 +605,7 @@ class _AdherenceCard extends StatelessWidget {
                 child: _ConsistencyStat(
                   value: Fmt.percent(fourWeek),
                   label: '4-week adherence',
-                  accent: fourWeek >= 1 ? AppColors.volt : null,
+                  accent: fourWeek >= 1 ? AppColors.accent : null,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -569,25 +643,25 @@ class _ConsistencyStat extends StatelessWidget {
       children: [
         Text(
           value,
-          style: theme.textTheme.titleLarge?.copyWith(
+          style: AppText.numeric(
+            size: 22,
             color: accent ?? AppColors.textPrimary,
-            fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Text(
           label.toUpperCase(),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.labelSmall,
+          style: theme.textTheme.labelSmall?.copyWith(fontSize: 11.5),
         ),
       ],
     );
   }
 }
 
-/// The week at a glance: one circle per day — accented ring on gym days,
-/// filled tick once that day's session is done, label highlighted for today.
+/// The week at a glance: one square per day — outlined on gym days, filled
+/// red once that day's session is done, today marked in bone white.
 class _WeekStrip extends ConsumerWidget {
   const _WeekStrip({required this.consistency});
 
@@ -609,13 +683,13 @@ class _WeekStrip extends ConsumerWidget {
     return Row(
       children: [
         for (var i = 0; i < 7; i++) ...[
-          if (i > 0) const SizedBox(width: 6),
+          if (i > 0) const SizedBox(width: 4),
           Expanded(
             child: _dayCell(
               context,
               letter: _letters[i],
               date: weekStart.add(Duration(days: i)),
-              template: byWeekday[i + 1],
+              scheduled: byWeekday.containsKey(i + 1),
               doneDays: doneDays,
               isToday: now.weekday == i + 1,
             ),
@@ -629,23 +703,21 @@ class _WeekStrip extends ConsumerWidget {
     BuildContext context, {
     required String letter,
     required DateTime date,
-    required TemplateRow? template,
+    required bool scheduled,
     required Set<DateTime> doneDays,
     required bool isToday,
   }) {
-    final theme = Theme.of(context);
-    final accent = _accent(template?.accentHex);
-    final scheduled = template != null;
     final done = doneDays.any((d) => d.isSameDay(date));
+    final past = date.isBefore(DateTime.now().dayStart);
 
     return Column(
       children: [
         Text(
           letter,
-          style: theme.textTheme.labelSmall?.copyWith(
-            fontSize: 10,
-            color: isToday ? AppColors.volt : AppColors.textTertiary,
-            fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+          style: AppText.eyebrow(
+            size: 12,
+            letterSpacing: 0,
+            color: isToday ? AppColors.textPrimary : AppColors.textTertiary,
           ),
         ),
         const SizedBox(height: 6),
@@ -653,42 +725,35 @@ class _WeekStrip extends ConsumerWidget {
           height: 34,
           decoration: BoxDecoration(
             color: done
-                ? AppColors.volt.withValues(alpha: 0.18)
+                ? AppColors.accent
                 : (scheduled ? AppColors.cardHigh : Colors.transparent),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppRadii.chip),
             border: Border.all(
               color: done
-                  ? AppColors.volt
+                  ? AppColors.accent
                   : (isToday
-                        ? AppColors.volt.withValues(alpha: 0.6)
+                        ? AppColors.textPrimary
                         : (scheduled
-                              ? accent.withValues(alpha: 0.55)
+                              ? AppColors.borderStrong
                               : AppColors.border)),
               width: isToday && !done ? 1.5 : 1,
             ),
           ),
           alignment: Alignment.center,
           child: done
-              ? const Icon(Icons.check, size: 15, color: AppColors.volt)
-              : (scheduled
-                    ? Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: accent,
-                          shape: BoxShape.circle,
-                        ),
-                      )
-                    : null),
+              ? const Icon(Icons.check, size: 16, color: AppColors.textPrimary)
+              : (past && scheduled
+                    ? Container(width: 10, height: 2, color: AppColors.steel)
+                    : (scheduled
+                          ? Container(
+                              width: 5,
+                              height: 5,
+                              color: AppColors.textTertiary,
+                            )
+                          : null)),
         ),
       ],
     );
-  }
-
-  static Color _accent(String? hex) {
-    if (hex == null || hex.length < 7) return AppColors.volt;
-    final parsed = int.tryParse(hex.substring(1), radix: 16);
-    return parsed == null ? AppColors.volt : Color(0xFF000000 | parsed);
   }
 }
 
@@ -706,20 +771,24 @@ class _PrRow extends ConsumerWidget {
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       radius: AppRadii.cardSmall,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      edge: AppColors.accent,
+      padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
       onTap: exercise == null
           ? null
           : () => ExerciseDetailScreen.open(context, exercise.id),
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
               color: AppColors.voltDim,
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(AppRadii.chip),
+              border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.5),
+              ),
             ),
-            child: const Icon(Icons.bolt, color: AppColors.volt, size: 18),
+            child: const Icon(Icons.bolt, color: AppColors.accent, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -732,20 +801,20 @@ class _PrRow extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall,
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  '${pr.type.label} · ${Dates.relativeDay(pr.achievedAt)}',
-                  style: theme.textTheme.bodySmall,
+                  '${pr.type.label} · ${Dates.relativeDay(pr.achievedAt)}'
+                      .toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(fontSize: 11.5),
                 ),
               ],
             ),
           ),
           Text(
             pr.type == PrType.reps
-                ? '${pr.reps} reps'
+                ? '${pr.reps} REPS'
                 : Fmt.weight(pr.value, unit),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: AppColors.volt,
-            ),
+            style: AppText.numeric(size: 17, color: AppColors.accent),
           ),
         ],
       ),

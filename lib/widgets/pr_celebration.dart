@@ -8,6 +8,7 @@ import '../core/utils/format.dart';
 import '../core/utils/haptics.dart';
 import '../domain/enums.dart';
 import '../domain/pr_detector.dart';
+import 'brutal.dart';
 
 /// Full-screen flash shown the moment a set breaks a record.
 ///
@@ -37,18 +38,21 @@ class PrCelebration extends StatefulWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'PR',
-      barrierColor: Colors.black.withValues(alpha: 0.72),
-      transitionDuration: const Duration(milliseconds: 260),
+      barrierColor: Colors.black.withValues(alpha: 0.8),
+      transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (_, _, _) => PrCelebration(
         pr: pr,
         exerciseName: exerciseName,
         unit: unit,
       ),
       transitionBuilder: (context, animation, _, child) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutBack,
-          reverseCurve: Curves.easeIn,
+        // Slam in: starts slightly oversized and snaps to place.
+        final curved = Tween<double>(begin: 1.12, end: 1).animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutExpo,
+            reverseCurve: Curves.easeIn,
+          ),
         );
         return FadeTransition(
           opacity: animation,
@@ -84,7 +88,7 @@ class _PrCelebrationState extends State<PrCelebration>
   }
 
   String get _value => switch (widget.pr.type) {
-    PrType.reps => '${widget.pr.reps} reps',
+    PrType.reps => '${widget.pr.reps} REPS',
     PrType.weight => Fmt.weight(widget.pr.value, widget.unit),
     PrType.estimated1RM => Fmt.weight(widget.pr.value, widget.unit),
   };
@@ -111,54 +115,78 @@ class _PrCelebrationState extends State<PrCelebration>
             alignment: Alignment.center,
             children: [
               _Sparks(controller: _controller),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xl,
-                  vertical: AppSpacing.xl,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: AppColors.volt, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.volt.withValues(alpha: 0.25),
-                      blurRadius: 60,
-                      spreadRadius: -10,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.bolt, color: AppColors.volt, size: 42),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      widget.pr.type.label.toUpperCase(),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.volt,
-                        letterSpacing: 2,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadii.card),
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    border: Border.all(color: AppColors.accent, width: 2),
+                    borderRadius: BorderRadius.circular(AppRadii.card),
+                  ),
+                  child: Stack(
+                    children: [
+                      const Stencil(
+                        'PR',
+                        size: 220,
+                        color: AppColors.accent,
+                        opacity: 0.10,
+                        alignment: Alignment.centerRight,
+                        offset: Offset(30, 0),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      _value,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        color: AppColors.volt,
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const HazardStripes(
+                            height: 8,
+                            background: AppColors.bg,
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.lg,
+                              AppSpacing.lg,
+                              AppSpacing.lg,
+                              AppSpacing.lg,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'NEW ${widget.pr.type.label.toUpperCase()}',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: AppColors.accent,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  _value,
+                                  style: AppText.numeric(
+                                    size: 54,
+                                    color: AppColors.textPrimary,
+                                    letterSpacing: -2,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  widget.exerciseName.toUpperCase(),
+                                  style: theme.textTheme.headlineSmall,
+                                ),
+                                if (_previous != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _previous!,
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      widget.exerciseName,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    if (_previous != null) ...[
-                      const SizedBox(height: 4),
-                      Text(_previous!, style: theme.textTheme.bodySmall),
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -169,7 +197,7 @@ class _PrCelebrationState extends State<PrCelebration>
   }
 }
 
-/// Cheap confetti: volt shards flung outward on a single controller.
+/// Cheap confetti: red and bone shards flung outward on a single controller.
 class _Sparks extends StatelessWidget {
   const _Sparks({required this.controller});
 
@@ -180,7 +208,7 @@ class _Sparks extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) => CustomPaint(
-        size: const Size(340, 340),
+        size: const Size(360, 360),
         painter: _SparkPainter(controller.value),
       ),
     );
@@ -191,7 +219,7 @@ class _SparkPainter extends CustomPainter {
   _SparkPainter(this.t);
 
   final double t;
-  static const _count = 22;
+  static const _count = 26;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -202,24 +230,20 @@ class _SparkPainter extends CustomPainter {
 
     for (var i = 0; i < _count; i++) {
       final angle = (i / _count) * math.pi * 2 + random.nextDouble() * 0.4;
-      final distance = (70 + random.nextDouble() * 90) * eased;
+      final distance = (90 + random.nextDouble() * 110) * eased;
       final opacity = (1 - t).clamp(0.0, 1.0);
       final offset = center + Offset(math.cos(angle), math.sin(angle)) * distance;
 
       final paint = Paint()
-        ..color = (i.isEven ? AppColors.volt : AppColors.chartTo).withValues(
-          alpha: opacity,
-        )
+        ..color = (i.isEven ? AppColors.accent : AppColors.textPrimary)
+            .withValues(alpha: opacity)
         ..style = PaintingStyle.fill;
 
       canvas.save();
       canvas.translate(offset.dx, offset.dy);
-      canvas.rotate(angle + t * 3);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset.zero, width: 4, height: 10),
-          const Radius.circular(2),
-        ),
+      canvas.rotate(angle + t * 2);
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset.zero, width: 3, height: 12),
         paint,
       );
       canvas.restore();

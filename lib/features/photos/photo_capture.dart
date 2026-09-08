@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/date_x.dart';
 import '../../domain/enums.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 
 /// Pose + source picker, then hands the file to the repository which
@@ -44,10 +45,12 @@ class _PhotoCaptureState extends ConsumerState<PhotoCapture> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('ADD PROGRESS PHOTO', style: theme.textTheme.labelSmall),
+            Text('ADD PROGRESS PHOTO', style: theme.textTheme.headlineMedium),
+            const SizedBox(height: AppSpacing.sm),
+            const IronRule(),
             const SizedBox(height: AppSpacing.md),
 
-            Text('Pose', style: theme.textTheme.titleSmall),
+            Text('POSE', style: theme.textTheme.labelSmall),
             const SizedBox(height: AppSpacing.sm),
             PillToggle<PhotoPose>(
               values: PhotoPose.values,
@@ -59,7 +62,7 @@ class _PhotoCaptureState extends ConsumerState<PhotoCapture> {
             const SizedBox(height: AppSpacing.md),
             Row(
               children: [
-                Text('Date', style: theme.textTheme.titleSmall),
+                Text('DATE', style: theme.textTheme.labelSmall),
                 const Spacer(),
                 GhostButton(
                   label: Dates.dayMonthYear(_date),
@@ -116,8 +119,8 @@ class _PhotoCaptureState extends ConsumerState<PhotoCapture> {
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: AppColors.volt,
-            onPrimary: AppColors.bg,
+            primary: AppColors.accent,
+            onPrimary: AppColors.textPrimary,
             surface: AppColors.card,
             onSurface: AppColors.textPrimary,
           ),

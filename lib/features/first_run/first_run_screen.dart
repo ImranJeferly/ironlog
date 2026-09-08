@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/health/health_service.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 
 /// The only setup step the plan allows: units + Apple Health permission.
@@ -36,12 +37,21 @@ class _FirstRunScreenState extends ConsumerState<FirstRunScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Spacer(),
-              const Icon(Icons.bolt, color: AppColors.volt, size: 48),
+              const Image(
+                image: AssetImage('assets/branding/app_icon.png'),
+                width: 96,
+                height: 96,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const HazardStripes(height: 6),
               const SizedBox(height: AppSpacing.md),
-              Text('IronLog', style: theme.textTheme.displayMedium),
+              Text(
+                'IronLog',
+                style: theme.textTheme.displaySmall?.copyWith(fontSize: 64),
+              ),
               const SizedBox(height: 6),
               Text(
-                'Push · Pull · Legs · Arms. Double progression, offline first.',
+                'Push · Pull · Legs. Double progression, offline first.',
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: AppSpacing.xl),

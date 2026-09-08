@@ -119,8 +119,12 @@ class _PhotoCompareScreenState extends ConsumerState<PhotoCompareScreen> {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    '${Dates.daysBetween(beforePhoto.date, afterPhoto.date).abs()} days apart',
-                    style: theme.textTheme.titleSmall,
+                    '${Dates.daysBetween(beforePhoto.date, afterPhoto.date).abs()}',
+                    style: AppText.numeric(size: 18, letterSpacing: 0),
+                  ),
+                  Text(
+                    '  DAYS APART',
+                    style: theme.textTheme.labelSmall?.copyWith(fontSize: 14),
                   ),
                 ],
               ),
@@ -178,19 +182,22 @@ class _DatePickRow extends StatelessWidget {
                     alignment: Alignment.center,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: active ? AppColors.volt : AppColors.card,
+                      color: active ? AppColors.accent : AppColors.card,
                       borderRadius: BorderRadius.circular(AppRadii.chip),
                       border: Border.all(
-                        color: active ? AppColors.volt : AppColors.border,
+                        color: active
+                            ? AppColors.accent
+                            : AppColors.borderStrong,
                       ),
                     ),
                     child: Text(
                       Dates.dayMonth(date),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                      style: AppText.display(
+                        size: 15,
+                        letterSpacing: 1,
+                        height: 1,
                         color: active
-                            ? AppColors.bg
+                            ? AppColors.textPrimary
                             : AppColors.textSecondary,
                       ),
                     ),

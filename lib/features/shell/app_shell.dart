@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/notifications.dart';
 import '../../core/utils/haptics.dart';
+import '../../widgets/brutal.dart';
 import '../history/history_screen.dart';
 import '../home/home_screen.dart';
 import '../photos/photos_screen.dart';
@@ -133,7 +134,8 @@ class _TabSpec {
   final IconData activeIcon;
 }
 
-/// Custom floating nav bar — deliberately not a Material NavigationBar.
+/// Full-bleed steel nav bar — a hard slab with a hazard edge, not a floating
+/// pill. The active tab carries a red top bar and a filled icon.
 class _NavBar extends StatelessWidget {
   const _NavBar({
     required this.tabs,
@@ -147,32 +149,38 @@ class _NavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          0,
-          AppSpacing.md,
-          AppSpacing.sm,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(AppRadii.chip),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.card,
+        border: Border(top: BorderSide(color: AppColors.borderStrong)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            for (var i = 0; i < tabs.length; i++)
-              Expanded(child: _item(context, i)),
+            const HazardStripes(
+              height: 3,
+              color: AppColors.steel,
+              stripeWidth: 6,
+              gap: 10,
+            ),
+            SizedBox(
+              height: 58,
+              child: Row(
+                children: [
+                  for (var i = 0; i < tabs.length; i++) ...[
+                    if (i > 0)
+                      const VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: AppColors.border,
+                      ),
+                    Expanded(child: _item(context, i)),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -186,35 +194,43 @@ class _NavBar extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => onChanged(i),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        decoration: BoxDecoration(
-          color: active ? AppColors.voltDim : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadii.chip),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              active ? tab.activeIcon : tab.icon,
-              size: 20,
-              color: active ? AppColors.volt : AppColors.textTertiary,
+      child: Stack(
+        children: [
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            top: 0,
+            left: active ? 0 : 24,
+            right: active ? 0 : 24,
+            child: Container(
+              height: 3,
+              color: active ? AppColors.accent : Colors.transparent,
             ),
-            const SizedBox(height: 3),
-            Text(
-              tab.label,
-              maxLines: 1,
-              overflow: TextOverflow.clip,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: active ? AppColors.volt : AppColors.textTertiary,
-              ),
+          ),
+          Positioned.fill(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  active ? tab.activeIcon : tab.icon,
+                  size: 20,
+                  color: active ? AppColors.textPrimary : AppColors.textTertiary,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  tab.label.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: AppText.eyebrow(
+                    size: 12,
+                    letterSpacing: 1.6,
+                    color: active ? AppColors.accent : AppColors.textTertiary,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -13,6 +13,7 @@ import '../../domain/enums.dart';
 import '../../domain/program.dart';
 import '../../domain/session_view.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/pr_celebration.dart';
 import 'exercise_picker_sheet.dart';
@@ -606,7 +607,13 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(view.title, style: theme.textTheme.headlineSmall),
+                Text(
+                  view.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 2),
                 _ElapsedText(startedAt: view.session.startedAt),
               ],
             ),
@@ -614,11 +621,25 @@ class _Header extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '${view.totalSets}/${view.targetSetTotal}',
-                style: theme.textTheme.titleMedium,
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${view.totalSets}',
+                      style: AppText.numeric(size: 20),
+                    ),
+                    TextSpan(
+                      text: '/${view.targetSetTotal}',
+                      style: AppText.numeric(
+                        size: 13,
+                        color: AppColors.textTertiary,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              Text('sets', style: theme.textTheme.bodySmall),
+              Text('SETS', style: theme.textTheme.labelSmall),
             ],
           ),
         ],
@@ -662,12 +683,11 @@ class _ExerciseTrack extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    height: 5,
+                    height: 6,
                     decoration: BoxDecoration(
                       color: _colorFor(i),
-                      borderRadius: BorderRadius.circular(999),
                       border: i == current
-                          ? Border.all(color: AppColors.volt, width: 1)
+                          ? Border.all(color: AppColors.textPrimary, width: 1)
                           : null,
                     ),
                   ),
@@ -726,14 +746,28 @@ class _ElapsedTextState extends State<_ElapsedText> {
     // Session target is 80 min; the colour turns before it's a problem.
     final over = elapsed >= SessionTargets.warn;
     final near = elapsed >= SessionTargets.target;
-    return Text(
-      '${Fmt.duration(elapsed)} / ${SessionTargets.target.inMinutes} min',
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: over
-            ? AppColors.danger
-            : (near ? AppColors.warning : null),
-        fontWeight: near ? FontWeight.w700 : null,
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          color: over
+              ? AppColors.danger
+              : (near ? AppColors.warning : AppColors.accent),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '${Fmt.duration(elapsed)} / ${SessionTargets.target.inMinutes} MIN',
+          style: AppText.numeric(
+            size: 12.5,
+            letterSpacing: 0,
+            color: over
+                ? AppColors.danger
+                : (near ? AppColors.warning : AppColors.textSecondary),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -760,34 +794,34 @@ class _RestBar extends ConsumerWidget {
       decoration: BoxDecoration(
         color: done ? AppColors.voltDim : AppColors.card,
         borderRadius: BorderRadius.circular(AppRadii.cardSmall),
-        border: Border.all(color: done ? AppColors.volt : AppColors.border),
+        border: Border.all(
+          color: done ? AppColors.accent : AppColors.borderStrong,
+        ),
       ),
       child: Row(
         children: [
           Icon(
             done ? Icons.notifications_active : Icons.timer_outlined,
             size: 18,
-            color: done ? AppColors.volt : AppColors.textSecondary,
+            color: done ? AppColors.accent : AppColors.textSecondary,
           ),
           const SizedBox(width: 10),
           Text(
-            done ? 'Rest over — go' : Fmt.clock(state.remaining),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: done ? AppColors.volt : AppColors.textPrimary,
-            ),
+            done ? 'REST OVER — GO' : Fmt.clock(state.remaining),
+            style: done
+                ? theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.accent,
+                    fontSize: 15,
+                  )
+                : AppText.numeric(size: 18, letterSpacing: 0),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: state.progress,
-                minHeight: 5,
-                backgroundColor: AppColors.cardHigh,
-                valueColor: AlwaysStoppedAnimation(
-                  done ? AppColors.volt : AppColors.chartTo,
-                ),
-              ),
+            child: SegmentBar(
+              value: state.progress,
+              segments: 14,
+              height: 8,
+              color: done ? AppColors.accent : AppColors.textPrimary,
             ),
           ),
           const SizedBox(width: 10),
@@ -795,11 +829,22 @@ class _RestBar extends ConsumerWidget {
             GestureDetector(
               onTap: () =>
                   ref.read(restTimerProvider.notifier).addSeconds(30),
-              child: Text(
-                '+30s',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.volt,
-                  fontWeight: FontWeight.w800,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.accent),
+                  borderRadius: BorderRadius.circular(AppRadii.chip),
+                ),
+                child: Text(
+                  '+30S',
+                  style: AppText.eyebrow(
+                    size: 12,
+                    color: AppColors.accent,
+                    letterSpacing: 1,
+                  ),
                 ),
               ),
             ),
@@ -867,12 +912,36 @@ class _ExercisePage extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(exercise.name, style: theme.textTheme.headlineMedium),
-                  const SizedBox(height: 4),
                   Text(
-                    '${exercise.schemeLabel} · ${exercise.muscleGroup.label}'
-                    '${exercise.exercise.isUnilateral ? ' · per side' : ''}',
-                    style: theme.textTheme.bodySmall,
+                    exercise.name,
+                    style: theme.textTheme.headlineLarge?.copyWith(
+                      fontSize: 34,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 2,
+                        color:
+                            AppColors.muscleColors[exercise.muscleGroup.key] ??
+                            AppColors.accent,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          '${exercise.schemeLabel} · ${exercise.muscleGroup.label}'
+                                  '${exercise.exercise.isUnilateral ? ' · per side' : ''}'
+                              .toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -924,9 +993,9 @@ class _ExercisePage extends ConsumerWidget {
           const SizedBox(height: AppSpacing.sm),
           Center(
             child: Text(
-              'All sets done — swipe on or hit Next.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.volt,
+              'ALL SETS DONE — SWIPE ON OR HIT NEXT',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.accent,
               ),
             ),
           ),
@@ -971,44 +1040,46 @@ class _SetRow extends StatelessWidget {
             )
           : (isNext ? onLog : null),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
         decoration: BoxDecoration(
-          color: logged != null ? AppColors.cardHigh : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          color: logged != null
+              ? AppColors.cardHigh
+              : (isNext ? AppColors.card : Colors.transparent),
+          borderRadius: BorderRadius.circular(AppRadii.cardSmall),
           border: Border.all(
             color: isNext
-                ? AppColors.volt.withValues(alpha: 0.5)
-                : (logged != null ? Colors.transparent : AppColors.border),
+                ? AppColors.accent
+                : (logged != null ? AppColors.border : AppColors.border),
+            width: isNext ? 1.5 : 1,
           ),
         ),
         child: Row(
           children: [
-            SizedBox(
-              width: 24,
-              child: Text(
-                '${index + 1}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: logged != null
-                      ? AppColors.textSecondary
-                      : AppColors.textTertiary,
-                ),
-              ),
+            IndexTag(
+              index + 1,
+              size: 26,
+              filled: logged != null,
+              color: logged != null
+                  ? AppColors.accent
+                  : (isNext ? AppColors.textPrimary : AppColors.textTertiary),
             ),
+            const SizedBox(width: 12),
             Expanded(
               child: logged != null
                   ? Row(
                       children: [
                         Text(
                           Fmt.setSummary(logged.weightKg, logged.reps, unit),
-                          style: theme.textTheme.titleMedium,
+                          style: AppText.numeric(size: 18, letterSpacing: 0),
                         ),
                         if (logged.rpe != null) ...[
                           const SizedBox(width: 8),
                           Text(
-                            RpeLevel.fromRpe(logged.rpe)?.emoji ?? '',
-                            style: const TextStyle(fontSize: 14),
+                            'RPE ${logged.rpe}',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 11.5,
+                            ),
                           ),
                         ],
                         if (logged.isPr) ...[
@@ -1021,36 +1092,35 @@ class _SetRow extends StatelessWidget {
                       ghost == null
                           ? '— × ${exercise.link.repRangeMin}'
                           : '${Fmt.weight(ghost.weightKg, unit)} × ${ghost.reps}',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textTertiary,
-                        fontStyle: ghost == null
-                            ? FontStyle.normal
-                            : FontStyle.italic,
+                      style: AppText.numeric(
+                        size: 17,
+                        letterSpacing: 0,
+                        color: isNext
+                            ? AppColors.textSecondary
+                            : AppColors.textTertiary,
                       ),
                     ),
             ),
             if (logged == null && ghost != null)
               Text(
                 'last time',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textTertiary,
-                  fontSize: 10,
-                ),
+                style: theme.textTheme.labelSmall?.copyWith(fontSize: 11),
               ),
-            if (isNext)
+            if (isNext) ...[
+              const SizedBox(width: 8),
               Text(
                 'tap to log',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.volt,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppColors.accent,
+                  fontSize: 12,
                 ),
               ),
+            ],
             if (logged != null)
               const Icon(
                 Icons.check,
                 size: 16,
-                color: AppColors.volt,
+                color: AppColors.accent,
               ),
           ],
         ),
@@ -1084,13 +1154,18 @@ class _WrapUpPage extends ConsumerWidget {
         AppSpacing.lg,
       ),
       children: [
-        Text('Finish up', style: theme.textTheme.headlineMedium),
+        Text('FINISH UP', style: theme.textTheme.headlineLarge),
         const SizedBox(height: 4),
         Text(
           '$doneCount of ${view.exercises.length} exercises done · '
-          '${view.totalSets} sets logged',
-          style: theme.textTheme.bodySmall,
+                  '${view.totalSets} sets logged'
+              .toUpperCase(),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: AppColors.textSecondary,
+          ),
         ),
+        const SizedBox(height: AppSpacing.sm),
+        const IronRule(),
         const SizedBox(height: AppSpacing.md),
         Row(
           children: [
@@ -1158,12 +1233,8 @@ class _OptionRow extends StatelessWidget {
       enabled: enabled,
       leading: Icon(icon, size: 20, color: effective),
       title: Text(
-        label,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: effective,
-        ),
+        label.toUpperCase(),
+        style: AppText.display(size: 18, color: effective, letterSpacing: 1.2),
       ),
       onTap: enabled
           ? () {

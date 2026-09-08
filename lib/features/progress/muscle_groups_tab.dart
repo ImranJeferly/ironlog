@@ -9,6 +9,7 @@ import '../../core/utils/format.dart';
 import '../../domain/enums.dart';
 import '../../domain/volume.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/charts.dart';
 
@@ -67,11 +68,25 @@ class MuscleGroupsTab extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('THIS WEEK', style: theme.textTheme.labelSmall),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${_fmtSets(thisWeek.totalHardSets)} hard sets',
-                          style: theme.textTheme.headlineSmall,
+                        const SizedBox(height: 6),
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: _fmtSets(thisWeek.totalHardSets),
+                                style: AppText.numeric(size: 28),
+                              ),
+                              TextSpan(
+                                text: '  HARD SETS',
+                                style: AppText.eyebrow(
+                                  size: 14,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(height: 4),
                         Text(
                           'Week of ${Dates.dayMonth(thisWeek.weekStart)} · '
                           'secondary muscles count ½ · explosive excluded',
@@ -84,28 +99,15 @@ class MuscleGroupsTab extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       if (under > 0)
-                        Text(
-                          '$under under',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.danger,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      if (over > 0)
-                        Text(
-                          '$over over',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.warning,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        VoltBadge('$under UNDER', color: AppColors.danger),
+                      if (over > 0) ...[
+                        const SizedBox(height: 4),
+                        VoltBadge('$over OVER', color: AppColors.ember),
+                      ],
                       if (under == 0 && over == 0)
-                        Text(
-                          'all on target',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.volt,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        const VoltBadge(
+                          'ON TARGET',
+                          color: AppColors.textPrimary,
                         ),
                     ],
                   ),
@@ -151,14 +153,17 @@ class MuscleGroupsTab extends ConsumerWidget {
 String _fmtSets(double v) =>
     v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
+/// Under = red, over = ember, in band = bone white. Red is the app accent
+/// too, so "in band" deliberately isn't red — a wall of red would read as
+/// a wall of problems.
 Color _statusColor(VolumeStatus s) => switch (s) {
   VolumeStatus.under => AppColors.danger,
-  VolumeStatus.over => AppColors.warning,
-  VolumeStatus.onTarget => AppColors.volt,
+  VolumeStatus.over => AppColors.ember,
+  VolumeStatus.onTarget => AppColors.textPrimary,
 };
 
 /// One muscle: label, hard sets vs target, and a bar with the target band
-/// shaded behind it. Red under, amber over, volt in band.
+/// shaded behind it.
 class _MuscleBar extends StatelessWidget {
   const _MuscleBar({
     required this.muscle,
@@ -195,18 +200,30 @@ class _MuscleBar extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(muscle.label, style: theme.textTheme.titleSmall),
+                  child: Text(
+                    muscle.label.toUpperCase(),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                    ),
+                  ),
                 ),
                 Text(
                   _fmtSets(sets),
-                  style: theme.textTheme.titleSmall?.copyWith(color: color),
+                  style: AppText.numeric(
+                    size: 16,
+                    color: color,
+                    letterSpacing: 0,
+                  ),
                 ),
                 if (t != null) ...[
                   const SizedBox(width: 6),
                   Text(
                     '/ $t',
-                    style: theme.textTheme.bodySmall?.copyWith(
+                    style: AppText.numeric(
+                      size: 12,
                       color: AppColors.textTertiary,
+                      letterSpacing: 0,
                     ),
                   ),
                 ],
@@ -226,12 +243,7 @@ class _MuscleBar extends StatelessWidget {
                   final w = c.maxWidth;
                   return Stack(
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.cardHigh,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
+                      Container(color: AppColors.cardHigh),
                       if (t != null)
                         Positioned(
                           left: w * (t.min / scaleMax).clamp(0.0, 1.0),
@@ -239,21 +251,18 @@ class _MuscleBar extends StatelessWidget {
                               w * ((t.max - t.min) / scaleMax).clamp(0.0, 1.0),
                           top: 0,
                           bottom: 0,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: AppColors.volt.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
+                          child: const HazardStripes(
+                            height: 8,
+                            color: AppColors.steel,
+                            stripeWidth: 3,
+                            gap: 4,
                           ),
                         ),
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 450),
                         curve: Curves.easeOutCubic,
                         width: w * fill,
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
+                        color: color,
                       ),
                     ],
                   );
@@ -326,17 +335,42 @@ class _MuscleSheetState extends ConsumerState<_MuscleSheet> {
 
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          0,
+          AppSpacing.lg,
+          AppSpacing.lg,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(widget.muscle.label.toUpperCase(), style: theme.textTheme.labelSmall),
-            const SizedBox(height: 4),
+            const HazardStripes(height: 6, background: AppColors.bg),
+            const SizedBox(height: AppSpacing.md),
             Text(
-              '${_fmtSets(week.hardSets[widget.muscle] ?? 0)} hard sets this week',
-              style: theme.textTheme.headlineSmall,
+              widget.muscle.label.toUpperCase(),
+              style: theme.textTheme.headlineLarge,
             ),
+            const SizedBox(height: 4),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: _fmtSets(week.hardSets[widget.muscle] ?? 0),
+                    style: AppText.numeric(size: 22),
+                  ),
+                  TextSpan(
+                    text: '  HARD SETS THIS WEEK',
+                    style: AppText.eyebrow(
+                      size: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            const IronRule(),
 
             const SizedBox(height: AppSpacing.md),
             Text('FROM', style: theme.textTheme.labelSmall),
@@ -356,8 +390,12 @@ class _MuscleSheetState extends ConsumerState<_MuscleSheet> {
                         ),
                       ),
                       Text(
-                        '${_fmtSets(c.value)} sets',
-                        style: theme.textTheme.bodySmall,
+                        '${_fmtSets(c.value)} SETS',
+                        style: AppText.numeric(
+                          size: 13,
+                          color: AppColors.textSecondary,
+                          letterSpacing: 0,
+                        ),
                       ),
                     ],
                   ),
@@ -433,14 +471,22 @@ class _TargetRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Expanded(child: Text(label, style: theme.textTheme.titleSmall)),
+        Expanded(
+          child: Text(
+            label.toUpperCase(),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+            ),
+          ),
+        ),
         IconPill(icon: Icons.remove, size: 34, onTap: onMinus),
         SizedBox(
           width: 52,
           child: Text(
             '$value',
             textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium,
+            style: AppText.numeric(size: 20, letterSpacing: 0),
           ),
         ),
         IconPill(icon: Icons.add, size: 34, onTap: onPlus),

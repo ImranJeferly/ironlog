@@ -5,6 +5,7 @@ import '../../app/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/enums.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 
 /// Full-screen sign in / create account. Shown before the app itself: the user
@@ -115,7 +116,31 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: SafeArea(
+      body: Stack(
+        children: [
+          // Poster backdrop: the neon dumbbell, dimmed, with a stencil.
+          const Positioned(
+            top: -40,
+            right: -60,
+            child: Opacity(
+              opacity: 0.55,
+              child: Image(
+                image: AssetImage('assets/branding/app_icon.png'),
+                width: 360,
+                height: 360,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          const Stencil(
+            'IRON',
+            size: 200,
+            color: AppColors.textPrimary,
+            opacity: 0.04,
+            alignment: Alignment.bottomLeft,
+            offset: Offset(-8, 30),
+          ),
+          SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
             AppSpacing.lg,
@@ -126,10 +151,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: AppSpacing.xl),
-              const Icon(Icons.fitness_center, color: AppColors.volt, size: 44),
+              const SizedBox(height: 140),
+              const HazardStripes(height: 6),
               const SizedBox(height: AppSpacing.md),
-              Text('IronLog', style: theme.textTheme.displayMedium),
+              Text(
+                'IronLog',
+                style: theme.textTheme.displaySmall?.copyWith(fontSize: 64),
+              ),
               const SizedBox(height: 6),
               Text(
                 _createMode
@@ -237,6 +265,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ],
           ),
         ),
+          ),
+        ],
       ),
     );
   }

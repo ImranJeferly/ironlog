@@ -9,6 +9,7 @@ import '../../core/utils/format.dart';
 import '../../data/db/database.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/heatmap.dart';
 import '../progress/exercise_detail_screen.dart';
 import '../session/session_summary_screen.dart';
@@ -41,10 +42,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           AppSpacing.md,
           AppSpacing.md,
           AppSpacing.md,
-          120,
+          96,
         ),
         children: [
-          Text('History', style: theme.textTheme.headlineMedium),
+          const BrutalHeader(
+            title: 'History',
+            eyebrow: 'Every session, every record',
+            padding: EdgeInsets.zero,
+          ),
           const SizedBox(height: AppSpacing.md),
 
           AppCard(
@@ -53,12 +58,15 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               children: [
                 Row(
                   children: [
+                    Container(width: 3, height: 12, color: AppColors.accent),
+                    const SizedBox(width: 8),
                     Text('CONSISTENCY', style: theme.textTheme.labelSmall),
                     const Spacer(),
                     Text(
-                      '${consistency?.totalSessions ?? 0} sessions',
-                      style: theme.textTheme.bodySmall,
+                      '${consistency?.totalSessions ?? 0}',
+                      style: AppText.numeric(size: 14, letterSpacing: 0),
                     ),
+                    Text(' SESSIONS', style: theme.textTheme.labelSmall),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -106,7 +114,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 active: !_showPrs,
                 onTap: () => setState(() => _showPrs = false),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               _Toggle(
                 label: 'PR feed',
                 active: _showPrs,
@@ -114,6 +122,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               ),
             ],
           ),
+          const SizedBox(height: AppSpacing.sm),
+          const IronRule(),
           const SizedBox(height: AppSpacing.md),
 
           if (_showPrs)
@@ -191,18 +201,21 @@ class _Toggle extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        padding: const EdgeInsets.fromLTRB(16, 9, 16, 8),
         decoration: BoxDecoration(
-          color: active ? AppColors.volt : AppColors.card,
+          color: active ? AppColors.accent : AppColors.card,
           borderRadius: BorderRadius.circular(AppRadii.chip),
-          border: Border.all(color: active ? AppColors.volt : AppColors.border),
+          border: Border.all(
+            color: active ? AppColors.accent : AppColors.borderStrong,
+          ),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: active ? AppColors.bg : AppColors.textSecondary,
+          style: AppText.display(
+            size: 16,
+            letterSpacing: 1.4,
+            height: 1,
+            color: active ? AppColors.textPrimary : AppColors.textSecondary,
           ),
         ),
       ),
@@ -219,42 +232,28 @@ class _SessionRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final templates = ref.watch(templatesProvider).value ?? const [];
-    Color accent = AppColors.textTertiary;
-    for (final t in templates) {
-      if (t.id == session.templateId) {
-        accent = _accent(t.accentHex);
-        break;
-      }
-    }
+    final accent = AppColors.forTemplateName(session.templateName);
 
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       radius: AppRadii.cardSmall,
+      edge: accent,
+      padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
       onTap: () => SessionSummaryScreen.open(context, session.id),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 4,
-                height: 18,
-                margin: const EdgeInsets.only(right: 10),
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
               Expanded(
                 child: Text(
                   session.templateName ?? 'Workout',
-                  style: theme.textTheme.titleMedium,
+                  style: theme.textTheme.headlineSmall,
                 ),
               ),
               Text(
-                Dates.relativeDay(session.date),
-                style: theme.textTheme.bodySmall,
+                Dates.relativeDay(session.date).toUpperCase(),
+                style: theme.textTheme.labelSmall,
               ),
             ],
           ),
@@ -280,14 +279,14 @@ class _SessionRow extends ConsumerWidget {
                 const Icon(
                   Icons.favorite,
                   size: 14,
-                  color: AppColors.volt,
+                  color: AppColors.accent,
                 ),
               if (session.saunaDone) ...[
                 const SizedBox(width: 6),
                 const Icon(
                   Icons.hot_tub,
                   size: 14,
-                  color: AppColors.volt,
+                  color: AppColors.accent,
                 ),
               ],
             ],
@@ -295,12 +294,6 @@ class _SessionRow extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  static Color _accent(String? hex) {
-    if (hex == null || hex.length < 7) return AppColors.textTertiary;
-    final parsed = int.tryParse(hex.substring(1), radix: 16);
-    return parsed == null ? AppColors.textTertiary : Color(0xFF000000 | parsed);
   }
 }
 
@@ -317,6 +310,7 @@ class _Pill extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardHigh,
         borderRadius: BorderRadius.circular(AppRadii.chip),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -324,10 +318,10 @@ class _Pill extends StatelessWidget {
           Icon(icon, size: 12, color: AppColors.textTertiary),
           const SizedBox(width: 5),
           Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+            label.toUpperCase(),
+            style: AppText.numeric(
+              size: 11,
+              letterSpacing: 0,
               color: AppColors.textSecondary,
             ),
           ),
@@ -354,7 +348,8 @@ class _PrFeedRow extends ConsumerWidget {
     return AppCard(
       margin: const EdgeInsets.only(bottom: 6),
       radius: AppRadii.cardSmall,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      edge: AppColors.accent,
+      padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
       onTap: exercise == null
           ? null
           : () => ExerciseDetailScreen.open(context, exercise.id),
@@ -365,9 +360,12 @@ class _PrFeedRow extends ConsumerWidget {
             height: 34,
             decoration: BoxDecoration(
               color: AppColors.voltDim,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppRadii.chip),
+              border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.5),
+              ),
             ),
-            child: const Icon(Icons.bolt, color: AppColors.volt, size: 17),
+            child: const Icon(Icons.bolt, color: AppColors.accent, size: 17),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -381,8 +379,9 @@ class _PrFeedRow extends ConsumerWidget {
                   style: theme.textTheme.titleSmall,
                 ),
                 Text(
-                  '${pr.type.label} · ${Dates.dayMonth(pr.achievedAt)}',
-                  style: theme.textTheme.bodySmall,
+                  '${pr.type.label} · ${Dates.dayMonth(pr.achievedAt)}'
+                      .toUpperCase(),
+                  style: theme.textTheme.labelSmall?.copyWith(fontSize: 11.5),
                 ),
               ],
             ),
@@ -392,10 +391,12 @@ class _PrFeedRow extends ConsumerWidget {
             children: [
               Text(
                 pr.type == PrType.reps
-                    ? '${pr.reps} reps'
+                    ? '${pr.reps} REPS'
                     : Fmt.weight(pr.value, unit),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: AppColors.volt,
+                style: AppText.numeric(
+                  size: 16,
+                  color: AppColors.accent,
+                  letterSpacing: 0,
                 ),
               ),
               if (improvement != null && improvement > 0)
@@ -403,7 +404,11 @@ class _PrFeedRow extends ConsumerWidget {
                   pr.type == PrType.reps
                       ? '+${improvement.round()}'
                       : '+${Fmt.weight(improvement, unit)}',
-                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                  style: AppText.numeric(
+                    size: 11,
+                    color: AppColors.textTertiary,
+                    letterSpacing: 0,
+                  ),
                 ),
             ],
           ),

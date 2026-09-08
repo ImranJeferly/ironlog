@@ -173,36 +173,41 @@ class _ExerciseDetailScreenState extends ConsumerState<ExerciseDetailScreen> {
                     AppCard(
                       margin: const EdgeInsets.only(bottom: 6),
                       radius: AppRadii.cardSmall,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
+                      edge: AppColors.accent,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
                       child: Row(
                         children: [
                           const Icon(
                             Icons.bolt,
                             size: 17,
-                            color: AppColors.volt,
+                            color: AppColors.accent,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              pr.type.label,
-                              style: theme.textTheme.titleSmall,
+                              pr.type.label.toUpperCase(),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                           Text(
                             pr.type == PrType.reps
-                                ? '${pr.reps} reps @ ${Fmt.weight(pr.weightKg, unit)}'
+                                ? '${pr.reps} × ${Fmt.weight(pr.weightKg, unit)}'
                                 : Fmt.weight(pr.value, unit),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: AppColors.volt,
+                            style: AppText.numeric(
+                              size: 15,
+                              color: AppColors.accent,
+                              letterSpacing: 0,
                             ),
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            Dates.dayMonth(pr.achievedAt),
-                            style: theme.textTheme.bodySmall,
+                            Dates.dayMonth(pr.achievedAt).toUpperCase(),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 11.5,
+                            ),
                           ),
                         ],
                       ),
@@ -278,9 +283,7 @@ class _HistoryRow extends StatelessWidget {
     final theme = Theme.of(context);
     final p = point;
     final labelStyle = theme.textTheme.labelSmall;
-    final cell = theme.textTheme.bodyMedium?.copyWith(
-      color: AppColors.textPrimary,
-    );
+    final cell = AppText.numeric(size: 14, letterSpacing: 0);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -308,7 +311,7 @@ class _HistoryRow extends StatelessWidget {
               textAlign: TextAlign.right,
               style: _header
                   ? labelStyle
-                  : cell?.copyWith(color: AppColors.volt),
+                  : cell.copyWith(color: AppColors.accent),
             ),
           ),
           SizedBox(
@@ -346,18 +349,19 @@ class _Chip extends StatelessWidget {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: active ? AppColors.cardHigh : Colors.transparent,
+          color: active ? AppColors.accent : Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadii.chip),
           border: Border.all(
-            color: active ? AppColors.chartTo : AppColors.border,
+            color: active ? AppColors.accent : AppColors.borderStrong,
           ),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: active ? AppColors.textPrimary : AppColors.textTertiary,
+          style: AppText.display(
+            size: 15,
+            letterSpacing: 1.2,
+            height: 1,
+            color: active ? AppColors.textPrimary : AppColors.textSecondary,
           ),
         ),
       ),

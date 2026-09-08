@@ -141,7 +141,8 @@ class TrendChart extends StatelessWidget {
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
               getTooltipColor: (_) => AppColors.cardHigh,
-              tooltipBorderRadius: BorderRadius.circular(12),
+              tooltipBorderRadius: BorderRadius.circular(AppRadii.chip),
+              tooltipBorder: const BorderSide(color: AppColors.borderStrong),
               getTooltipItems: (spots) => spots.map((spot) {
                 final i = spot.x.round();
                 final date = i >= 0 && i < labelDates.length
@@ -149,11 +150,7 @@ class TrendChart extends StatelessWidget {
                     : '';
                 return LineTooltipItem(
                   '${_short(spot.y)}$valueSuffix\n',
-                  const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                  ),
+                  AppText.numeric(size: 14, letterSpacing: 0),
                   children: [
                     TextSpan(
                       text: date,
@@ -175,20 +172,20 @@ class TrendChart extends StatelessWidget {
                   for (var i = 0; i < s.values.length; i++)
                     FlSpot(i.toDouble(), s.values[i]),
                 ],
-                isCurved: true,
-                curveSmoothness: 0.25,
-                preventCurveOverShooting: true,
-                barWidth: s.dashed ? 2 : 3,
+                // Straight segments — the brutalist chart is a polyline, not
+                // a spline.
+                isCurved: false,
+                barWidth: s.dashed ? 2 : 2.5,
                 dashArray: s.dashed ? const [5, 5] : null,
                 gradient: s.gradient ?? AppColors.chartGradient,
                 dotData: FlDotData(
                   show: s.values.length <= 14 && !s.dashed,
                   getDotPainter: (spot, percent, bar, index) =>
-                      FlDotCirclePainter(
-                        radius: 3.5,
+                      FlDotSquarePainter(
+                        size: 6,
                         color: AppColors.bg,
-                        strokeWidth: 2.5,
-                        strokeColor: AppColors.chartTo,
+                        strokeWidth: 2,
+                        strokeColor: AppColors.accent,
                       ),
                 ),
                 belowBarData: BarAreaData(
@@ -291,15 +288,12 @@ class GroupBarChart extends StatelessWidget {
           barTouchData: BarTouchData(
             touchTooltipData: BarTouchTooltipData(
               getTooltipColor: (_) => AppColors.cardHigh,
-              tooltipBorderRadius: BorderRadius.circular(10),
+              tooltipBorderRadius: BorderRadius.circular(AppRadii.chip),
+              tooltipBorder: const BorderSide(color: AppColors.borderStrong),
               getTooltipItem: (group, groupIndex, rod, rodIndex) =>
                   BarTooltipItem(
                     '${rod.toY.round()}$valueSuffix',
-                    const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                    ),
+                    AppText.numeric(size: 13, letterSpacing: 0),
                   ),
             ),
           ),
@@ -311,9 +305,7 @@ class GroupBarChart extends StatelessWidget {
                   BarChartRodData(
                     toY: data[i].value,
                     width: 18,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(6),
-                    ),
+                    borderRadius: BorderRadius.zero,
                     gradient: LinearGradient(
                       colors: [
                         data[i].color.withValues(alpha: 0.55),
@@ -379,10 +371,28 @@ class ChartCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title.toUpperCase(), style: theme.textTheme.labelSmall),
+                    Row(
+                      children: [
+                        Container(
+                          width: 3,
+                          height: 11,
+                          color: AppColors.accent,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            title.toUpperCase(),
+                            style: theme.textTheme.labelSmall,
+                          ),
+                        ),
+                      ],
+                    ),
                     if (headline != null) ...[
-                      const SizedBox(height: 6),
-                      Text(headline!, style: theme.textTheme.headlineMedium),
+                      const SizedBox(height: 8),
+                      Text(
+                        headline!,
+                        style: AppText.numeric(size: 26, letterSpacing: -0.5),
+                      ),
                     ],
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),

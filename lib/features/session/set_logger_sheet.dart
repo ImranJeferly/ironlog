@@ -7,6 +7,7 @@ import '../../core/utils/haptics.dart';
 import '../../domain/enums.dart';
 import '../../domain/session_view.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../../widgets/wheel_picker.dart';
 
@@ -133,7 +134,11 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Padding(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const HazardStripes(height: 6, background: AppColors.bg),
+            Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.lg,
             AppSpacing.md,
@@ -151,15 +156,19 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
                       children: [
                         Text(
                           exercise.name,
-                          style: theme.textTheme.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.headlineMedium,
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          setNo == null
-                              ? 'Edit set'
-                              : 'Set $setNo of ${exercise.targetSets} · '
-                                    'target ${exercise.link.repRangeMin}–'
-                                    '${exercise.link.repRangeMax}',
-                          style: theme.textTheme.bodySmall,
+                          (setNo == null
+                                  ? 'Edit set'
+                                  : 'Set $setNo of ${exercise.targetSets} · '
+                                        'target ${exercise.link.repRangeMin}–'
+                                        '${exercise.link.repRangeMax}')
+                              .toUpperCase(),
+                          style: theme.textTheme.labelSmall,
                         ),
                       ],
                     ),
@@ -184,7 +193,7 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
                         NumberWheel(
                           values: _weights,
                           index: _weightIndex,
-                          accent: AppColors.volt,
+                          accent: AppColors.accent,
                           labelOf: (v) => v == v.roundToDouble()
                               ? v.toStringAsFixed(0)
                               : v.toStringAsFixed(2)
@@ -198,8 +207,10 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
                     padding: const EdgeInsets.only(top: 20),
                     child: Text(
                       '×',
-                      style: theme.textTheme.headlineMedium?.copyWith(
+                      style: AppText.numeric(
+                        size: 28,
                         color: AppColors.textTertiary,
+                        weight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -256,15 +267,22 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
               // ---- RPE (6–10; required on an exercise's last set) ----
               Row(
                 children: [
-                  Text('HOW DID IT FEEL?', style: theme.textTheme.labelSmall),
+                  Container(width: 3, height: 12, color: AppColors.accent),
+                  const SizedBox(width: 8),
+                  Text(
+                    'HOW DID IT FEEL?',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                   if (requireRpe) ...[
                     const SizedBox(width: 6),
                     Text(
-                      _rpe == null ? '· required on the last set' : '· ✓',
+                      _rpe == null ? '· REQUIRED ON THE LAST SET' : '· ✓',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: _rpe == null
                             ? AppColors.warning
-                            : AppColors.volt,
+                            : AppColors.accent,
                       ),
                     ),
                   ],
@@ -340,6 +358,8 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
               ),
             ],
           ),
+            ),
+          ],
         ),
       ),
     );
@@ -370,14 +390,14 @@ class _Nudge extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.cardHigh,
           borderRadius: BorderRadius.circular(AppRadii.chip),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: AppColors.borderStrong),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            color: enabled ? AppColors.textSecondary : AppColors.textTertiary,
+          style: AppText.numeric(
+            size: 16,
+            letterSpacing: 0,
+            color: enabled ? AppColors.textPrimary : AppColors.textTertiary,
           ),
         ),
       ),
@@ -406,25 +426,35 @@ class _RpeChip extends StatelessWidget {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        width: 58,
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.voltDim : AppColors.cardHigh,
-          borderRadius: BorderRadius.circular(AppRadii.cardSmall),
+          color: selected ? AppColors.accent : AppColors.cardHigh,
+          borderRadius: BorderRadius.circular(AppRadii.chip),
           border: Border.all(
-            color: selected ? AppColors.volt : AppColors.border,
+            color: selected ? AppColors.accent : AppColors.borderStrong,
           ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(level.emoji, style: const TextStyle(fontSize: 18)),
+            Text(
+              '${level.rpe}',
+              style: AppText.numeric(
+                size: 20,
+                letterSpacing: 0,
+                color: selected
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+              ),
+            ),
             const SizedBox(height: 3),
             Text(
-              level.label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: selected ? AppColors.volt : AppColors.textTertiary,
+              level.label.toUpperCase(),
+              style: AppText.eyebrow(
+                size: 10,
+                letterSpacing: 1,
+                color: selected ? AppColors.textPrimary : AppColors.textTertiary,
               ),
             ),
           ],

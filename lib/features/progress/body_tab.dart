@@ -18,7 +18,6 @@ class BodyTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final series = ref.watch(bodyWeightProvider).value;
     final unit = ref.watch(unitProvider);
     final consistency = ref.watch(consistencyProvider).value;
@@ -62,7 +61,7 @@ class BodyTab extends ConsumerWidget {
                   values: series.movingAverageKg.map(unit.fromKg).toList(),
                   dashed: true,
                   gradient: const LinearGradient(
-                    colors: [AppColors.volt, AppColors.volt],
+                    colors: [AppColors.textPrimary, AppColors.textPrimary],
                   ),
                 ),
               ],
@@ -101,13 +100,7 @@ class BodyTab extends ConsumerWidget {
           ],
         ),
 
-        Padding(
-          padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: 8),
-          child: Text(
-            'TODAY’S METRICS',
-            style: theme.textTheme.labelSmall,
-          ),
-        ),
+        const SectionHeader('Today’s metrics'),
         const DailyMetricsCard(),
       ],
     );

@@ -2,6 +2,29 @@
 
 All notable changes to IronLog. Newest first.
 
+## Unreleased — "iron brutalism" restyle
+
+- **Blood-red accent** replaces volt yellow everywhere (buttons, ticks, PRs,
+  live indicators, heatmap ramp, charts). Warnings and deload use ember
+  orange; on-target volume reads in bone white so red always means "act".
+- **New type system.** Bebas Neue for headlines, eyebrows, buttons and nav;
+  Barlow for body copy; Chakra Petch kept for every numeral (weights, reps,
+  timers, stats) with tabular figures. All bundled — works offline.
+- **Hard surfaces.** 4–6 px radii, 1 px steel outlines, red edge bars on
+  rows that matter, hazard-stripe headers on sheets, a film-grain overlay,
+  poster-style stencil watermarks behind hero cards ("PUSH", "LIVE", "PR").
+- **Buttons** are slabs with a hard offset shadow that drops on press;
+  segmented toggles and square icon buttons throughout.
+- **Nav bar** is a full-bleed steel bar with a red active marker instead of
+  a floating pill.
+- Every screen restyled: Home hero panel, adherence week strip, daily
+  metrics gauges (segmented bars), template picker/editor, active session
+  (rack-slot set rows, numeric clock, segmented rest bar), set logger
+  (numeric RPE 6–10 chips), summary, PR flash, progress tabs, volume bars
+  with a hazard target band, exercise detail, history, photos, settings,
+  auth, first run and the updater.
+- Logo recoloured to red; launcher icons regenerated; splash is black.
+
 ## Unreleased — training-quality overhaul
 
 ### 1. Data integrity

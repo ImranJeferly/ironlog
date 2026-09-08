@@ -9,6 +9,7 @@ import '../../core/utils/format.dart';
 import '../../domain/enums.dart';
 import '../../domain/session_view.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 
 /// Post-workout wrap-up: duration, tonnage, PRs, and the day-complete tick.
@@ -77,31 +78,35 @@ class SessionSummaryScreen extends ConsumerWidget {
           AppSpacing.xl,
         ),
         children: [
-          AppCard(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            borderColor: AppColors.volt.withValues(alpha: 0.4),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1C2109), AppColors.card],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+          SteelPanel(
+            stencil: isCelebration ? 'DONE' : view.title.split(' ').first,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(
-                      Icons.check_circle,
-                      color: AppColors.volt,
-                      size: 22,
+                    Container(
+                      width: 22,
+                      height: 22,
+                      color: AppColors.accent,
+                      child: const Icon(
+                        Icons.check,
+                        size: 16,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Text(
                       Dates.relativeDay(session.date).toUpperCase(),
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.volt,
+                        color: AppColors.accent,
+                        fontSize: 14,
                       ),
                     ),
+                    if (session.durationSuspect) ...[
+                      const Spacer(),
+                      const VoltBadge('DURATION CAPPED', color: AppColors.ember),
+                    ],
                   ],
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -131,7 +136,7 @@ class SessionSummaryScreen extends ConsumerWidget {
                       child: _Metric(
                         value: '${view.prCount}',
                         label: 'PRs',
-                        accent: view.prCount > 0 ? AppColors.volt : null,
+                        accent: view.prCount > 0 ? AppColors.accent : null,
                       ),
                     ),
                   ],
@@ -174,13 +179,11 @@ class SessionSummaryScreen extends ConsumerWidget {
                 AppCard(
                   margin: const EdgeInsets.only(bottom: 6),
                   radius: AppRadii.cardSmall,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
+                  edge: AppColors.accent,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
                   child: Row(
                     children: [
-                      const Icon(Icons.bolt, color: AppColors.volt, size: 18),
+                      const Icon(Icons.bolt, color: AppColors.accent, size: 18),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -190,8 +193,10 @@ class SessionSummaryScreen extends ConsumerWidget {
                       ),
                       Text(
                         Fmt.setSummary(set.weightKg, set.reps, unit),
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: AppColors.volt,
+                        style: AppText.numeric(
+                          size: 16,
+                          color: AppColors.accent,
+                          letterSpacing: 0,
                         ),
                       ),
                     ],
@@ -200,9 +205,9 @@ class SessionSummaryScreen extends ConsumerWidget {
           ],
 
           const SectionHeader('What you did'),
-          for (final exercise in view.exercises)
+          for (final (i, exercise) in view.exercises.indexed)
             if (exercise.sets.isNotEmpty)
-              _ExerciseSummary(exercise: exercise, unit: unit),
+              _ExerciseSummary(index: i + 1, exercise: exercise, unit: unit),
 
           if (session.notes != null && session.notes!.isNotEmpty) ...[
             const SectionHeader('Notes'),
@@ -244,15 +249,16 @@ class _Metric extends StatelessWidget {
           child: Text(
             value,
             maxLines: 1,
-            style: theme.textTheme.titleMedium?.copyWith(color: accent),
+            style: AppText.numeric(
+              size: 20,
+              color: accent ?? AppColors.textPrimary,
+            ),
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Text(
           label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.textTertiary,
-          ),
+          style: theme.textTheme.labelSmall?.copyWith(fontSize: 11.5),
         ),
       ],
     );
@@ -260,8 +266,13 @@ class _Metric extends StatelessWidget {
 }
 
 class _ExerciseSummary extends StatelessWidget {
-  const _ExerciseSummary({required this.exercise, required this.unit});
+  const _ExerciseSummary({
+    required this.index,
+    required this.exercise,
+    required this.unit,
+  });
 
+  final int index;
   final SessionExerciseView exercise;
   final WeightUnit unit;
 
@@ -272,11 +283,15 @@ class _ExerciseSummary extends StatelessWidget {
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       radius: AppRadii.cardSmall,
+      edge: AppColors.muscleColors[exercise.muscleGroup.key],
+      padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
+              IndexTag(index, size: 24),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   exercise.name,
@@ -285,11 +300,15 @@ class _ExerciseSummary extends StatelessWidget {
               ),
               Text(
                 Fmt.tonnage(exercise.tonnageKg, unit),
-                style: theme.textTheme.bodySmall,
+                style: AppText.numeric(
+                  size: 13,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -302,18 +321,18 @@ class _ExerciseSummary extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: set.isPr ? AppColors.voltDim : AppColors.cardHigh,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppRadii.chip),
                     border: Border.all(
-                      color: set.isPr ? AppColors.volt : AppColors.border,
+                      color: set.isPr ? AppColors.accent : AppColors.border,
                     ),
                   ),
                   child: Text(
                     '${Fmt.weight(set.weightKg, unit, withUnit: false)}×${set.reps}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                    style: AppText.numeric(
+                      size: 12.5,
+                      letterSpacing: 0,
                       color: set.isPr
-                          ? AppColors.volt
+                          ? AppColors.accent
                           : AppColors.textSecondary,
                     ),
                   ),

@@ -71,7 +71,7 @@ class _CompareSliderState extends State<CompareSlider> {
                     left: _position * width - 1,
                     top: 0,
                     bottom: 0,
-                    child: Container(width: 2, color: AppColors.volt),
+                    child: Container(width: 2, color: AppColors.accent),
                   ),
                   Positioned(
                     left: _position * width - 18,
@@ -82,8 +82,9 @@ class _CompareSliderState extends State<CompareSlider> {
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: AppColors.volt,
-                          shape: BoxShape.circle,
+                          color: AppColors.accent,
+                          borderRadius: BorderRadius.circular(AppRadii.chip),
+                          border: Border.all(color: AppColors.textPrimary),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.4),
@@ -92,9 +93,9 @@ class _CompareSliderState extends State<CompareSlider> {
                           ],
                         ),
                         child: const Icon(
-                          Icons.unfold_more,
+                          Icons.code,
                           size: 20,
-                          color: AppColors.bg,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                     ),
@@ -125,15 +126,18 @@ class _CompareSliderState extends State<CompareSlider> {
   Widget _tag(String label) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: 0.6),
+      color: Colors.black.withValues(alpha: 0.7),
       borderRadius: BorderRadius.circular(AppRadii.chip),
+      border: const Border(
+        left: BorderSide(color: AppColors.accent, width: 2),
+      ),
     ),
     child: Text(
       label,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
+      style: AppText.eyebrow(
+        size: 12,
+        color: AppColors.textPrimary,
+        letterSpacing: 1.2,
       ),
     ),
   );

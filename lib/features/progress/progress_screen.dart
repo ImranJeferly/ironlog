@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../widgets/brutal.dart';
 import 'body_tab.dart';
 import 'exercises_tab.dart';
 import 'muscle_groups_tab.dart';
@@ -23,24 +24,18 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return SafeArea(
       bottom: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.sm,
-            ),
-            child: Text('Progress', style: theme.textTheme.headlineMedium),
+          const BrutalHeader(
+            title: 'Progress',
+            eyebrow: 'Numbers don’t lie',
+            rule: false,
           ),
           SizedBox(
-            height: 42,
+            height: 40,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -54,6 +49,15 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                 ),
               ),
             ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              0,
+            ),
+            child: IronRule(),
           ),
           Expanded(
             child: IndexedStack(
@@ -92,18 +96,19 @@ class _TabChip extends StatelessWidget {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 18),
         decoration: BoxDecoration(
-          color: active ? AppColors.volt : AppColors.card,
+          color: active ? AppColors.accent : AppColors.card,
           borderRadius: BorderRadius.circular(AppRadii.chip),
           border: Border.all(
-            color: active ? AppColors.volt : AppColors.border,
+            color: active ? AppColors.accent : AppColors.borderStrong,
           ),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: active ? AppColors.bg : AppColors.textSecondary,
+          style: AppText.display(
+            size: 17,
+            letterSpacing: 1.4,
+            height: 1,
+            color: active ? AppColors.textPrimary : AppColors.textSecondary,
           ),
         ),
       ),

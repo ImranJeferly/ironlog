@@ -4,7 +4,8 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../core/utils/haptics.dart';
 
-/// The primary CTA — a volt pill. Pressing it dips slightly and taps a haptic.
+/// The primary CTA — a hard red slab with Bebas caps. Pressing it drops the
+/// slab onto its shadow and taps a haptic.
 class VoltButton extends StatefulWidget {
   const VoltButton({
     super.key,
@@ -13,8 +14,8 @@ class VoltButton extends StatefulWidget {
     this.icon,
     this.expanded = true,
     this.height = 56,
-    this.color = AppColors.volt,
-    this.foreground = AppColors.bg,
+    this.color = AppColors.accent,
+    this.foreground = AppColors.textPrimary,
   });
 
   final String label;
@@ -35,6 +36,10 @@ class _VoltButtonState extends State<VoltButton> {
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null;
+    final fg = enabled
+        ? widget.foreground
+        : widget.foreground.withValues(alpha: 0.5);
+    final drop = enabled && !_down ? 4.0 : 0.0;
 
     final button = GestureDetector(
       onTapDown: enabled ? (_) => setState(() => _down = true) : null,
@@ -46,71 +51,86 @@ class _VoltButtonState extends State<VoltButton> {
               widget.onPressed!();
             }
           : null,
-      child: AnimatedScale(
-        scale: _down ? 0.97 : 1,
-        duration: const Duration(milliseconds: 110),
-        child: Container(
-          height: widget.height,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: enabled
-                ? widget.color
-                : widget.color.withValues(alpha: 0.25),
-            borderRadius: BorderRadius.circular(AppRadii.chip),
-            boxShadow: enabled && !_down
-                ? [
-                    BoxShadow(
-                      color: widget.color.withValues(alpha: 0.22),
-                      blurRadius: 24,
-                      spreadRadius: -6,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (widget.icon != null) ...[
-                Icon(
-                  widget.icon,
-                  size: 20,
-                  color: enabled
-                      ? widget.foreground
-                      : widget.foreground.withValues(alpha: 0.5),
-                ),
-                const SizedBox(width: 10),
-              ],
-              // Long labels shrink instead of overflowing the pill.
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    widget.label,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.2,
-                      color: enabled
-                          ? widget.foreground
-                          : widget.foreground.withValues(alpha: 0.5),
-                    ),
+      child: SizedBox(
+        height: widget.height + 4,
+        child: Stack(
+          children: [
+            // Hard offset shadow — the slab sits on it and drops when pressed.
+            Positioned.fill(
+              top: 4,
+              left: 4,
+              right: -4,
+              bottom: 0,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: enabled
+                        ? AppColors.accentDeep.withValues(alpha: 0.9)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppRadii.chip),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 90),
+              curve: Curves.easeOut,
+              left: 4 - drop,
+              right: drop,
+              top: 4 - drop,
+              bottom: drop,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                decoration: BoxDecoration(
+                  color: enabled
+                      ? widget.color
+                      : widget.color.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(AppRadii.chip),
+                ),
+                child: Row(
+                  mainAxisSize: widget.expanded
+                      ? MainAxisSize.max
+                      : MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (widget.icon != null) ...[
+                      Icon(widget.icon, size: 20, color: fg),
+                      const SizedBox(width: 10),
+                    ],
+                    // Long labels shrink instead of overflowing the slab.
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        // Bebas has no lowercase — the face does the shouting,
+                        // so labels stay as written (and findable in tests).
+                        child: Text(
+                          widget.label,
+                          maxLines: 1,
+                          style: AppText.display(
+                            size: widget.height >= 52 ? 20 : 17,
+                            color: fg,
+                            letterSpacing: 1.6,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
 
-    return widget.expanded ? SizedBox(width: double.infinity, child: button) : button;
+    return widget.expanded
+        ? SizedBox(width: double.infinity, child: button)
+        : button;
   }
 }
 
-/// Outlined pill for secondary actions.
+/// Outlined slab for secondary actions.
 class GhostButton extends StatelessWidget {
   const GhostButton({
     super.key,
@@ -148,7 +168,11 @@ class GhostButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadii.chip),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(
+              color: color == AppColors.textSecondary
+                  ? AppColors.borderStrong
+                  : color.withValues(alpha: 0.7),
+            ),
           ),
           child: Row(
             mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
@@ -158,17 +182,18 @@ class GhostButton extends StatelessWidget {
                 Icon(icon, size: 18, color: color),
                 const SizedBox(width: 8),
               ],
-              // Long labels shrink instead of overflowing the pill.
+              // Long labels shrink instead of overflowing.
               Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
                     label,
                     maxLines: 1,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                    style: AppText.display(
+                      size: 16,
                       color: color,
+                      letterSpacing: 1.4,
+                      height: 1,
                     ),
                   ),
                 ),
@@ -183,7 +208,8 @@ class GhostButton extends StatelessWidget {
   }
 }
 
-/// Segmented pill selector (kg/lb, day/week/month, front/side/back).
+/// Segmented selector (kg/lb, day/week/month, front/side/back) — hard cells
+/// separated by hairlines, red fill on the active one.
 class PillToggle<T> extends StatelessWidget {
   const PillToggle({
     super.key,
@@ -203,17 +229,19 @@ class PillToggle<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(AppRadii.chip),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.borderStrong),
       ),
       child: Row(
         mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         children: [
-          for (final value in values)
-            _segment(context, value, value == selected),
+          for (var i = 0; i < values.length; i++) ...[
+            if (i > 0) const SizedBox(width: 3),
+            _segment(context, values[i], values[i] == selected),
+          ],
         ],
       ),
     );
@@ -229,20 +257,21 @@ class PillToggle<T> extends StatelessWidget {
         }
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
+        duration: const Duration(milliseconds: 160),
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? AppColors.volt : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadii.chip),
+          color: active ? AppColors.accent : Colors.transparent,
+          borderRadius: BorderRadius.circular(2),
         ),
         child: Text(
           labelOf(value),
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: active ? AppColors.bg : AppColors.textSecondary,
+          style: AppText.display(
+            size: 15,
+            color: active ? AppColors.textPrimary : AppColors.textSecondary,
+            letterSpacing: 1.4,
+            height: 1,
           ),
         ),
       ),
@@ -252,7 +281,7 @@ class PillToggle<T> extends StatelessWidget {
   }
 }
 
-/// Circular icon button used in app bars and card corners.
+/// Square icon button used in app bars and card corners.
 class IconPill extends StatelessWidget {
   const IconPill({
     super.key,
@@ -286,8 +315,8 @@ class IconPill extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           color: background ?? AppColors.card,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(AppRadii.chip),
+          border: Border.all(color: AppColors.borderStrong),
         ),
         child: Icon(icon, size: size * 0.45, color: color),
       ),
@@ -299,7 +328,7 @@ class IconPill extends StatelessWidget {
   }
 }
 
-/// Volt tick box for the cardio / sauna checkmarks.
+/// Square red tick box for the cardio / sauna checkmarks.
 class VoltCheck extends StatelessWidget {
   const VoltCheck({
     super.key,
@@ -329,7 +358,7 @@ class VoltCheck extends StatelessWidget {
           color: value ? AppColors.voltDim : AppColors.card,
           borderRadius: BorderRadius.circular(AppRadii.cardSmall),
           border: Border.all(
-            color: value ? AppColors.volt : AppColors.border,
+            color: value ? AppColors.accent : AppColors.borderStrong,
           ),
         ),
         child: Row(
@@ -339,15 +368,19 @@ class VoltCheck extends StatelessWidget {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                color: value ? AppColors.volt : Colors.transparent,
-                borderRadius: BorderRadius.circular(7),
+                color: value ? AppColors.accent : Colors.transparent,
+                borderRadius: BorderRadius.circular(2),
                 border: Border.all(
-                  color: value ? AppColors.volt : AppColors.textTertiary,
+                  color: value ? AppColors.accent : AppColors.textTertiary,
                   width: 1.5,
                 ),
               ),
               child: value
-                  ? const Icon(Icons.check, size: 15, color: AppColors.bg)
+                  ? const Icon(
+                      Icons.check,
+                      size: 15,
+                      color: AppColors.textPrimary,
+                    )
                   : null,
             ),
             const SizedBox(width: 10),
@@ -355,7 +388,7 @@ class VoltCheck extends StatelessWidget {
               Icon(
                 icon,
                 size: 16,
-                color: value ? AppColors.volt : AppColors.textTertiary,
+                color: value ? AppColors.accent : AppColors.textTertiary,
               ),
               const SizedBox(width: 6),
             ],
@@ -363,10 +396,11 @@ class VoltCheck extends StatelessWidget {
               child: Text(
                 label,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                style: AppText.display(
+                  size: 16,
                   color: value ? AppColors.textPrimary : AppColors.textSecondary,
+                  letterSpacing: 1.2,
+                  height: 1,
                 ),
               ),
             ),

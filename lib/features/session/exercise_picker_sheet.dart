@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import 'new_exercise_sheet.dart';
 
 /// Picks an exercise from the library (or creates a brand-new one) and adds
@@ -101,17 +102,18 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const HazardStripes(height: 6, background: AppColors.bg),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.lg,
-                  AppSpacing.lg,
+                  AppSpacing.md,
                   AppSpacing.lg,
                   AppSpacing.sm,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('ADD EXERCISE', style: theme.textTheme.labelSmall),
+                    Text('ADD EXERCISE', style: theme.textTheme.headlineMedium),
                     const SizedBox(height: AppSpacing.sm),
                     TextField(
                       autofocus: false,
@@ -160,18 +162,21 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                         margin: const EdgeInsets.only(bottom: 6),
                         radius: AppRadii.cardSmall,
                         color: AppColors.voltDim,
-                        borderColor: AppColors.volt.withValues(alpha: 0.4),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
+                        borderColor: AppColors.accent.withValues(alpha: 0.6),
+                        edge: AppColors.accent,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
                         onTap: _createNew,
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.add_circle_outline,
-                              size: 18,
-                              color: AppColors.volt,
+                            Container(
+                              width: 26,
+                              height: 26,
+                              color: AppColors.accent,
+                              child: const Icon(
+                                Icons.add,
+                                size: 18,
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -179,9 +184,12 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Create your own exercise',
-                                    style: theme.textTheme.titleSmall
-                                        ?.copyWith(color: AppColors.volt),
+                                    'CREATE YOUR OWN EXERCISE',
+                                    style: theme.textTheme.labelSmall
+                                        ?.copyWith(
+                                          color: AppColors.textPrimary,
+                                          fontSize: 15,
+                                        ),
                                   ),
                                   Text(
                                     'Saved to your library forever.',
@@ -208,29 +216,18 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                             margin: const EdgeInsets.only(bottom: 6),
                             radius: AppRadii.cardSmall,
                             color: AppColors.cardHigh,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
+                            edge:
+                                AppColors.muscleColors[exercise
+                                    .muscleGroup
+                                    .key] ??
+                                AppColors.accent,
+                            padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
                             onTap: () async {
                               await _add(exercise.id);
                               if (context.mounted) Navigator.of(context).pop();
                             },
                             child: Row(
                               children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color:
-                                        AppColors.muscleColors[exercise
-                                            .muscleGroup
-                                            .key] ??
-                                        AppColors.volt,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -240,21 +237,20 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
                                         exercise.name,
                                         style: theme.textTheme.titleSmall,
                                       ),
+                                      const SizedBox(height: 2),
                                       Text(
                                         '${exercise.role.label} · '
-                                        '${exercise.targetSets}×'
-                                        '${exercise.repRangeMin}–'
-                                        '${exercise.repRangeMax}',
-                                        style: theme.textTheme.bodySmall,
+                                                '${exercise.targetSets}×'
+                                                '${exercise.repRangeMin}–'
+                                                '${exercise.repRangeMax}'
+                                            .toUpperCase(),
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(fontSize: 11.5),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const Icon(
-                                  Icons.add,
-                                  size: 18,
-                                  color: AppColors.volt,
-                                ),
+                                const IconPillGlyph(),
                               ],
                             ),
                           );
@@ -278,22 +274,41 @@ class _ExercisePickerSheetState extends ConsumerState<ExercisePickerSheet> {
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            color: active ? AppColors.volt : AppColors.cardHigh,
+            color: active ? AppColors.accent : AppColors.cardHigh,
             borderRadius: BorderRadius.circular(AppRadii.chip),
             border: Border.all(
-              color: active ? AppColors.volt : AppColors.border,
+              color: active ? AppColors.accent : AppColors.borderStrong,
             ),
           ),
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: active ? AppColors.bg : AppColors.textSecondary,
+            style: AppText.display(
+              size: 15,
+              letterSpacing: 1.4,
+              height: 1,
+              color: active ? AppColors.textPrimary : AppColors.textSecondary,
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Small square "+" glyph at the end of a pickable row.
+class IconPillGlyph extends StatelessWidget {
+  const IconPillGlyph({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.borderStrong),
+        borderRadius: BorderRadius.circular(AppRadii.chip),
+      ),
+      child: const Icon(Icons.add, size: 16, color: AppColors.textSecondary),
     );
   }
 }

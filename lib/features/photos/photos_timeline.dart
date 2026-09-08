@@ -45,21 +45,20 @@ class PhotosTimeline extends ConsumerWidget {
           child: Row(
             children: [
               Expanded(
-                child: GhostButton(
+                child: VoltButton(
                   label: 'Add photo',
                   icon: Icons.add_a_photo_outlined,
-                  expanded: true,
-                  color: AppColors.volt,
+                  height: 48,
                   onPressed: () => PhotoCapture.show(context),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
               IconPill(
                 icon: Icons.compare_arrows,
-                size: 48,
+                size: 52,
                 tooltip: 'Compare two dates',
                 color: photos.length >= 2
-                    ? AppColors.volt
+                    ? AppColors.textPrimary
                     : AppColors.textTertiary,
                 onTap: photos.length < 2
                     ? null
@@ -103,9 +102,9 @@ class PhotosTimeline extends ConsumerWidget {
                               ),
                               const Spacer(),
                               Text(
-                                '${dayPhotos.length} photo'
-                                '${dayPhotos.length == 1 ? '' : 's'}',
-                                style: theme.textTheme.bodySmall,
+                                '${dayPhotos.length} PHOTO'
+                                '${dayPhotos.length == 1 ? '' : 'S'}',
+                                style: theme.textTheme.labelSmall,
                               ),
                             ],
                           ),
@@ -176,15 +175,18 @@ class _PhotoTile extends ConsumerWidget {
                   vertical: 3,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.62),
+                  color: Colors.black.withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(AppRadii.chip),
+                  border: Border(
+                    left: BorderSide(color: AppColors.accent, width: 2),
+                  ),
                 ),
                 child: Text(
                   photo.pose.label,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                  style: AppText.eyebrow(
+                    size: 11,
+                    color: AppColors.textPrimary,
+                    letterSpacing: 1.4,
                   ),
                 ),
               ),

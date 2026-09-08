@@ -12,6 +12,7 @@ import '../../data/health/health_service.dart';
 import '../../data/sync/firebase_bootstrap.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
+import '../../widgets/brutal.dart';
 import '../../widgets/buttons.dart';
 import '../home/template_editor_screen.dart';
 import '../update/update_prompt.dart';
@@ -42,10 +43,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           AppSpacing.md,
           AppSpacing.md,
           AppSpacing.md,
-          120,
+          96,
         ),
         children: [
-          Text('Settings', style: theme.textTheme.headlineMedium),
+          const BrutalHeader(
+            title: 'Settings',
+            eyebrow: 'Tune the machine',
+            padding: EdgeInsets.zero,
+          ),
 
           const SectionHeader('Account'),
           const _AccountCard(),
@@ -352,12 +357,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           const SizedBox(height: AppSpacing.lg),
+          const HazardStripes(
+            height: 4,
+            color: AppColors.steel,
+            stripeWidth: 6,
+            gap: 10,
+          ),
+          const SizedBox(height: AppSpacing.sm),
           Center(
             child: Text(
-              'IronLog · offline-first',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.textTertiary,
-              ),
+              'IRONLOG · OFFLINE-FIRST · BUILT FOR THE RACK',
+              style: theme.textTheme.labelSmall,
             ),
           ),
         ],
@@ -564,7 +574,7 @@ class _TrainingDayRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final accent = _accent(template.accentHex);
+    final accent = AppColors.forTemplateName(template.name);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -574,17 +584,13 @@ class _TrainingDayRow extends ConsumerWidget {
           onTap: () => TemplateEditorScreen.open(context, template.id),
           child: Row(
             children: [
-              Container(
-                width: 4,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+              Container(width: 4, height: 16, color: accent),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(template.name, style: theme.textTheme.titleSmall),
+                child: Text(
+                  template.name,
+                  style: theme.textTheme.headlineSmall?.copyWith(fontSize: 20),
+                ),
               ),
               const Icon(
                 Icons.edit_outlined,
@@ -594,13 +600,12 @@ class _TrainingDayRow extends ConsumerWidget {
               const SizedBox(width: 10),
               Text(
                 template.weekday == null
-                    ? 'Off schedule'
-                    : _dayNames[template.weekday! - 1],
-                style: theme.textTheme.bodySmall?.copyWith(
+                    ? 'OFF SCHEDULE'
+                    : _dayNames[template.weekday! - 1].toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
                   color: template.weekday == null
                       ? AppColors.textTertiary
                       : accent,
-                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -630,12 +635,6 @@ class _TrainingDayRow extends ConsumerWidget {
       ],
     );
   }
-
-  static Color _accent(String? hex) {
-    if (hex == null || hex.length < 7) return AppColors.volt;
-    final parsed = int.tryParse(hex.substring(1), radix: 16);
-    return parsed == null ? AppColors.volt : Color(0xFF000000 | parsed);
-  }
 }
 
 class _DayChip extends StatelessWidget {
@@ -664,18 +663,23 @@ class _DayChip extends StatelessWidget {
         height: 34,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? accent.withValues(alpha: 0.22) : AppColors.cardHigh,
-          borderRadius: BorderRadius.circular(10),
+          color: selected ? accent : AppColors.cardHigh,
+          borderRadius: BorderRadius.circular(AppRadii.chip),
           border: Border.all(
-            color: selected ? accent : AppColors.border,
+            color: selected ? accent : AppColors.borderStrong,
           ),
         ),
         child: Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: selected ? accent : AppColors.textTertiary,
+          style: AppText.display(
+            size: 15,
+            letterSpacing: 0,
+            height: 1,
+            color: selected
+                ? (accent == AppColors.textPrimary
+                      ? AppColors.bg
+                      : AppColors.textPrimary)
+                : AppColors.textTertiary,
           ),
         ),
       ),
@@ -856,7 +860,7 @@ class _RateRow extends StatelessWidget {
           child: Text(
             '${Fmt.signed(unit.fromKg(kgPerWeek))} ${unit.label}/wk',
             textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium,
+            style: AppText.numeric(size: 15, letterSpacing: 0),
           ),
         ),
         IconPill(
@@ -906,7 +910,7 @@ class _StepGoalRow extends StatelessWidget {
           child: Text(
             Fmt.count(value),
             textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium,
+            style: AppText.numeric(size: 17, letterSpacing: 0),
           ),
         ),
         IconPill(
@@ -946,7 +950,7 @@ class _StepperRow extends StatelessWidget {
           child: Text(
             Fmt.clock(Duration(seconds: value)),
             textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium,
+            style: AppText.numeric(size: 17, letterSpacing: 0),
           ),
         ),
         IconPill(
