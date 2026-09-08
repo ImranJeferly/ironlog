@@ -20,6 +20,8 @@
     <uses-permission android:name="android.permission.health.READ_STEPS"/>
     <uses-permission android:name="android.permission.health.READ_SLEEP"/>
     <uses-permission android:name="android.permission.health.READ_WEIGHT"/>
+    <!-- Voice messages in friend chats -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
     <application
         android:label="IronLog"
@@ -65,6 +67,19 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+        <!-- "Now playing" for friends: a notification-listener component is the
+             only way the system hands an app the active media sessions. It never
+             reads notification content. Granted by the user in system settings. -->
+        <service
+            android:name="com.example.gym.NowPlayingListener"
+            android:exported="true"
+            android:label="IronLog now playing"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- flutter_local_notifications: delivery of scheduled rest alerts,
              and rescheduling across reboots. -->
         <receiver
@@ -80,6 +95,12 @@
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
+
+        <!-- Friend pushes (FCM) delivered while the app is dead land on the
+             same channel the app creates, so they get heads-up importance. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="ironlog_social" />
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -361,6 +363,7 @@ class _TodayWorkoutCard extends ConsumerWidget {
     final id = await ref
         .read(workoutRepositoryProvider)
         .startSessionFromTemplate(template.id);
+    unawaited(ref.read(socialHooksProvider).sessionStarted(template.name));
     if (!context.mounted) return;
     await ActiveSessionScreen.open(context, id);
   }

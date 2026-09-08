@@ -21,6 +21,7 @@ class AppSettings {
     this.programStartedAt,
     this.deloadRemaining = 0,
     this.nutritionReminderEnabled = true,
+    this.shareNowPlaying = true,
     this.bwTargetMinKg = 0.2,
     this.bwTargetMaxKg = 0.35,
   });
@@ -60,6 +61,9 @@ class AppSettings {
   /// Nightly 21:00 "log protein + kcal" nudge.
   final bool nutritionReminderEnabled;
 
+  /// Publish what the phone is playing to friends (needs notification access).
+  final bool shareNowPlaying;
+
   /// Body-weight target band, kg per week (default: lean bulk 0.2–0.35).
   final double bwTargetMinKg;
   final double bwTargetMaxKg;
@@ -86,6 +90,7 @@ class AppSettings {
     DateTime? programStartedAt,
     int? deloadRemaining,
     bool? nutritionReminderEnabled,
+    bool? shareNowPlaying,
     double? bwTargetMinKg,
     double? bwTargetMaxKg,
   }) {
@@ -107,6 +112,7 @@ class AppSettings {
       deloadRemaining: deloadRemaining ?? this.deloadRemaining,
       nutritionReminderEnabled:
           nutritionReminderEnabled ?? this.nutritionReminderEnabled,
+      shareNowPlaying: shareNowPlaying ?? this.shareNowPlaying,
       bwTargetMinKg: bwTargetMinKg ?? this.bwTargetMinKg,
       bwTargetMaxKg: bwTargetMaxKg ?? this.bwTargetMaxKg,
     );
@@ -127,6 +133,7 @@ abstract final class SettingKeys {
   static const lastSync = 'last_sync_at';
   static const healthImported = 'health_history_imported';
   static const nutritionReminder = 'nutrition_reminder_enabled';
+  static const shareNowPlaying = 'share_now_playing';
   static const bwTargetMin = 'bw_target_min_kg_wk';
   static const bwTargetMax = 'bw_target_max_kg_wk';
   static const bodyweightPromptSkips = 'bodyweight_prompt_skips';
@@ -175,6 +182,7 @@ class SettingsRepository {
       deloadRemaining:
           int.tryParse(map[ProgramKeys.deloadRemaining] ?? '') ?? 0,
       nutritionReminderEnabled: map[SettingKeys.nutritionReminder] != 'false',
+      shareNowPlaying: map[SettingKeys.shareNowPlaying] != 'false',
       bwTargetMinKg:
           double.tryParse(map[SettingKeys.bwTargetMin] ?? '') ?? 0.2,
       bwTargetMaxKg:
@@ -184,6 +192,9 @@ class SettingsRepository {
 
   Future<void> setNutritionReminder(bool on) =>
       _db.setSetting(SettingKeys.nutritionReminder, '$on');
+
+  Future<void> setShareNowPlaying(bool on) =>
+      _db.setSetting(SettingKeys.shareNowPlaying, '$on');
 
   Future<void> setBwTargetMin(double kgPerWeek) => _db.setSetting(
     SettingKeys.bwTargetMin,

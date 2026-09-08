@@ -10,6 +10,8 @@ import '../../data/sync/firebase_bootstrap.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/brutal.dart' show BrutalHeader;
 import '../../widgets/buttons.dart';
+import '../social/avatar.dart';
+import '../social/my_profile_screen.dart';
 import 'account_sheet.dart';
 import 'pages/about_page.dart';
 import 'pages/data_settings_page.dart';
@@ -103,9 +105,21 @@ class _ProfileCard extends ConsumerWidget {
     final signedIn = email != null;
     final consistency = ref.watch(consistencyProvider).value;
     final prs = ref.watch(personalRecordsProvider).value ?? const [];
+    final profile = signedIn ? ref.watch(myProfileProvider).value : null;
     final initial = (email ?? 'G').trim().isEmpty
         ? 'G'
         : (email ?? 'G').trim()[0].toUpperCase();
+    final title = (profile?.displayName.trim().isNotEmpty ?? false)
+        ? profile!.displayName
+        : (email ?? 'Guest');
+    final subtitle = signedIn
+        ? (profile?.handle != null
+              ? '@${profile!.handle} · synced to this account'
+              : 'Synced to this account')
+        : (available
+              ? 'Sign in so your stats survive reinstalls and new phones.'
+              : (FirebaseBootstrap.unavailableReason ??
+                    'Offline — account unavailable.'));
 
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -115,40 +129,11 @@ class _ProfileCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: signedIn
-                        ? [AppColors.accent, AppColors.accentDeep]
-                        : [AppColors.cardHigh, AppColors.card],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border.all(
-                    color: signedIn ? AppColors.accent : AppColors.borderStrong,
-                  ),
-                  boxShadow: signedIn
-                      ? [
-                          BoxShadow(
-                            color: AppColors.accent.withValues(alpha: 0.35),
-                            blurRadius: 18,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Text(
-                  initial,
-                  style: AppText.display(
-                    size: 26,
-                    color: signedIn
-                        ? AppColors.textPrimary
-                        : AppColors.textSecondary,
-                  ),
-                ),
+              Avatar(
+                initial: profile?.initial ?? initial,
+                photo: profile?.photo,
+                size: 56,
+                muted: !signedIn,
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -156,25 +141,22 @@ class _ProfileCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      email ?? 'Guest',
+                      title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      signedIn
-                          ? 'Synced to this account'
-                          : (available
-                                ? 'Sign in so your stats survive reinstalls '
-                                      'and new phones.'
-                                : (FirebaseBootstrap.unavailableReason ??
-                                      'Offline — account unavailable.')),
-                      style: theme.textTheme.bodySmall,
-                    ),
+                    Text(subtitle, style: theme.textTheme.bodySmall),
                   ],
                 ),
               ),
+              if (signedIn)
+                IconPill(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit profile',
+                  onTap: () => MyProfileScreen.open(context),
+                ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -235,6 +217,9 @@ class _ProfileCard extends ConsumerWidget {
                 icon: Icons.logout,
                 expanded: true,
                 onPressed: () async {
+                  // Stop friend pushes for this account on this phone first;
+                  // after sign-out the rules wouldn't let us touch the row.
+                  await ref.read(socialHooksProvider).unregisterThisDevice();
                   await ref.read(authServiceProvider).signOut();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(

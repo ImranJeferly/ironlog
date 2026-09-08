@@ -2,6 +2,51 @@
 
 All notable changes to IronLog. Newest first.
 
+## Unreleased — friends, chat and profiles
+
+Everything social lives in Firestore documents only — no Firebase Storage,
+no server code. It needs a real (non-guest) account.
+
+- **Friends tab.** New tab between History and Photos with Chats, Friends
+  and Requests. The tab badge counts unread messages plus pending requests.
+- **Friend requests.** Find someone by `@handle`, send a request, they accept
+  (or decline), and only then does a chat open. Nothing — no chat, no
+  profile stats — is reachable until both sides are friends. Removing a
+  friend closes the door again. Crossing requests auto-accept.
+- **Chat, WhatsApp-style.** Text and voice notes (AAC, up to 90 s, stored
+  inline in the message), swipe or long-press to reply with a quoted
+  preview, copy, day separators, and per-message ticks: clock while sending,
+  one tick sent, two ticks delivered, bright double ticks seen. Unread counts clear
+  when the chat is open.
+- **Broadcasts to every friend.** Starting a session, finishing one (sets +
+  tonnage) and every PR post a system line into each friend chat.
+- **Profile page** (Settings › pencil, or your avatar on the Friends tab):
+  photo from camera or gallery (compressed to ≤320 px and saved inside the
+  profile document), display name, unique handle, short bio.
+- **Friend profile + compare.** Tap a friend anywhere: training-now / now
+  playing / last seen, sessions, streak, PRs, 4-week adherence, weekly
+  sets, best lifts, and a you-vs-them bar comparison including every lift
+  you both track.
+- **Now playing.** With Android "notification access" granted (Profile ›
+  Now playing) and the share switch on, the track currently playing on the
+  phone shows on your profile and in the chat header for friends. Refreshed
+  every minute while the app is open; hidden after 8 minutes without an
+  update. Nothing is published until you grant access, and the share switch
+  turns it off entirely; only title, artist and player app are read.
+- **Real push notifications.** Every chat message, voice note, PR, session
+  start/finish and friend request reaches the friend's phone as a system
+  notification even when IronLog is closed. The app registers its FCM
+  device token under the owner's private profile subtree; the Cloud
+  Function in `functions/` fans each Firestore write out to the recipient's
+  devices, prunes dead tokens, and tapping the notification opens the chat
+  (or the Requests list). Messages that arrive while the app is dead still
+  get their "delivered" tick. A chat that is already open on screen does
+  not double-notify. Signing out removes the token.
+- Firestore rules updated for `users`, `handles`, `friendRequests` and
+  `chats`. Deploy both pieces for the feature to work:
+  `firebase deploy --only firestore:rules,functions` (functions need the
+  Blaze plan; usage stays inside the free quota).
+
 ## Unreleased — red "aggressive" restyle
 
 - **Blood-red accent** replaces volt yellow everywhere (buttons, ticks, PRs,

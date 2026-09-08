@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/utils/date_x.dart';
+import '../core/utils/format.dart';
 import '../core/utils/haptics.dart';
 import '../core/utils/stream_x.dart';
 import '../data/db/database.dart';
@@ -16,8 +18,13 @@ import '../data/repositories/photo_repository.dart';
 import '../data/repositories/progress_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../data/repositories/workout_repository.dart';
+import '../data/social/social_models.dart';
+import '../data/social/social_repository.dart';
+import '../data/social/stats_builder.dart';
 import '../data/sync/auth_service.dart';
 import '../core/notifications.dart';
+import '../core/now_playing.dart';
+import '../core/push.dart';
 import '../core/update/update_service.dart';
 import '../data/sync/sync_service.dart';
 import '../domain/enums.dart';
@@ -125,6 +132,8 @@ class SettingsController extends Notifier<AppSettings> {
     await _repo.setNutritionReminder(on);
     await Notifications.syncNutritionReminder(enabled: on);
   }
+
+  Future<void> setShareNowPlaying(bool on) => _repo.setShareNowPlaying(on);
 
   Future<void> setBwTargetMin(double kgPerWeek) =>
       _repo.setBwTargetMin(kgPerWeek);
@@ -473,3 +482,196 @@ class SyncController extends Notifier<SyncStatus> {
 final syncControllerProvider = NotifierProvider<SyncController, SyncStatus>(
   SyncController.new,
 );
+
+// -------------------------------------------------------------------- social
+
+final socialRepositoryProvider = Provider<SocialRepository>(
+  (ref) => SocialRepository(),
+);
+
+/// True once the user is on a real (non-anonymous) account — the gate for
+/// everything social.
+final socialEnabledProvider = Provider<bool>((ref) {
+  final user = ref.watch(authUserProvider).value;
+  return user != null && !user.isAnonymous;
+});
+
+final myProfileProvider = StreamProvider<UserProfile?>((ref) {
+  if (!ref.watch(socialEnabledProvider)) return Stream.value(null);
+  return ref.watch(socialRepositoryProvider).watchMyProfile();
+});
+
+final friendProfileProvider = StreamProvider.family<UserProfile?, String>(
+  (ref, uid) => ref.watch(socialRepositoryProvider).watchProfile(uid),
+);
+
+final friendsProvider = StreamProvider<List<Friend>>((ref) {
+  if (!ref.watch(socialEnabledProvider)) return Stream.value(const []);
+  return ref.watch(socialRepositoryProvider).watchFriends();
+});
+
+final incomingRequestsProvider = StreamProvider<List<FriendRequest>>((ref) {
+  if (!ref.watch(socialEnabledProvider)) return Stream.value(const []);
+  return ref.watch(socialRepositoryProvider).watchIncomingRequests();
+});
+
+final outgoingRequestsProvider = StreamProvider<List<FriendRequest>>((ref) {
+  if (!ref.watch(socialEnabledProvider)) return Stream.value(const []);
+  return ref.watch(socialRepositoryProvider).watchOutgoingRequests();
+});
+
+final chatsProvider = StreamProvider<List<ChatSummary>>((ref) {
+  if (!ref.watch(socialEnabledProvider)) return Stream.value(const []);
+  return ref.watch(socialRepositoryProvider).watchChats();
+});
+
+final chatMessagesProvider = StreamProvider.family<List<ChatMessage>, String>(
+  (ref, chatId) => ref.watch(socialRepositoryProvider).watchMessages(chatId),
+);
+
+/// Unread messages across every chat + pending friend requests — the badge
+/// on the Friends tab.
+final socialBadgeProvider = Provider<int>((ref) {
+  final me = ref.watch(socialRepositoryProvider).uid;
+  if (me == null) return 0;
+  final chats = ref.watch(chatsProvider).value ?? const [];
+  final requests = ref.watch(incomingRequestsProvider).value ?? const [];
+  var n = requests.length;
+  for (final c in chats) {
+    n += c.unreadFor(me);
+  }
+  return n;
+});
+
+/// Side effects that keep friends in the loop: profile bootstrap, stats and
+/// now-playing publishing, and the "started / finished / PR" broadcasts.
+class SocialHooks {
+  SocialHooks(this._ref);
+
+  final Ref _ref;
+  DateTime? _lastNowPlayingPush;
+  String? _lastNowPlayingKey;
+
+  SocialRepository get _repo => _ref.read(socialRepositoryProvider);
+
+  bool get _enabled => _ref.read(socialEnabledProvider);
+
+  /// On app open / resume: make sure the profile exists and is current.
+  Future<void> onResume() async {
+    if (!_enabled) return;
+    try {
+      await _repo.ensureProfile(email: _ref.read(authServiceProvider).email);
+      await publishStats();
+      await publishNowPlaying();
+      final token = await PushService.currentToken();
+      if (token != null) await registerDevice(token);
+    } on Object catch (e) {
+      debugPrint('IronLog: social resume failed ($e)');
+    }
+  }
+
+  /// Stores the FCM token so friends' messages reach this phone as pushes.
+  Future<void> registerDevice(String token) =>
+      _guard(() => _repo.registerDevice(token));
+
+  /// Sign-out: stop pushes for the old account on this phone.
+  Future<void> unregisterThisDevice() async {
+    if (!_enabled) return;
+    try {
+      final token = await PushService.currentToken();
+      if (token != null) await _repo.unregisterDevice(token);
+      await PushService.forgetToken();
+    } on Object catch (e) {
+      debugPrint('IronLog: unregisterDevice failed ($e)');
+    }
+  }
+
+  Future<void> publishStats() async {
+    if (!_enabled) return;
+    try {
+      final stats = await buildProfileStats(
+        _ref.read(appDatabaseProvider),
+        _ref.read(progressRepositoryProvider),
+      );
+      await _repo.publishStats(stats);
+    } on Object catch (e) {
+      debugPrint('IronLog: publishStats failed ($e)');
+    }
+  }
+
+  /// Reads the phone's media session and publishes it when it changed (or
+  /// every few minutes so it doesn't go stale for friends).
+  Future<void> publishNowPlaying() async {
+    if (!_enabled) return;
+    try {
+      if (!_ref.read(settingsProvider).shareNowPlaying) {
+        if (_lastNowPlayingKey != null) {
+          _lastNowPlayingKey = null;
+          await _repo.publishNowPlaying(null);
+        }
+        return;
+      }
+      final np = await NowPlayingService.current();
+      final key = np == null ? '' : '${np.title}|${np.artist}';
+      final now = DateTime.now();
+      final refresh =
+          _lastNowPlayingPush == null ||
+          now.difference(_lastNowPlayingPush!) > const Duration(minutes: 3);
+      if (key == _lastNowPlayingKey && !refresh) return;
+      _lastNowPlayingKey = key;
+      _lastNowPlayingPush = now;
+      await _repo.publishNowPlaying(np);
+    } on Object catch (e) {
+      debugPrint('IronLog: publishNowPlaying failed ($e)');
+    }
+  }
+
+  /// True when the user has a real account — the only case the hooks do
+  /// anything. Lets callers skip timers and listeners for guests.
+  bool get enabled => _enabled;
+
+  Future<void> sessionStarted(String name) => _guard(() async {
+    await _repo.setActiveSession(name);
+    await _repo.broadcast('🏋️ Started $name');
+  });
+
+  Future<void> sessionFinished(SessionRow session) => _guard(() async {
+    await _repo.setActiveSession(null);
+    final unit = _ref.read(unitProvider);
+    await _repo.broadcast(
+      '✅ Finished ${session.templateName ?? 'a workout'} · '
+      '${session.totalSets} sets · ${Fmt.tonnage(session.tonnageKg, unit)}',
+    );
+    await publishStats();
+  });
+
+  Future<void> sessionDiscarded() =>
+      _guard(() => _repo.setActiveSession(null));
+
+  Future<void> prHit({
+    required String exerciseName,
+    required PrType type,
+    required double value,
+    required int reps,
+  }) => _guard(() async {
+    final unit = _ref.read(unitProvider);
+    final what = switch (type) {
+      PrType.reps => '$reps reps',
+      _ => Fmt.weight(value, unit),
+    };
+    await _repo.broadcast('⚡ New ${type.label}: $exerciseName $what');
+  });
+
+  /// The training flow must never stall on a social write — offline, rules
+  /// rejection, whatever. Log and move on.
+  Future<void> _guard(Future<void> Function() body) async {
+    if (!_enabled) return;
+    try {
+      await body();
+    } on Object catch (e) {
+      debugPrint('IronLog: social hook failed ($e)');
+    }
+  }
+}
+
+final socialHooksProvider = Provider<SocialHooks>((ref) => SocialHooks(ref));

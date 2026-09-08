@@ -163,6 +163,39 @@ class $ExercisesTable extends Exercises
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isExplosiveMeta = const VerificationMeta(
+    'isExplosive',
+  );
+  @override
+  late final GeneratedColumn<bool> isExplosive = GeneratedColumn<bool>(
+    'is_explosive',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_explosive" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<Muscle?, String> primaryMuscle =
+      GeneratedColumn<String>(
+        'primary_muscle',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<Muscle?>($ExercisesTable.$converterprimaryMusclen);
+  @override
+  late final GeneratedColumnWithTypeConverter<Muscle?, String> secondaryMuscle =
+      GeneratedColumn<String>(
+        'secondary_muscle',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<Muscle?>($ExercisesTable.$convertersecondaryMusclen);
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -217,6 +250,9 @@ class $ExercisesTable extends Exercises
     incrementKg,
     isUnilateral,
     isBodyweight,
+    isExplosive,
+    primaryMuscle,
+    secondaryMuscle,
     notes,
     isCustom,
     archived,
@@ -323,6 +359,15 @@ class $ExercisesTable extends Exercises
         ),
       );
     }
+    if (data.containsKey('is_explosive')) {
+      context.handle(
+        _isExplosiveMeta,
+        isExplosive.isAcceptableOrUnknown(
+          data['is_explosive']!,
+          _isExplosiveMeta,
+        ),
+      );
+    }
     if (data.containsKey('notes')) {
       context.handle(
         _notesMeta,
@@ -406,6 +451,22 @@ class $ExercisesTable extends Exercises
         DriftSqlType.bool,
         data['${effectivePrefix}is_bodyweight'],
       )!,
+      isExplosive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_explosive'],
+      )!,
+      primaryMuscle: $ExercisesTable.$converterprimaryMusclen.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}primary_muscle'],
+        ),
+      ),
+      secondaryMuscle: $ExercisesTable.$convertersecondaryMusclen.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}secondary_muscle'],
+        ),
+      ),
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
@@ -430,6 +491,18 @@ class $ExercisesTable extends Exercises
       const EnumNameConverter<MuscleGroup>(MuscleGroup.values);
   static JsonTypeConverter2<ExerciseRole, String, String> $converterrole =
       const EnumNameConverter<ExerciseRole>(ExerciseRole.values);
+  static JsonTypeConverter2<Muscle, String, String> $converterprimaryMuscle =
+      const EnumNameConverter<Muscle>(Muscle.values);
+  static JsonTypeConverter2<Muscle?, String?, String?>
+  $converterprimaryMusclen = JsonTypeConverter2.asNullable(
+    $converterprimaryMuscle,
+  );
+  static JsonTypeConverter2<Muscle, String, String> $convertersecondaryMuscle =
+      const EnumNameConverter<Muscle>(Muscle.values);
+  static JsonTypeConverter2<Muscle?, String?, String?>
+  $convertersecondaryMusclen = JsonTypeConverter2.asNullable(
+    $convertersecondaryMuscle,
+  );
 }
 
 class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
@@ -452,6 +525,16 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
 
   /// Weighted pull-ups / dips log *added* load, which can legitimately be 0.
   final bool isBodyweight;
+
+  /// Power work (box jumps): excluded from hypertrophy volume and from
+  /// auto-progression.
+  final bool isExplosive;
+
+  /// Fine-grained attribution for volume tracking. Primary gets a full set of
+  /// credit, secondary half. Nullable so rows that predate the taxonomy load;
+  /// resolve through `ExerciseMuscles` rather than reading these directly.
+  final Muscle? primaryMuscle;
+  final Muscle? secondaryMuscle;
   final String? notes;
   final bool isCustom;
   final bool archived;
@@ -469,6 +552,9 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
     required this.incrementKg,
     required this.isUnilateral,
     required this.isBodyweight,
+    required this.isExplosive,
+    this.primaryMuscle,
+    this.secondaryMuscle,
     this.notes,
     required this.isCustom,
     required this.archived,
@@ -497,6 +583,17 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
     map['increment_kg'] = Variable<double>(incrementKg);
     map['is_unilateral'] = Variable<bool>(isUnilateral);
     map['is_bodyweight'] = Variable<bool>(isBodyweight);
+    map['is_explosive'] = Variable<bool>(isExplosive);
+    if (!nullToAbsent || primaryMuscle != null) {
+      map['primary_muscle'] = Variable<String>(
+        $ExercisesTable.$converterprimaryMusclen.toSql(primaryMuscle),
+      );
+    }
+    if (!nullToAbsent || secondaryMuscle != null) {
+      map['secondary_muscle'] = Variable<String>(
+        $ExercisesTable.$convertersecondaryMusclen.toSql(secondaryMuscle),
+      );
+    }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
@@ -520,6 +617,13 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
       incrementKg: Value(incrementKg),
       isUnilateral: Value(isUnilateral),
       isBodyweight: Value(isBodyweight),
+      isExplosive: Value(isExplosive),
+      primaryMuscle: primaryMuscle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(primaryMuscle),
+      secondaryMuscle: secondaryMuscle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(secondaryMuscle),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
@@ -551,6 +655,13 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
       incrementKg: serializer.fromJson<double>(json['incrementKg']),
       isUnilateral: serializer.fromJson<bool>(json['isUnilateral']),
       isBodyweight: serializer.fromJson<bool>(json['isBodyweight']),
+      isExplosive: serializer.fromJson<bool>(json['isExplosive']),
+      primaryMuscle: $ExercisesTable.$converterprimaryMusclen.fromJson(
+        serializer.fromJson<String?>(json['primaryMuscle']),
+      ),
+      secondaryMuscle: $ExercisesTable.$convertersecondaryMusclen.fromJson(
+        serializer.fromJson<String?>(json['secondaryMuscle']),
+      ),
       notes: serializer.fromJson<String?>(json['notes']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       archived: serializer.fromJson<bool>(json['archived']),
@@ -577,6 +688,13 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
       'incrementKg': serializer.toJson<double>(incrementKg),
       'isUnilateral': serializer.toJson<bool>(isUnilateral),
       'isBodyweight': serializer.toJson<bool>(isBodyweight),
+      'isExplosive': serializer.toJson<bool>(isExplosive),
+      'primaryMuscle': serializer.toJson<String?>(
+        $ExercisesTable.$converterprimaryMusclen.toJson(primaryMuscle),
+      ),
+      'secondaryMuscle': serializer.toJson<String?>(
+        $ExercisesTable.$convertersecondaryMusclen.toJson(secondaryMuscle),
+      ),
       'notes': serializer.toJson<String?>(notes),
       'isCustom': serializer.toJson<bool>(isCustom),
       'archived': serializer.toJson<bool>(archived),
@@ -597,6 +715,9 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
     double? incrementKg,
     bool? isUnilateral,
     bool? isBodyweight,
+    bool? isExplosive,
+    Value<Muscle?> primaryMuscle = const Value.absent(),
+    Value<Muscle?> secondaryMuscle = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     bool? isCustom,
     bool? archived,
@@ -614,6 +735,13 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
     incrementKg: incrementKg ?? this.incrementKg,
     isUnilateral: isUnilateral ?? this.isUnilateral,
     isBodyweight: isBodyweight ?? this.isBodyweight,
+    isExplosive: isExplosive ?? this.isExplosive,
+    primaryMuscle: primaryMuscle.present
+        ? primaryMuscle.value
+        : this.primaryMuscle,
+    secondaryMuscle: secondaryMuscle.present
+        ? secondaryMuscle.value
+        : this.secondaryMuscle,
     notes: notes.present ? notes.value : this.notes,
     isCustom: isCustom ?? this.isCustom,
     archived: archived ?? this.archived,
@@ -647,6 +775,15 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
       isBodyweight: data.isBodyweight.present
           ? data.isBodyweight.value
           : this.isBodyweight,
+      isExplosive: data.isExplosive.present
+          ? data.isExplosive.value
+          : this.isExplosive,
+      primaryMuscle: data.primaryMuscle.present
+          ? data.primaryMuscle.value
+          : this.primaryMuscle,
+      secondaryMuscle: data.secondaryMuscle.present
+          ? data.secondaryMuscle.value
+          : this.secondaryMuscle,
       notes: data.notes.present ? data.notes.value : this.notes,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       archived: data.archived.present ? data.archived.value : this.archived,
@@ -669,6 +806,9 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
           ..write('incrementKg: $incrementKg, ')
           ..write('isUnilateral: $isUnilateral, ')
           ..write('isBodyweight: $isBodyweight, ')
+          ..write('isExplosive: $isExplosive, ')
+          ..write('primaryMuscle: $primaryMuscle, ')
+          ..write('secondaryMuscle: $secondaryMuscle, ')
           ..write('notes: $notes, ')
           ..write('isCustom: $isCustom, ')
           ..write('archived: $archived')
@@ -691,6 +831,9 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
     incrementKg,
     isUnilateral,
     isBodyweight,
+    isExplosive,
+    primaryMuscle,
+    secondaryMuscle,
     notes,
     isCustom,
     archived,
@@ -712,6 +855,9 @@ class ExerciseRow extends DataClass implements Insertable<ExerciseRow> {
           other.incrementKg == this.incrementKg &&
           other.isUnilateral == this.isUnilateral &&
           other.isBodyweight == this.isBodyweight &&
+          other.isExplosive == this.isExplosive &&
+          other.primaryMuscle == this.primaryMuscle &&
+          other.secondaryMuscle == this.secondaryMuscle &&
           other.notes == this.notes &&
           other.isCustom == this.isCustom &&
           other.archived == this.archived);
@@ -731,6 +877,9 @@ class ExercisesCompanion extends UpdateCompanion<ExerciseRow> {
   final Value<double> incrementKg;
   final Value<bool> isUnilateral;
   final Value<bool> isBodyweight;
+  final Value<bool> isExplosive;
+  final Value<Muscle?> primaryMuscle;
+  final Value<Muscle?> secondaryMuscle;
   final Value<String?> notes;
   final Value<bool> isCustom;
   final Value<bool> archived;
@@ -749,6 +898,9 @@ class ExercisesCompanion extends UpdateCompanion<ExerciseRow> {
     this.incrementKg = const Value.absent(),
     this.isUnilateral = const Value.absent(),
     this.isBodyweight = const Value.absent(),
+    this.isExplosive = const Value.absent(),
+    this.primaryMuscle = const Value.absent(),
+    this.secondaryMuscle = const Value.absent(),
     this.notes = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.archived = const Value.absent(),
@@ -768,6 +920,9 @@ class ExercisesCompanion extends UpdateCompanion<ExerciseRow> {
     required double incrementKg,
     this.isUnilateral = const Value.absent(),
     this.isBodyweight = const Value.absent(),
+    this.isExplosive = const Value.absent(),
+    this.primaryMuscle = const Value.absent(),
+    this.secondaryMuscle = const Value.absent(),
     this.notes = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.archived = const Value.absent(),
@@ -794,6 +949,9 @@ class ExercisesCompanion extends UpdateCompanion<ExerciseRow> {
     Expression<double>? incrementKg,
     Expression<bool>? isUnilateral,
     Expression<bool>? isBodyweight,
+    Expression<bool>? isExplosive,
+    Expression<String>? primaryMuscle,
+    Expression<String>? secondaryMuscle,
     Expression<String>? notes,
     Expression<bool>? isCustom,
     Expression<bool>? archived,
@@ -813,6 +971,9 @@ class ExercisesCompanion extends UpdateCompanion<ExerciseRow> {
       if (incrementKg != null) 'increment_kg': incrementKg,
       if (isUnilateral != null) 'is_unilateral': isUnilateral,
       if (isBodyweight != null) 'is_bodyweight': isBodyweight,
+      if (isExplosive != null) 'is_explosive': isExplosive,
+      if (primaryMuscle != null) 'primary_muscle': primaryMuscle,
+      if (secondaryMuscle != null) 'secondary_muscle': secondaryMuscle,
       if (notes != null) 'notes': notes,
       if (isCustom != null) 'is_custom': isCustom,
       if (archived != null) 'archived': archived,
@@ -834,6 +995,9 @@ class ExercisesCompanion extends UpdateCompanion<ExerciseRow> {
     Value<double>? incrementKg,
     Value<bool>? isUnilateral,
     Value<bool>? isBodyweight,
+    Value<bool>? isExplosive,
+    Value<Muscle?>? primaryMuscle,
+    Value<Muscle?>? secondaryMuscle,
     Value<String?>? notes,
     Value<bool>? isCustom,
     Value<bool>? archived,
@@ -853,6 +1017,9 @@ class ExercisesCompanion extends UpdateCompanion<ExerciseRow> {
       incrementKg: incrementKg ?? this.incrementKg,
       isUnilateral: isUnilateral ?? this.isUnilateral,
       isBodyweight: isBodyweight ?? this.isBodyweight,
+      isExplosive: isExplosive ?? this.isExplosive,
+      primaryMuscle: primaryMuscle ?? this.primaryMuscle,
+      secondaryMuscle: secondaryMuscle ?? this.secondaryMuscle,
       notes: notes ?? this.notes,
       isCustom: isCustom ?? this.isCustom,
       archived: archived ?? this.archived,
@@ -906,6 +1073,19 @@ class ExercisesCompanion extends UpdateCompanion<ExerciseRow> {
     if (isBodyweight.present) {
       map['is_bodyweight'] = Variable<bool>(isBodyweight.value);
     }
+    if (isExplosive.present) {
+      map['is_explosive'] = Variable<bool>(isExplosive.value);
+    }
+    if (primaryMuscle.present) {
+      map['primary_muscle'] = Variable<String>(
+        $ExercisesTable.$converterprimaryMusclen.toSql(primaryMuscle.value),
+      );
+    }
+    if (secondaryMuscle.present) {
+      map['secondary_muscle'] = Variable<String>(
+        $ExercisesTable.$convertersecondaryMusclen.toSql(secondaryMuscle.value),
+      );
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
@@ -937,6 +1117,9 @@ class ExercisesCompanion extends UpdateCompanion<ExerciseRow> {
           ..write('incrementKg: $incrementKg, ')
           ..write('isUnilateral: $isUnilateral, ')
           ..write('isBodyweight: $isBodyweight, ')
+          ..write('isExplosive: $isExplosive, ')
+          ..write('primaryMuscle: $primaryMuscle, ')
+          ..write('secondaryMuscle: $secondaryMuscle, ')
           ..write('notes: $notes, ')
           ..write('isCustom: $isCustom, ')
           ..write('archived: $archived, ')
@@ -1200,8 +1383,8 @@ class TemplateRow extends DataClass implements Insertable<TemplateRow> {
   final String id;
   final String name;
 
-  /// 1 = Mon … 7 = Sun, matching [DateTime.weekday]. Null for unscheduled
-  /// templates like the Saturday arms finisher.
+  /// 1 = Mon … 7 = Sun, matching [DateTime.weekday]. Null for a template the
+  /// user has taken off the weekly schedule.
   final int? weekday;
 
   /// "Rope 5 min", "HIIT bike 15 min" — the cardio prescription for the day.
@@ -1622,6 +1805,28 @@ class $TemplateExercisesTable extends TemplateExercises
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _repMinOverrideMeta = const VerificationMeta(
+    'repMinOverride',
+  );
+  @override
+  late final GeneratedColumn<int> repMinOverride = GeneratedColumn<int>(
+    'rep_min_override',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _repMaxOverrideMeta = const VerificationMeta(
+    'repMaxOverride',
+  );
+  @override
+  late final GeneratedColumn<int> repMaxOverride = GeneratedColumn<int>(
+    'rep_max_override',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     updatedAt,
@@ -1632,6 +1837,8 @@ class $TemplateExercisesTable extends TemplateExercises
     exerciseId,
     orderIndex,
     setsOverride,
+    repMinOverride,
+    repMaxOverride,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1701,6 +1908,24 @@ class $TemplateExercisesTable extends TemplateExercises
         ),
       );
     }
+    if (data.containsKey('rep_min_override')) {
+      context.handle(
+        _repMinOverrideMeta,
+        repMinOverride.isAcceptableOrUnknown(
+          data['rep_min_override']!,
+          _repMinOverrideMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rep_max_override')) {
+      context.handle(
+        _repMaxOverrideMeta,
+        repMaxOverride.isAcceptableOrUnknown(
+          data['rep_max_override']!,
+          _repMaxOverrideMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1742,6 +1967,14 @@ class $TemplateExercisesTable extends TemplateExercises
         DriftSqlType.int,
         data['${effectivePrefix}sets_override'],
       ),
+      repMinOverride: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rep_min_override'],
+      ),
+      repMaxOverride: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rep_max_override'],
+      ),
     );
   }
 
@@ -1766,6 +1999,11 @@ class TemplateExerciseRow extends DataClass
   /// Overrides the exercise default when a template wants a different volume
   /// (e.g. calf raises are 4 sets on legs day, 3 elsewhere).
   final int? setsOverride;
+
+  /// Per-day rep range, when the program prescribes something other than the
+  /// exercise default (Leg Press 8–12 on Legs A but 12–15 on Legs B).
+  final int? repMinOverride;
+  final int? repMaxOverride;
   const TemplateExerciseRow({
     required this.updatedAt,
     required this.synced,
@@ -1775,6 +2013,8 @@ class TemplateExerciseRow extends DataClass
     required this.exerciseId,
     required this.orderIndex,
     this.setsOverride,
+    this.repMinOverride,
+    this.repMaxOverride,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1788,6 +2028,12 @@ class TemplateExerciseRow extends DataClass
     map['order_index'] = Variable<int>(orderIndex);
     if (!nullToAbsent || setsOverride != null) {
       map['sets_override'] = Variable<int>(setsOverride);
+    }
+    if (!nullToAbsent || repMinOverride != null) {
+      map['rep_min_override'] = Variable<int>(repMinOverride);
+    }
+    if (!nullToAbsent || repMaxOverride != null) {
+      map['rep_max_override'] = Variable<int>(repMaxOverride);
     }
     return map;
   }
@@ -1804,6 +2050,12 @@ class TemplateExerciseRow extends DataClass
       setsOverride: setsOverride == null && nullToAbsent
           ? const Value.absent()
           : Value(setsOverride),
+      repMinOverride: repMinOverride == null && nullToAbsent
+          ? const Value.absent()
+          : Value(repMinOverride),
+      repMaxOverride: repMaxOverride == null && nullToAbsent
+          ? const Value.absent()
+          : Value(repMaxOverride),
     );
   }
 
@@ -1821,6 +2073,8 @@ class TemplateExerciseRow extends DataClass
       exerciseId: serializer.fromJson<String>(json['exerciseId']),
       orderIndex: serializer.fromJson<int>(json['orderIndex']),
       setsOverride: serializer.fromJson<int?>(json['setsOverride']),
+      repMinOverride: serializer.fromJson<int?>(json['repMinOverride']),
+      repMaxOverride: serializer.fromJson<int?>(json['repMaxOverride']),
     );
   }
   @override
@@ -1835,6 +2089,8 @@ class TemplateExerciseRow extends DataClass
       'exerciseId': serializer.toJson<String>(exerciseId),
       'orderIndex': serializer.toJson<int>(orderIndex),
       'setsOverride': serializer.toJson<int?>(setsOverride),
+      'repMinOverride': serializer.toJson<int?>(repMinOverride),
+      'repMaxOverride': serializer.toJson<int?>(repMaxOverride),
     };
   }
 
@@ -1847,6 +2103,8 @@ class TemplateExerciseRow extends DataClass
     String? exerciseId,
     int? orderIndex,
     Value<int?> setsOverride = const Value.absent(),
+    Value<int?> repMinOverride = const Value.absent(),
+    Value<int?> repMaxOverride = const Value.absent(),
   }) => TemplateExerciseRow(
     updatedAt: updatedAt ?? this.updatedAt,
     synced: synced ?? this.synced,
@@ -1856,6 +2114,12 @@ class TemplateExerciseRow extends DataClass
     exerciseId: exerciseId ?? this.exerciseId,
     orderIndex: orderIndex ?? this.orderIndex,
     setsOverride: setsOverride.present ? setsOverride.value : this.setsOverride,
+    repMinOverride: repMinOverride.present
+        ? repMinOverride.value
+        : this.repMinOverride,
+    repMaxOverride: repMaxOverride.present
+        ? repMaxOverride.value
+        : this.repMaxOverride,
   );
   TemplateExerciseRow copyWithCompanion(TemplateExercisesCompanion data) {
     return TemplateExerciseRow(
@@ -1875,6 +2139,12 @@ class TemplateExerciseRow extends DataClass
       setsOverride: data.setsOverride.present
           ? data.setsOverride.value
           : this.setsOverride,
+      repMinOverride: data.repMinOverride.present
+          ? data.repMinOverride.value
+          : this.repMinOverride,
+      repMaxOverride: data.repMaxOverride.present
+          ? data.repMaxOverride.value
+          : this.repMaxOverride,
     );
   }
 
@@ -1888,7 +2158,9 @@ class TemplateExerciseRow extends DataClass
           ..write('templateId: $templateId, ')
           ..write('exerciseId: $exerciseId, ')
           ..write('orderIndex: $orderIndex, ')
-          ..write('setsOverride: $setsOverride')
+          ..write('setsOverride: $setsOverride, ')
+          ..write('repMinOverride: $repMinOverride, ')
+          ..write('repMaxOverride: $repMaxOverride')
           ..write(')'))
         .toString();
   }
@@ -1903,6 +2175,8 @@ class TemplateExerciseRow extends DataClass
     exerciseId,
     orderIndex,
     setsOverride,
+    repMinOverride,
+    repMaxOverride,
   );
   @override
   bool operator ==(Object other) =>
@@ -1915,7 +2189,9 @@ class TemplateExerciseRow extends DataClass
           other.templateId == this.templateId &&
           other.exerciseId == this.exerciseId &&
           other.orderIndex == this.orderIndex &&
-          other.setsOverride == this.setsOverride);
+          other.setsOverride == this.setsOverride &&
+          other.repMinOverride == this.repMinOverride &&
+          other.repMaxOverride == this.repMaxOverride);
 }
 
 class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
@@ -1927,6 +2203,8 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
   final Value<String> exerciseId;
   final Value<int> orderIndex;
   final Value<int?> setsOverride;
+  final Value<int?> repMinOverride;
+  final Value<int?> repMaxOverride;
   final Value<int> rowid;
   const TemplateExercisesCompanion({
     this.updatedAt = const Value.absent(),
@@ -1937,6 +2215,8 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
     this.exerciseId = const Value.absent(),
     this.orderIndex = const Value.absent(),
     this.setsOverride = const Value.absent(),
+    this.repMinOverride = const Value.absent(),
+    this.repMaxOverride = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TemplateExercisesCompanion.insert({
@@ -1948,6 +2228,8 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
     required String exerciseId,
     required int orderIndex,
     this.setsOverride = const Value.absent(),
+    this.repMinOverride = const Value.absent(),
+    this.repMaxOverride = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        templateId = Value(templateId),
@@ -1962,6 +2244,8 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
     Expression<String>? exerciseId,
     Expression<int>? orderIndex,
     Expression<int>? setsOverride,
+    Expression<int>? repMinOverride,
+    Expression<int>? repMaxOverride,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1973,6 +2257,8 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
       if (exerciseId != null) 'exercise_id': exerciseId,
       if (orderIndex != null) 'order_index': orderIndex,
       if (setsOverride != null) 'sets_override': setsOverride,
+      if (repMinOverride != null) 'rep_min_override': repMinOverride,
+      if (repMaxOverride != null) 'rep_max_override': repMaxOverride,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1986,6 +2272,8 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
     Value<String>? exerciseId,
     Value<int>? orderIndex,
     Value<int?>? setsOverride,
+    Value<int?>? repMinOverride,
+    Value<int?>? repMaxOverride,
     Value<int>? rowid,
   }) {
     return TemplateExercisesCompanion(
@@ -1997,6 +2285,8 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
       exerciseId: exerciseId ?? this.exerciseId,
       orderIndex: orderIndex ?? this.orderIndex,
       setsOverride: setsOverride ?? this.setsOverride,
+      repMinOverride: repMinOverride ?? this.repMinOverride,
+      repMaxOverride: repMaxOverride ?? this.repMaxOverride,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2028,6 +2318,12 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
     if (setsOverride.present) {
       map['sets_override'] = Variable<int>(setsOverride.value);
     }
+    if (repMinOverride.present) {
+      map['rep_min_override'] = Variable<int>(repMinOverride.value);
+    }
+    if (repMaxOverride.present) {
+      map['rep_max_override'] = Variable<int>(repMaxOverride.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2045,6 +2341,8 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
           ..write('exerciseId: $exerciseId, ')
           ..write('orderIndex: $orderIndex, ')
           ..write('setsOverride: $setsOverride, ')
+          ..write('repMinOverride: $repMinOverride, ')
+          ..write('repMaxOverride: $repMaxOverride, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2249,6 +2547,21 @@ class $SessionsTable extends Sessions
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _durationSuspectMeta = const VerificationMeta(
+    'durationSuspect',
+  );
+  @override
+  late final GeneratedColumn<bool> durationSuspect = GeneratedColumn<bool>(
+    'duration_suspect',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("duration_suspect" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     updatedAt,
@@ -2267,6 +2580,7 @@ class $SessionsTable extends Sessions
     saunaDone,
     notes,
     isComplete,
+    durationSuspect,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2385,6 +2699,15 @@ class $SessionsTable extends Sessions
         isComplete.isAcceptableOrUnknown(data['is_complete']!, _isCompleteMeta),
       );
     }
+    if (data.containsKey('duration_suspect')) {
+      context.handle(
+        _durationSuspectMeta,
+        durationSuspect.isAcceptableOrUnknown(
+          data['duration_suspect']!,
+          _durationSuspectMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2458,6 +2781,10 @@ class $SessionsTable extends Sessions
         DriftSqlType.bool,
         data['${effectivePrefix}is_complete'],
       )!,
+      durationSuspect: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}duration_suspect'],
+      )!,
     );
   }
 
@@ -2490,6 +2817,10 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
   final bool saunaDone;
   final String? notes;
   final bool isComplete;
+
+  /// True when the wall-clock duration was implausible (>240 min — e.g. the
+  /// app was left open overnight) and `durationMin` was capped.
+  final bool durationSuspect;
   const SessionRow({
     required this.updatedAt,
     required this.synced,
@@ -2507,6 +2838,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     required this.saunaDone,
     this.notes,
     required this.isComplete,
+    required this.durationSuspect,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2535,6 +2867,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       map['notes'] = Variable<String>(notes);
     }
     map['is_complete'] = Variable<bool>(isComplete);
+    map['duration_suspect'] = Variable<bool>(durationSuspect);
     return map;
   }
 
@@ -2564,6 +2897,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
           ? const Value.absent()
           : Value(notes),
       isComplete: Value(isComplete),
+      durationSuspect: Value(durationSuspect),
     );
   }
 
@@ -2589,6 +2923,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       saunaDone: serializer.fromJson<bool>(json['saunaDone']),
       notes: serializer.fromJson<String?>(json['notes']),
       isComplete: serializer.fromJson<bool>(json['isComplete']),
+      durationSuspect: serializer.fromJson<bool>(json['durationSuspect']),
     );
   }
   @override
@@ -2611,6 +2946,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       'saunaDone': serializer.toJson<bool>(saunaDone),
       'notes': serializer.toJson<String?>(notes),
       'isComplete': serializer.toJson<bool>(isComplete),
+      'durationSuspect': serializer.toJson<bool>(durationSuspect),
     };
   }
 
@@ -2631,6 +2967,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     bool? saunaDone,
     Value<String?> notes = const Value.absent(),
     bool? isComplete,
+    bool? durationSuspect,
   }) => SessionRow(
     updatedAt: updatedAt ?? this.updatedAt,
     synced: synced ?? this.synced,
@@ -2648,6 +2985,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     saunaDone: saunaDone ?? this.saunaDone,
     notes: notes.present ? notes.value : this.notes,
     isComplete: isComplete ?? this.isComplete,
+    durationSuspect: durationSuspect ?? this.durationSuspect,
   );
   SessionRow copyWithCompanion(SessionsCompanion data) {
     return SessionRow(
@@ -2677,6 +3015,9 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
       isComplete: data.isComplete.present
           ? data.isComplete.value
           : this.isComplete,
+      durationSuspect: data.durationSuspect.present
+          ? data.durationSuspect.value
+          : this.durationSuspect,
     );
   }
 
@@ -2698,7 +3039,8 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
           ..write('cardioDone: $cardioDone, ')
           ..write('saunaDone: $saunaDone, ')
           ..write('notes: $notes, ')
-          ..write('isComplete: $isComplete')
+          ..write('isComplete: $isComplete, ')
+          ..write('durationSuspect: $durationSuspect')
           ..write(')'))
         .toString();
   }
@@ -2721,6 +3063,7 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
     saunaDone,
     notes,
     isComplete,
+    durationSuspect,
   );
   @override
   bool operator ==(Object other) =>
@@ -2741,7 +3084,8 @@ class SessionRow extends DataClass implements Insertable<SessionRow> {
           other.cardioDone == this.cardioDone &&
           other.saunaDone == this.saunaDone &&
           other.notes == this.notes &&
-          other.isComplete == this.isComplete);
+          other.isComplete == this.isComplete &&
+          other.durationSuspect == this.durationSuspect);
 }
 
 class SessionsCompanion extends UpdateCompanion<SessionRow> {
@@ -2761,6 +3105,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
   final Value<bool> saunaDone;
   final Value<String?> notes;
   final Value<bool> isComplete;
+  final Value<bool> durationSuspect;
   final Value<int> rowid;
   const SessionsCompanion({
     this.updatedAt = const Value.absent(),
@@ -2779,6 +3124,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
     this.saunaDone = const Value.absent(),
     this.notes = const Value.absent(),
     this.isComplete = const Value.absent(),
+    this.durationSuspect = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SessionsCompanion.insert({
@@ -2798,6 +3144,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
     this.saunaDone = const Value.absent(),
     this.notes = const Value.absent(),
     this.isComplete = const Value.absent(),
+    this.durationSuspect = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        date = Value(date),
@@ -2819,6 +3166,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
     Expression<bool>? saunaDone,
     Expression<String>? notes,
     Expression<bool>? isComplete,
+    Expression<bool>? durationSuspect,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2838,6 +3186,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
       if (saunaDone != null) 'sauna_done': saunaDone,
       if (notes != null) 'notes': notes,
       if (isComplete != null) 'is_complete': isComplete,
+      if (durationSuspect != null) 'duration_suspect': durationSuspect,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2859,6 +3208,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
     Value<bool>? saunaDone,
     Value<String?>? notes,
     Value<bool>? isComplete,
+    Value<bool>? durationSuspect,
     Value<int>? rowid,
   }) {
     return SessionsCompanion(
@@ -2878,6 +3228,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
       saunaDone: saunaDone ?? this.saunaDone,
       notes: notes ?? this.notes,
       isComplete: isComplete ?? this.isComplete,
+      durationSuspect: durationSuspect ?? this.durationSuspect,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2933,6 +3284,9 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
     if (isComplete.present) {
       map['is_complete'] = Variable<bool>(isComplete.value);
     }
+    if (durationSuspect.present) {
+      map['duration_suspect'] = Variable<bool>(durationSuspect.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2958,6 +3312,7 @@ class SessionsCompanion extends UpdateCompanion<SessionRow> {
           ..write('saunaDone: $saunaDone, ')
           ..write('notes: $notes, ')
           ..write('isComplete: $isComplete, ')
+          ..write('durationSuspect: $durationSuspect, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7083,6 +7438,9 @@ typedef $$ExercisesTableCreateCompanionBuilder =
       required double incrementKg,
       Value<bool> isUnilateral,
       Value<bool> isBodyweight,
+      Value<bool> isExplosive,
+      Value<Muscle?> primaryMuscle,
+      Value<Muscle?> secondaryMuscle,
       Value<String?> notes,
       Value<bool> isCustom,
       Value<bool> archived,
@@ -7103,6 +7461,9 @@ typedef $$ExercisesTableUpdateCompanionBuilder =
       Value<double> incrementKg,
       Value<bool> isUnilateral,
       Value<bool> isBodyweight,
+      Value<bool> isExplosive,
+      Value<Muscle?> primaryMuscle,
+      Value<Muscle?> secondaryMuscle,
       Value<String?> notes,
       Value<bool> isCustom,
       Value<bool> archived,
@@ -7268,6 +7629,23 @@ class $$ExercisesTableFilterComposer
     column: $table.isBodyweight,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<bool> get isExplosive => $composableBuilder(
+    column: $table.isExplosive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<Muscle?, Muscle, String> get primaryMuscle =>
+      $composableBuilder(
+        column: $table.primaryMuscle,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<Muscle?, Muscle, String> get secondaryMuscle =>
+      $composableBuilder(
+        column: $table.secondaryMuscle,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
@@ -7459,6 +7837,21 @@ class $$ExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isExplosive => $composableBuilder(
+    column: $table.isExplosive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get primaryMuscle => $composableBuilder(
+    column: $table.primaryMuscle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get secondaryMuscle => $composableBuilder(
+    column: $table.secondaryMuscle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
@@ -7537,6 +7930,23 @@ class $$ExercisesTableAnnotationComposer
     column: $table.isBodyweight,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get isExplosive => $composableBuilder(
+    column: $table.isExplosive,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<Muscle?, String> get primaryMuscle =>
+      $composableBuilder(
+        column: $table.primaryMuscle,
+        builder: (column) => column,
+      );
+
+  GeneratedColumnWithTypeConverter<Muscle?, String> get secondaryMuscle =>
+      $composableBuilder(
+        column: $table.secondaryMuscle,
+        builder: (column) => column,
+      );
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
@@ -7695,6 +8105,9 @@ class $$ExercisesTableTableManager
                 Value<double> incrementKg = const Value.absent(),
                 Value<bool> isUnilateral = const Value.absent(),
                 Value<bool> isBodyweight = const Value.absent(),
+                Value<bool> isExplosive = const Value.absent(),
+                Value<Muscle?> primaryMuscle = const Value.absent(),
+                Value<Muscle?> secondaryMuscle = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<bool> archived = const Value.absent(),
@@ -7713,6 +8126,9 @@ class $$ExercisesTableTableManager
                 incrementKg: incrementKg,
                 isUnilateral: isUnilateral,
                 isBodyweight: isBodyweight,
+                isExplosive: isExplosive,
+                primaryMuscle: primaryMuscle,
+                secondaryMuscle: secondaryMuscle,
                 notes: notes,
                 isCustom: isCustom,
                 archived: archived,
@@ -7733,6 +8149,9 @@ class $$ExercisesTableTableManager
                 required double incrementKg,
                 Value<bool> isUnilateral = const Value.absent(),
                 Value<bool> isBodyweight = const Value.absent(),
+                Value<bool> isExplosive = const Value.absent(),
+                Value<Muscle?> primaryMuscle = const Value.absent(),
+                Value<Muscle?> secondaryMuscle = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<bool> archived = const Value.absent(),
@@ -7751,6 +8170,9 @@ class $$ExercisesTableTableManager
                 incrementKg: incrementKg,
                 isUnilateral: isUnilateral,
                 isBodyweight: isBodyweight,
+                isExplosive: isExplosive,
+                primaryMuscle: primaryMuscle,
+                secondaryMuscle: secondaryMuscle,
                 notes: notes,
                 isCustom: isCustom,
                 archived: archived,
@@ -8290,6 +8712,8 @@ typedef $$TemplateExercisesTableCreateCompanionBuilder =
       required String exerciseId,
       required int orderIndex,
       Value<int?> setsOverride,
+      Value<int?> repMinOverride,
+      Value<int?> repMaxOverride,
       Value<int> rowid,
     });
 typedef $$TemplateExercisesTableUpdateCompanionBuilder =
@@ -8302,6 +8726,8 @@ typedef $$TemplateExercisesTableUpdateCompanionBuilder =
       Value<String> exerciseId,
       Value<int> orderIndex,
       Value<int?> setsOverride,
+      Value<int?> repMinOverride,
+      Value<int?> repMaxOverride,
       Value<int> rowid,
     });
 
@@ -8392,6 +8818,16 @@ class $$TemplateExercisesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get repMinOverride => $composableBuilder(
+    column: $table.repMinOverride,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get repMaxOverride => $composableBuilder(
+    column: $table.repMaxOverride,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$TemplatesTableFilterComposer get templateId {
     final $$TemplatesTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -8478,6 +8914,16 @@ class $$TemplateExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get repMinOverride => $composableBuilder(
+    column: $table.repMinOverride,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get repMaxOverride => $composableBuilder(
+    column: $table.repMaxOverride,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$TemplatesTableOrderingComposer get templateId {
     final $$TemplatesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8553,6 +8999,16 @@ class $$TemplateExercisesTableAnnotationComposer
 
   GeneratedColumn<int> get setsOverride => $composableBuilder(
     column: $table.setsOverride,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get repMinOverride => $composableBuilder(
+    column: $table.repMinOverride,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get repMaxOverride => $composableBuilder(
+    column: $table.repMaxOverride,
     builder: (column) => column,
   );
 
@@ -8644,6 +9100,8 @@ class $$TemplateExercisesTableTableManager
                 Value<String> exerciseId = const Value.absent(),
                 Value<int> orderIndex = const Value.absent(),
                 Value<int?> setsOverride = const Value.absent(),
+                Value<int?> repMinOverride = const Value.absent(),
+                Value<int?> repMaxOverride = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TemplateExercisesCompanion(
                 updatedAt: updatedAt,
@@ -8654,6 +9112,8 @@ class $$TemplateExercisesTableTableManager
                 exerciseId: exerciseId,
                 orderIndex: orderIndex,
                 setsOverride: setsOverride,
+                repMinOverride: repMinOverride,
+                repMaxOverride: repMaxOverride,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8666,6 +9126,8 @@ class $$TemplateExercisesTableTableManager
                 required String exerciseId,
                 required int orderIndex,
                 Value<int?> setsOverride = const Value.absent(),
+                Value<int?> repMinOverride = const Value.absent(),
+                Value<int?> repMaxOverride = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TemplateExercisesCompanion.insert(
                 updatedAt: updatedAt,
@@ -8676,6 +9138,8 @@ class $$TemplateExercisesTableTableManager
                 exerciseId: exerciseId,
                 orderIndex: orderIndex,
                 setsOverride: setsOverride,
+                repMinOverride: repMinOverride,
+                repMaxOverride: repMaxOverride,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -8780,6 +9244,7 @@ typedef $$SessionsTableCreateCompanionBuilder =
       Value<bool> saunaDone,
       Value<String?> notes,
       Value<bool> isComplete,
+      Value<bool> durationSuspect,
       Value<int> rowid,
     });
 typedef $$SessionsTableUpdateCompanionBuilder =
@@ -8800,6 +9265,7 @@ typedef $$SessionsTableUpdateCompanionBuilder =
       Value<bool> saunaDone,
       Value<String?> notes,
       Value<bool> isComplete,
+      Value<bool> durationSuspect,
       Value<int> rowid,
     });
 
@@ -8932,6 +9398,11 @@ class $$SessionsTableFilterComposer
 
   ColumnFilters<bool> get isComplete => $composableBuilder(
     column: $table.isComplete,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get durationSuspect => $composableBuilder(
+    column: $table.durationSuspect,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9074,6 +9545,11 @@ class $$SessionsTableOrderingComposer
     column: $table.isComplete,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get durationSuspect => $composableBuilder(
+    column: $table.durationSuspect,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SessionsTableAnnotationComposer
@@ -9140,6 +9616,11 @@ class $$SessionsTableAnnotationComposer
 
   GeneratedColumn<bool> get isComplete => $composableBuilder(
     column: $table.isComplete,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get durationSuspect => $composableBuilder(
+    column: $table.durationSuspect,
     builder: (column) => column,
   );
 
@@ -9241,6 +9722,7 @@ class $$SessionsTableTableManager
                 Value<bool> saunaDone = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<bool> isComplete = const Value.absent(),
+                Value<bool> durationSuspect = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SessionsCompanion(
                 updatedAt: updatedAt,
@@ -9259,6 +9741,7 @@ class $$SessionsTableTableManager
                 saunaDone: saunaDone,
                 notes: notes,
                 isComplete: isComplete,
+                durationSuspect: durationSuspect,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9279,6 +9762,7 @@ class $$SessionsTableTableManager
                 Value<bool> saunaDone = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<bool> isComplete = const Value.absent(),
+                Value<bool> durationSuspect = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SessionsCompanion.insert(
                 updatedAt: updatedAt,
@@ -9297,6 +9781,7 @@ class $$SessionsTableTableManager
                 saunaDone: saunaDone,
                 notes: notes,
                 isComplete: isComplete,
+                durationSuspect: durationSuspect,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

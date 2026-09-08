@@ -414,6 +414,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     }
 
     if (logged.isPr && mounted) {
+      final pr = logged.headline!;
+      unawaited(
+        ref.read(socialHooksProvider).prHit(
+          exerciseName: exercise.name,
+          type: pr.type,
+          value: pr.value,
+          reps: pr.reps,
+        ),
+      );
       await PrCelebration.show(
         context,
         pr: logged.headline!,
@@ -529,6 +538,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       if (discard != true) return;
       await ref.read(workoutRepositoryProvider).discardSession(widget.sessionId);
       ref.read(restTimerProvider.notifier).stop();
+      unawaited(ref.read(socialHooksProvider).sessionDiscarded());
       if (mounted) Navigator.of(context).pop();
       return;
     }
@@ -539,6 +549,9 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     ref.read(restTimerProvider.notifier).stop();
     ref.read(analyticsRevisionProvider.notifier).bump();
     unawaited(ref.read(syncControllerProvider.notifier).sync());
+    if (session != null) {
+      unawaited(ref.read(socialHooksProvider).sessionFinished(session));
+    }
     await Haptics.celebrate();
 
     if (!mounted || session == null) return;
@@ -556,6 +569,7 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
       if (discard != true) return;
       await ref.read(workoutRepositoryProvider).discardSession(widget.sessionId);
       ref.read(restTimerProvider.notifier).stop();
+      unawaited(ref.read(socialHooksProvider).sessionDiscarded());
       if (mounted) Navigator.of(context).pop();
       return;
     }

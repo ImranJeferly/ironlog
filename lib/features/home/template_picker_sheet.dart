@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -93,6 +95,9 @@ class TemplatePickerSheet extends ConsumerWidget {
                     final id = await ref
                         .read(workoutRepositoryProvider)
                         .startEmptySession();
+                    unawaited(
+                      ref.read(socialHooksProvider).sessionStarted('Freestyle'),
+                    );
                     if (!context.mounted) return;
                     Navigator.of(context).pop();
                     await ActiveSessionScreen.open(context, id);
@@ -142,6 +147,7 @@ class _TemplateRow extends ConsumerWidget {
         final id = await ref
             .read(workoutRepositoryProvider)
             .startSessionFromTemplate(template.id);
+        unawaited(ref.read(socialHooksProvider).sessionStarted(template.name));
         if (!context.mounted) return;
         Navigator.of(context).pop();
         await ActiveSessionScreen.open(context, id);

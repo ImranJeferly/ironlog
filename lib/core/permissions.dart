@@ -20,6 +20,7 @@ abstract final class Permissions {
         Permission.notification, // rest-timer + update alerts
         Permission.camera, // progress photos
         Permission.photos, // gallery (READ_MEDIA_IMAGES on Android 13+)
+        Permission.microphone, // voice messages
       ];
       try {
         if (Platform.isAndroid) {

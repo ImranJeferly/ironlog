@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,12 +7,15 @@ import '../../app/providers.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/notifications.dart';
+import '../../core/push.dart';
 import '../../core/utils/haptics.dart';
 import '../history/history_screen.dart';
 import '../home/home_screen.dart';
 import '../photos/photos_screen.dart';
 import '../progress/progress_screen.dart';
 import '../settings/settings_screen.dart';
+import '../social/chat_screen.dart';
+import '../social/friends_screen.dart';
 import '../update/update_prompt.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -24,14 +29,19 @@ class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   int _index = 0;
   bool _updateChecked = false;
+  Timer? _nowPlayingTimer;
 
   static const _tabs = <_TabSpec>[
     _TabSpec('Today', Icons.bolt_outlined, Icons.bolt),
     _TabSpec('Progress', Icons.show_chart_outlined, Icons.show_chart),
     _TabSpec('History', Icons.calendar_today_outlined, Icons.calendar_today),
+    _TabSpec('Friends', Icons.chat_bubble_outline, Icons.chat_bubble),
     _TabSpec('Photos', Icons.photo_library_outlined, Icons.photo_library),
     _TabSpec('Settings', Icons.tune_outlined, Icons.tune),
   ];
+
+  /// Index of the Friends tab — the only one that carries a badge.
+  static const _friendsTab = 3;
 
   @override
   void initState() {
@@ -41,35 +51,78 @@ class _AppShellState extends ConsumerState<AppShell>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _onResume();
       _onNotificationRoute();
+      _initPush();
     });
+  }
+
+  /// FCM only matters with a real account, but the wiring is cheap and the
+  /// token callback no-ops for guests — so set it up once and forget it.
+  Future<void> _initPush() async {
+    if (!ref.read(socialRepositoryProvider).isAvailable) return;
+    await PushService.init(
+      onToken: (t) => ref.read(socialHooksProvider).registerDevice(t),
+    );
+    if (mounted) _onNotificationRoute();
   }
 
   @override
   void dispose() {
+    _nowPlayingTimer?.cancel();
     Notifications.pendingRoute.removeListener(_onNotificationRoute);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   /// A tapped notification asked for a screen — the nightly nutrition nudge
-  /// deep-links to the Today card on the Home tab.
+  /// deep-links to the Today card; friend pushes open the Friends tab or the
+  /// chat they came from.
   void _onNotificationRoute() {
     final route = Notifications.pendingRoute.value;
     if (route == null || !mounted) return;
     Notifications.pendingRoute.value = null;
     if (route == Notifications.routeToday && _index != 0) {
       setState(() => _index = 0);
+      return;
+    }
+    if (route == Notifications.routeFriends) {
+      setState(() => _index = _friendsTab);
+      return;
+    }
+    final chat = Notifications.parseChatRoute(route);
+    if (chat != null) {
+      setState(() => _index = _friendsTab);
+      // Back out of anything stacked on the shell so the chat is what opens.
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      ChatScreen.open(context, chatId: chat.chatId, friendUid: chat.friendUid);
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _onResume();
+    if (state == AppLifecycleState.resumed) {
+      _onResume();
+    } else if (state == AppLifecycleState.paused) {
+      _nowPlayingTimer?.cancel();
+      _nowPlayingTimer = null;
+    }
   }
 
   /// Background work on resume — never blocks the UI, never shows a spinner.
   void _onResume() {
     if (!mounted) return;
+    // Profile, stats and now-playing go out to friends; the track is
+    // re-polled while the app is in the foreground so the chat header keeps
+    // up with the phone's player.
+    final social = ref.read(socialHooksProvider);
+    _nowPlayingTimer?.cancel();
+    _nowPlayingTimer = null;
+    if (social.enabled) {
+      social.onResume();
+      _nowPlayingTimer = Timer.periodic(
+        const Duration(seconds: 60),
+        (_) => social.publishNowPlaying(),
+      );
+    }
     final settings = ref.read(settingsProvider);
     if (settings.syncEnabled) {
       ref.read(syncControllerProvider.notifier).sync();
@@ -99,6 +152,7 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   Widget build(BuildContext context) {
+    final badge = ref.watch(socialBadgeProvider);
     return Scaffold(
       backgroundColor: AppColors.bg,
       extendBody: true,
@@ -108,6 +162,7 @@ class _AppShellState extends ConsumerState<AppShell>
           HomeScreen(),
           ProgressScreen(),
           HistoryScreen(),
+          FriendsScreen(),
           PhotosScreen(),
           SettingsScreen(),
         ],
@@ -115,6 +170,7 @@ class _AppShellState extends ConsumerState<AppShell>
       bottomNavigationBar: _NavBar(
         tabs: _tabs,
         index: _index,
+        badges: {_friendsTab: badge},
         onChanged: (i) {
           if (i == _index) return;
           Haptics.tick();
@@ -140,11 +196,15 @@ class _NavBar extends StatelessWidget {
     required this.tabs,
     required this.index,
     required this.onChanged,
+    this.badges = const {},
   });
 
   final List<_TabSpec> tabs;
   final int index;
   final ValueChanged<int> onChanged;
+
+  /// Tab index → unread count. Zero or missing means no badge.
+  final Map<int, int> badges;
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +243,44 @@ class _NavBar extends StatelessWidget {
   Widget _item(BuildContext context, int i) {
     final active = i == index;
     final tab = tabs[i];
+    final badge = badges[i] ?? 0;
+    final iconColor = active ? AppColors.accent : AppColors.textTertiary;
+
+    Widget icon = Icon(
+      active ? tab.activeIcon : tab.icon,
+      size: 20,
+      color: iconColor,
+    );
+    if (badge > 0) {
+      icon = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          icon,
+          Positioned(
+            right: -8,
+            top: -5,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              decoration: BoxDecoration(
+                color: AppColors.accent,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.card, width: 1.5),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                badge > 99 ? '99+' : '$badge',
+                style: AppText.numeric(
+                  size: 9,
+                  letterSpacing: 0,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -203,11 +301,7 @@ class _NavBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              active ? tab.activeIcon : tab.icon,
-              size: 20,
-              color: active ? AppColors.accent : AppColors.textTertiary,
-            ),
+            icon,
             const SizedBox(height: 3),
             Text(
               tab.label,
