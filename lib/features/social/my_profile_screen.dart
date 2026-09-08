@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
 import '../../core/now_playing.dart';
+import '../../core/push.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
@@ -34,12 +35,21 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   bool _busy = false;
   String? _handleMessage;
   bool _nowPlayingAccess = false;
+  bool _batteryExempt = false;
 
   @override
   void initState() {
     super.initState();
-    NowPlayingService.hasAccess().then((v) {
-      if (mounted) setState(() => _nowPlayingAccess = v);
+    _refreshAccess();
+  }
+
+  Future<void> _refreshAccess() async {
+    final np = await NowPlayingService.hasAccess();
+    final battery = await PushService.isBatteryExempt();
+    if (!mounted) return;
+    setState(() {
+      _nowPlayingAccess = np;
+      _batteryExempt = battery;
     });
   }
 
@@ -242,6 +252,26 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
             ),
           ),
 
+          const SectionHeader('Notifications'),
+          AppCard(
+            child: _AccessRow(
+              granted: _batteryExempt,
+              title: _batteryExempt
+                  ? 'Friend notifications are reliable'
+                  : 'Keep friend notifications alive',
+              body: 'IronLog listens for messages itself — no push server. '
+                  'Exempting it from battery optimisation stops Android '
+                  'from pausing that listener when the screen is off.',
+              action: _batteryExempt ? 'Re-check' : 'Allow',
+              onTap: () async {
+                if (!_batteryExempt) {
+                  await PushService.requestBatteryExemption();
+                }
+                await _refreshAccess();
+              },
+            ),
+          ),
+
           const SectionHeader('Now playing'),
           AppCard(
             child: Column(
@@ -259,49 +289,24 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   },
                 ),
                 const Divider(height: AppSpacing.lg),
-                Row(
-                  children: [
-                    Icon(
-                      _nowPlayingAccess ? Icons.link : Icons.link_off,
-                      size: 17,
-                      color: _nowPlayingAccess
-                          ? AppColors.accent
-                          : AppColors.danger,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _nowPlayingAccess
-                                ? 'Media access granted'
-                                : 'Media access needed',
-                            style: theme.textTheme.titleSmall,
-                          ),
-                          Text(
-                            'Android calls it “notification access” — it’s '
-                            'how apps read the current track. IronLog never '
-                            'reads notification content.',
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    GhostButton(
-                      label: _nowPlayingAccess ? 'Re-check' : 'Grant',
-                      height: 40,
-                      onPressed: () async {
-                        if (!_nowPlayingAccess) {
-                          await NowPlayingService.requestAccess();
-                        }
-                        final v = await NowPlayingService.hasAccess();
-                        if (!mounted) return;
-                        setState(() => _nowPlayingAccess = v);
-                        await ref.read(socialHooksProvider).publishNowPlaying();
-                      },
-                    ),
-                  ],
+                _AccessRow(
+                  granted: _nowPlayingAccess,
+                  title: _nowPlayingAccess
+                      ? 'Media access granted'
+                      : 'Media access needed',
+                  body:
+                      'Android calls it “notification access” — it’s how apps '
+                      'read the current track. IronLog never reads '
+                      'notification content.',
+                  action: _nowPlayingAccess ? 'Re-check' : 'Grant',
+                  onTap: () async {
+                    if (!_nowPlayingAccess) {
+                      await NowPlayingService.requestAccess();
+                    }
+                    await _refreshAccess();
+                    if (!mounted) return;
+                    await ref.read(socialHooksProvider).publishNowPlaying();
+                  },
                 ),
               ],
             ),
@@ -339,6 +344,50 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Status line + button for a system permission we can only ask for by
+/// sending the user to a settings screen.
+class _AccessRow extends StatelessWidget {
+  const _AccessRow({
+    required this.granted,
+    required this.title,
+    required this.body,
+    required this.action,
+    required this.onTap,
+  });
+
+  final bool granted;
+  final String title;
+  final String body;
+  final String action;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(
+          granted ? Icons.check_circle_outline : Icons.error_outline,
+          size: 17,
+          color: granted ? AppColors.accent : AppColors.danger,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: theme.textTheme.titleSmall),
+              Text(body, style: theme.textTheme.bodySmall),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        GhostButton(label: action, height: 40, onPressed: onTap),
+      ],
     );
   }
 }

@@ -65,10 +65,6 @@ dependencies:
   # Voice messages: record short AAC clips, play them back from bytes.
   record: ^6.0.0
   audioplayers: ^6.4.0
-  # Real push for chat messages, PRs and session broadcasts — the sender's
-  # write is fanned out to the friend's devices by the Cloud Function in
-  # `functions/`.
-  firebase_messaging: ^16.6.0
 
 dev_dependencies:
   flutter_test:

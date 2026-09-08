@@ -53,15 +53,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Foreground pushes for this chat are redundant while it's on screen.
-    PushService.activeChatId = widget.chatId;
+    // Notifications for this chat are redundant while it's on screen.
+    PushService.setActiveChat(widget.chatId);
+    PushService.dismissChat(widget.chatId);
   }
 
   @override
   void dispose() {
-    if (PushService.activeChatId == widget.chatId) {
-      PushService.activeChatId = null;
-    }
+    PushService.setActiveChat(null);
     WidgetsBinding.instance.removeObserver(this);
     _recTicker?.cancel();
     _recorder.dispose();

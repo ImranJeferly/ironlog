@@ -21,19 +21,15 @@ abstract final class Notifications {
   static const _nutritionChannelId = 'ironlog_nutrition';
   static const _nutritionNotificationId = 1002;
 
-  /// Channel for friend pushes (chat, PRs, session broadcasts, requests).
-  /// The Cloud Function names the same id so tray notifications delivered
-  /// while the app is dead land on it too.
-  static const socialChannelId = 'ironlog_social';
-
   /// Payload carried by the nightly nutrition nudge; the shell opens the
   /// Today card when it sees it.
   static const routeToday = 'today';
 
-  /// Opens the Friends tab (new request, accepted request).
+  /// Opens the Friends tab (new request). Posted by the native listener.
   static const routeFriends = 'friends';
 
-  /// Opens one chat: `chat:<chatId>:<friendUid>`.
+  /// Opens one chat: `chat:<chatId>:<friendUid>`. Posted by the native
+  /// listener (see `PushInbox.kt`); keep the two formats in sync.
   static String routeChat(String chatId, String friendUid) =>
       'chat:$chatId:$friendUid';
 
@@ -248,62 +244,4 @@ abstract final class Notifications {
     }
   }
 
-  // ---------------------------------------------------------------- social
-
-  static const _socialChannel = AndroidNotificationChannel(
-    socialChannelId,
-    'Friends',
-    description: 'Messages, PRs and session updates from your friends.',
-    importance: Importance.high,
-  );
-
-  /// Creates the friends channel up front so pushes shown by the system
-  /// (app in background) get heads-up importance instead of the default.
-  static Future<void> ensureSocialChannel() async {
-    if (!_ready) await init();
-    try {
-      await _plugin
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.createNotificationChannel(_socialChannel);
-    } on Object catch (e) {
-      debugPrint('IronLog: could not create social channel ($e)');
-    }
-  }
-
-  /// Mirrors a push received while the app is in the foreground. [tag]
-  /// collapses successive messages from the same chat into one entry.
-  static Future<void> showSocial({
-    required String title,
-    required String body,
-    String? payload,
-    String? tag,
-  }) async {
-    if (!_ready) await init();
-    try {
-      await _plugin.show(
-        // Stable per tag so a chat's notifications replace each other.
-        id: 2000 + ((tag ?? title).hashCode & 0xffff),
-        title: title,
-        body: body,
-        payload: payload,
-        notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            socialChannelId,
-            _socialChannel.name,
-            channelDescription: _socialChannel.description,
-            importance: Importance.high,
-            priority: Priority.high,
-            category: AndroidNotificationCategory.message,
-            tag: tag,
-            styleInformation: BigTextStyleInformation(body),
-          ),
-          iOS: const DarwinNotificationDetails(presentSound: true),
-        ),
-      );
-    } on Object catch (e) {
-      debugPrint('IronLog: could not show social notification ($e)');
-    }
-  }
 }

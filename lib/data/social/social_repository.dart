@@ -31,26 +31,6 @@ class SocialRepository {
   CollectionReference<Map<String, dynamic>> get _chats =>
       _db.collection('chats');
 
-  // -------------------------------------------------------------- devices
-
-  /// Stores this phone's FCM token under the owner's private subtree. The
-  /// Cloud Function reads it (admin SDK) to fan out pushes; nobody else can.
-  Future<void> registerDevice(String token) async {
-    final me = uid;
-    if (me == null || !isAvailable || token.isEmpty) return;
-    await _users.doc(me).collection('devices').doc(token).set({
-      'token': token,
-      'platform': defaultTargetPlatform.name,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  Future<void> unregisterDevice(String token) async {
-    final me = uid;
-    if (me == null || !isAvailable || token.isEmpty) return;
-    await _users.doc(me).collection('devices').doc(token).delete();
-  }
-
   // ------------------------------------------------------------- profiles
 
   Stream<UserProfile?> watchProfile(String userId) {

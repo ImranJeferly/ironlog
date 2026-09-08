@@ -63,4 +63,12 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // The friend-notification listener (FriendPushService) talks to Firestore
+    // and Auth natively. The FlutterFire plugins pull the same libraries in
+    // with `implementation`, which doesn't reach this module, so declare them
+    // here on the same BoM version firebase_core pins.
+    implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("androidx.core:core-ktx:1.13.1")
 }

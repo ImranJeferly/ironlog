@@ -217,9 +217,8 @@ class _ProfileCard extends ConsumerWidget {
                 icon: Icons.logout,
                 expanded: true,
                 onPressed: () async {
-                  // Stop friend pushes for this account on this phone first;
-                  // after sign-out the rules wouldn't let us touch the row.
-                  await ref.read(socialHooksProvider).unregisterThisDevice();
+                  // Stop friend notifications for this account first.
+                  await ref.read(socialHooksProvider).stopPush();
                   await ref.read(authServiceProvider).signOut();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(

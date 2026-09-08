@@ -33,19 +33,22 @@ no server code. It needs a real (non-guest) account.
   every minute while the app is open; hidden after 8 minutes without an
   update. Nothing is published until you grant access, and the share switch
   turns it off entirely; only title, artist and player app are read.
-- **Real push notifications.** Every chat message, voice note, PR, session
-  start/finish and friend request reaches the friend's phone as a system
-  notification even when IronLog is closed. The app registers its FCM
-  device token under the owner's private profile subtree; the Cloud
-  Function in `functions/` fans each Firestore write out to the recipient's
-  devices, prunes dead tokens, and tapping the notification opens the chat
-  (or the Requests list). Messages that arrive while the app is dead still
-  get their "delivered" tick. A chat that is already open on screen does
-  not double-notify. Signing out removes the token.
+- **Real notifications, no server, free plan.** Every chat message, voice
+  note, PR, session start/finish and friend request lands on the friend's
+  phone as a system notification even when IronLog is closed. A small
+  Android foreground service keeps Firestore listeners open on your chats
+  and requests and posts the notifications itself (WhatsApp-style
+  conversation notifications with an inline Reply box); a 15-minute
+  catch-up job restarts it if the OEM kills it and picks up anything
+  missed; it restarts after reboots and app updates. Tapping opens the
+  chat (or the Requests list), a chat that is already open does not
+  double-notify, and messages that arrive while the app is closed still
+  get their "delivered" tick. Profile › Notifications › Allow exempts
+  IronLog from battery optimisation so the listener survives Doze.
+  Signing out stops it.
 - Firestore rules updated for `users`, `handles`, `friendRequests` and
-  `chats`. Deploy both pieces for the feature to work:
-  `firebase deploy --only firestore:rules,functions` (functions need the
-  Blaze plan; usage stays inside the free quota).
+  `chats` — deploy `firestore.rules` once (free):
+  `firebase deploy --only firestore:rules`.
 
 ## Unreleased — red "aggressive" restyle
 

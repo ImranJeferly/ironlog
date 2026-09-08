@@ -36,9 +36,7 @@ service cloud.firestore {
         allow delete: if isUser(uid) || isUser(fid);
       }
 
-      // Everything else under a user is private: training data, and the
-      // FCM device tokens in `devices/{token}` that only the owner writes and
-      // only the Cloud Function (admin SDK) reads to fan out pushes.
+      // Everything else under a user is private training data.
       match /{document=**} {
         allow read, write: if isUser(uid);
       }

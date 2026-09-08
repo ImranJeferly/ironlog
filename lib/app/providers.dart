@@ -563,28 +563,15 @@ class SocialHooks {
       await _repo.ensureProfile(email: _ref.read(authServiceProvider).email);
       await publishStats();
       await publishNowPlaying();
-      final token = await PushService.currentToken();
-      if (token != null) await registerDevice(token);
+      // Native listener that turns friends' writes into notifications.
+      await PushService.start();
     } on Object catch (e) {
       debugPrint('IronLog: social resume failed ($e)');
     }
   }
 
-  /// Stores the FCM token so friends' messages reach this phone as pushes.
-  Future<void> registerDevice(String token) =>
-      _guard(() => _repo.registerDevice(token));
-
-  /// Sign-out: stop pushes for the old account on this phone.
-  Future<void> unregisterThisDevice() async {
-    if (!_enabled) return;
-    try {
-      final token = await PushService.currentToken();
-      if (token != null) await _repo.unregisterDevice(token);
-      await PushService.forgetToken();
-    } on Object catch (e) {
-      debugPrint('IronLog: unregisterDevice failed ($e)');
-    }
-  }
+  /// Sign-out: stop notifying for the old account on this phone.
+  Future<void> stopPush() => PushService.stop();
 
   Future<void> publishStats() async {
     if (!_enabled) return;

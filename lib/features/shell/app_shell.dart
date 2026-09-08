@@ -55,13 +55,12 @@ class _AppShellState extends ConsumerState<AppShell>
     });
   }
 
-  /// FCM only matters with a real account, but the wiring is cheap and the
-  /// token callback no-ops for guests — so set it up once and forget it.
+  /// Hooks up tapped-notification routes: the one that may have launched the
+  /// app (cold start) and any that arrive while it's running.
   Future<void> _initPush() async {
-    if (!ref.read(socialRepositoryProvider).isAvailable) return;
-    await PushService.init(
-      onToken: (t) => ref.read(socialHooksProvider).registerDevice(t),
-    );
+    PushService.bind();
+    final route = await PushService.takePendingRoute();
+    if (route != null) Notifications.pendingRoute.value = route;
     if (mounted) _onNotificationRoute();
   }
 
@@ -152,6 +151,11 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   Widget build(BuildContext context) {
+    // Signing in mid-session: bootstrap the profile and start the listener
+    // right away instead of waiting for the next app resume.
+    ref.listen<bool>(socialEnabledProvider, (prev, next) {
+      if (next && prev != true) _onResume();
+    });
     final badge = ref.watch(socialBadgeProvider);
     return Scaffold(
       backgroundColor: AppColors.bg,
