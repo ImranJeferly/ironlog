@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import '../sync/firebase_bootstrap.dart';
 import 'social_models.dart';
 
+enum _Claim { ok, taken, denied, failed }
+
 /// Friends, requests, chats and profiles — all in Firestore documents, no
 /// Storage. Photos and voice notes travel as inline blobs, which keeps the
 /// whole feature inside the free tier.
@@ -53,26 +55,63 @@ class SocialRepository {
     return d.exists ? UserProfile.fromDoc(d.id, d.data()) : null;
   }
 
-  /// Makes sure the profile document exists with at least a display name.
-  /// Called once after sign-in; safe to call repeatedly.
+  /// Makes sure the profile document exists with a display name and a
+  /// handle. Called after sign-in and on every resume; safe to repeat.
+  /// Existing accounts without a handle get one derived from their email
+  /// the same way the name is, so friends can find them right away.
   Future<void> ensureProfile({String? email}) async {
     final me = uid;
     if (me == null) return;
     final doc = await _users.doc(me).get();
-    if (doc.exists && (doc.data()?['displayName'] as String?) != null) {
+    final data = doc.data() ?? const {};
+    final hasName = (data['displayName'] as String?)?.trim().isNotEmpty == true;
+
+    if (hasName) {
       await _users.doc(me).set({
         'lastSeenAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      return;
+    } else {
+      final name = email == null
+          ? 'Lifter'
+          : email.split('@').first.replaceAll(RegExp(r'[._-]+'), ' ');
+      await _users.doc(me).set({
+        'displayName': name.isEmpty ? 'Lifter' : name,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastSeenAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     }
-    final name = email == null
-        ? 'Lifter'
-        : email.split('@').first.replaceAll(RegExp(r'[._-]+'), ' ');
-    await _users.doc(me).set({
-      'displayName': name.isEmpty ? 'Lifter' : name,
-      'createdAt': FieldValue.serverTimestamp(),
-      'lastSeenAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+
+    if ((data['handle'] as String?) == null) {
+      await _autoHandle(me, email: email, name: data['displayName'] as String?);
+    }
+  }
+
+  /// Picks the first free handle from the email/name base: `imran`, then
+  /// `imran2`, `imran3`… Stops on any error other than "taken" (offline,
+  /// rules not deployed) — the user can still set one by hand later.
+  Future<void> _autoHandle(String me, {String? email, String? name}) async {
+    final base = suggestHandle(email: email, name: name);
+    for (var i = 1; i <= 40; i++) {
+      final candidate = i == 1 ? base : '$base$i';
+      final result = await _claimHandle(me, candidate, current: null);
+      if (result != _Claim.taken) return;
+    }
+  }
+
+  /// Lowercase `[a-z0-9_]`, 3–16 characters, from the email local part or
+  /// the display name. Leaves room for a numeric suffix.
+  static String suggestHandle({String? email, String? name}) {
+    final source = (email != null && email.contains('@'))
+        ? email.split('@').first
+        : (name ?? '');
+    var base = source
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    if (base.length < 3) base = 'lifter';
+    if (base.length > 16) base = base.substring(0, 16);
+    return base;
   }
 
   Future<void> updateProfile({String? displayName, String? bio}) async {
@@ -110,6 +149,23 @@ class SocialRepository {
     final current = (await _users.doc(me).get()).data()?['handle'] as String?;
     if (current == handle) return null;
 
+    return switch (await _claimHandle(me, handle, current: current)) {
+      _Claim.ok => null,
+      _Claim.taken => '@$handle is taken.',
+      _Claim.denied =>
+        'Firestore rejected the write — the security rules in '
+            'firestore.rules aren\'t deployed yet.',
+      _Claim.failed => 'Could not save the handle. Check your connection.',
+    };
+  }
+
+  /// One atomic claim: the `handles/{handle}` row and the profile field, and
+  /// the old row released. [current] is the handle being replaced, if any.
+  Future<_Claim> _claimHandle(
+    String me,
+    String handle, {
+    required String? current,
+  }) async {
     try {
       await _db.runTransaction((tx) async {
         final ref = _handles.doc(handle);
@@ -118,15 +174,20 @@ class SocialRepository {
           throw StateError('taken');
         }
         tx.set(ref, {'uid': me});
-        if (current != null) tx.delete(_handles.doc(current));
+        if (current != null && current != handle) {
+          tx.delete(_handles.doc(current));
+        }
         tx.set(_users.doc(me), {'handle': handle}, SetOptions(merge: true));
       });
-      return null;
+      return _Claim.ok;
     } on StateError {
-      return '@$handle is taken.';
+      return _Claim.taken;
+    } on FirebaseException catch (e) {
+      debugPrint('IronLog: claim @$handle failed (${e.code})');
+      return e.code == 'permission-denied' ? _Claim.denied : _Claim.failed;
     } on Object catch (e) {
-      debugPrint('IronLog: setHandle failed ($e)');
-      return 'Could not save the handle. Check your connection.';
+      debugPrint('IronLog: claim @$handle failed ($e)');
+      return _Claim.failed;
     }
   }
 

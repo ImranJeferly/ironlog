@@ -95,9 +95,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
     await ref
         .read(socialRepositoryProvider)
         .updateProfile(displayName: _name.text, bio: _bio.text);
-    final error = await ref.read(socialRepositoryProvider).setHandle(
-      _handle.text,
-    );
+    // An empty handle field means "leave it" — the profile bootstrap assigns
+    // one automatically, so saving just the name must not complain.
+    final error = _handle.text.trim().isEmpty
+        ? null
+        : await ref.read(socialRepositoryProvider).setHandle(_handle.text);
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -123,6 +125,11 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
       _name.text = profile.displayName;
       _handle.text = profile.handle ?? '';
       _bio.text = profile.bio ?? '';
+    }
+    // The auto-assigned handle can land after the first frame; show it
+    // rather than an empty field the user thinks they still have to fill.
+    if (profile?.handle != null && _handle.text.trim().isEmpty) {
+      _handle.text = profile!.handle!;
     }
 
     return Scaffold(

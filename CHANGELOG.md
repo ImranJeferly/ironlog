@@ -22,7 +22,11 @@ no server code. It needs a real (non-guest) account.
   tonnage) and every PR post a system line into each friend chat.
 - **Profile page** (Settings › pencil, or your avatar on the Friends tab):
   photo from camera or gallery (compressed to ≤320 px and saved inside the
-  profile document), display name, unique handle, short bio.
+  profile document), display name, unique handle, short bio. Every account
+  gets a handle automatically from its email (`imran`, `imran2`, …) the
+  same way it gets a name, so friends can find you before you've edited
+  anything; you can still change it. A rejected handle save now says why
+  (taken, offline, or rules not deployed).
 - **Friend profile + compare.** Tap a friend anywhere: training-now / now
   playing / last seen, sessions, streak, PRs, 4-week adherence, weekly
   sets, best lifts, and a you-vs-them bar comparison including every lift
