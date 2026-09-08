@@ -218,7 +218,9 @@ class _NavBar extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  tab.label.toUpperCase(),
+                  // Bebas renders caps; keep the label as written so it
+                  // stays findable by name.
+                  tab.label,
                   maxLines: 1,
                   overflow: TextOverflow.clip,
                   style: AppText.eyebrow(
