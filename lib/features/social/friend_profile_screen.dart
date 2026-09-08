@@ -28,7 +28,8 @@ class FriendProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final profile = ref.watch(friendProfileProvider(uid)).value;
+    final profileAsync = ref.watch(friendProfileProvider(uid));
+    final profile = profileAsync.value;
     final me = ref.watch(myProfileProvider).value;
     final friends = ref.watch(friendsProvider).value ?? const [];
     final friend = friends.where((f) => f.uid == uid).firstOrNull;
@@ -36,9 +37,13 @@ class FriendProfileScreen extends ConsumerWidget {
     final repo = ref.read(socialRepositoryProvider);
 
     if (profile == null) {
-      return const Scaffold(
+      final loading = profileAsync.isLoading && !profileAsync.hasValue;
+      return Scaffold(
         backgroundColor: AppColors.bg,
-        body: Center(child: EmptyState(title: 'Profile unavailable')),
+        appBar: AppBar(title: Text(loading ? '' : 'Profile')),
+        body: loading
+            ? const SizedBox.shrink()
+            : const Center(child: EmptyState(title: 'Profile unavailable')),
       );
     }
 

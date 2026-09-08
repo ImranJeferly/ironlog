@@ -14,6 +14,14 @@ String chatIdFor(String a, String b) {
 String requestIdFor({required String from, required String to}) =>
     '${from}_$to';
 
+/// First character of a name for avatars. Rune-based so a name that starts
+/// with an emoji shows the emoji instead of half a surrogate pair.
+String initialOf(String name) {
+  final t = name.trim();
+  if (t.isEmpty) return '?';
+  return String.fromCharCode(t.runes.first).toUpperCase();
+}
+
 DateTime? _ts(Object? v) {
   if (v is Timestamp) return v.toDate();
   if (v is DateTime) return v;
@@ -160,8 +168,7 @@ class UserProfile {
 
   bool get isTraining => activeSessionName != null;
 
-  String get initial =>
-      displayName.trim().isEmpty ? '?' : displayName.trim()[0].toUpperCase();
+  String get initial => initialOf(displayName);
 
   static UserProfile fromDoc(String uid, Map<String, dynamic>? m) {
     m ??= const {};

@@ -71,6 +71,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         _toast('Could not read that image.');
         return;
       }
+      if (!mounted) return;
       await ref.read(socialRepositoryProvider).setPhoto(Uint8List.fromList(bytes));
     } on Object catch (e) {
       _toast('Photo failed: $e');
@@ -253,6 +254,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   value: settings.shareNowPlaying,
                   onChanged: (v) async {
                     await controller.setShareNowPlaying(v);
+                    if (!mounted) return;
                     await ref.read(socialHooksProvider).publishNowPlaying();
                   },
                 ),
@@ -294,7 +296,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                           await NowPlayingService.requestAccess();
                         }
                         final v = await NowPlayingService.hasAccess();
-                        if (mounted) setState(() => _nowPlayingAccess = v);
+                        if (!mounted) return;
+                        setState(() => _nowPlayingAccess = v);
                         await ref.read(socialHooksProvider).publishNowPlaying();
                       },
                     ),

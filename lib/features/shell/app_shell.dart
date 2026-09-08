@@ -303,14 +303,18 @@ class _NavBar extends StatelessWidget {
           children: [
             icon,
             const SizedBox(height: 3),
-            Text(
-              tab.label,
-              maxLines: 1,
-              overflow: TextOverflow.clip,
-              style: AppText.display(
-                size: 12,
-                letterSpacing: 0.4,
-                color: active ? AppColors.accent : AppColors.textTertiary,
+            // Six cells on a 360dp phone leave ~50px each: shrink the label
+            // under large text scales instead of clipping "Settings".
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                tab.label,
+                maxLines: 1,
+                style: AppText.display(
+                  size: 12,
+                  letterSpacing: 0.2,
+                  color: active ? AppColors.accent : AppColors.textTertiary,
+                ),
               ),
             ),
           ],

@@ -234,18 +234,24 @@ class PillToggle<T> extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? AppColors.accent : Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadii.chip),
         ),
-        child: Text(
-          labelOf(value),
-          style: AppText.display(
-            size: 15,
-            color: active ? AppColors.textPrimary : AppColors.textSecondary,
-            letterSpacing: 0.4,
+        // Scale down rather than wrap: "Requests · 12" on a narrow phone
+        // must stay on one line or the whole toggle grows.
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            labelOf(value),
+            maxLines: 1,
+            style: AppText.display(
+              size: 15,
+              color: active ? AppColors.textPrimary : AppColors.textSecondary,
+              letterSpacing: 0.4,
+            ),
           ),
         ),
       ),

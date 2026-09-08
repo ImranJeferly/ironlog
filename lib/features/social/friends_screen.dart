@@ -159,9 +159,12 @@ class _ChatsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chats = ref.watch(chatsProvider).value ?? const [];
+    final async = ref.watch(chatsProvider);
+    final chats = async.value ?? const [];
     final me = ref.watch(socialRepositoryProvider).uid ?? '';
 
+    // Don't flash "no chats" while the first snapshot is still on its way.
+    if (async.isLoading && !async.hasValue) return const SizedBox.shrink();
     if (chats.isEmpty) {
       return const EmptyState(
         title: 'No chats yet',
@@ -303,8 +306,10 @@ class _FriendsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final friends = ref.watch(friendsProvider).value ?? const [];
+    final async = ref.watch(friendsProvider);
+    final friends = async.value ?? const [];
 
+    if (async.isLoading && !async.hasValue) return const SizedBox.shrink();
     if (friends.isEmpty) {
       return EmptyState(
         title: 'No friends yet',
@@ -415,10 +420,16 @@ class _RequestsList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final incoming = ref.watch(incomingRequestsProvider).value ?? const [];
-    final outgoing = ref.watch(outgoingRequestsProvider).value ?? const [];
+    final incomingAsync = ref.watch(incomingRequestsProvider);
+    final outgoingAsync = ref.watch(outgoingRequestsProvider);
+    final incoming = incomingAsync.value ?? const [];
+    final outgoing = outgoingAsync.value ?? const [];
     final repo = ref.read(socialRepositoryProvider);
 
+    final loading =
+        (incomingAsync.isLoading && !incomingAsync.hasValue) ||
+        (outgoingAsync.isLoading && !outgoingAsync.hasValue);
+    if (loading) return const SizedBox.shrink();
     if (incoming.isEmpty && outgoing.isEmpty) {
       return const EmptyState(
         title: 'No pending requests',
@@ -525,7 +536,7 @@ class _RequestRow extends ConsumerWidget {
           Row(
             children: [
               Avatar(
-                initial: name.isEmpty ? '?' : name[0].toUpperCase(),
+                initial: initialOf(name),
                 photo: profile?.photo,
                 size: 40,
               ),
@@ -712,18 +723,24 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
                           children: [
                             Text(
                               _found!.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.titleSmall,
                             ),
                             Text(
                               '@${_found!.handle} · '
                               '${_found!.stats.sessions} sessions',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall,
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
                       VoltButton(
-                        label: 'Send request',
+                        label: 'Add',
+                        icon: Icons.person_add_alt_1,
                         height: 40,
                         expanded: false,
                         onPressed: _busy ? null : _send,

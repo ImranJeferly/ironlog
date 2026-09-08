@@ -136,6 +136,9 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
     Haptics.tick();
     if (_playing) {
       await _player.pause();
+    } else if (_player.state == PlayerState.paused) {
+      // Keep the position — a fresh play() would restart the clip.
+      await _player.resume();
     } else {
       await _player.play(BytesSource(widget.bytes, mimeType: 'audio/mp4'));
     }
@@ -202,7 +205,9 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
               ),
               const SizedBox(height: 6),
               Text(
-                _playing ? Fmt.clock(_position) : Fmt.clock(total),
+                _playing || _position > Duration.zero
+                    ? Fmt.clock(_position)
+                    : Fmt.clock(total),
                 style: AppText.numeric(
                   size: 11,
                   letterSpacing: 0,
