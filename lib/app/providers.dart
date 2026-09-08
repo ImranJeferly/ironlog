@@ -95,6 +95,9 @@ class SettingsController extends Notifier<AppSettings> {
   Future<void> setRestSecondsPrimary(int seconds) =>
       _repo.setRestSecondsPrimary(seconds);
 
+  Future<void> setRestSecondsExercise(int seconds) =>
+      _repo.setRestSecondsExercise(seconds);
+
   Future<void> setHaptics(bool on) async {
     Haptics.enabled = on;
     await _repo.setHaptics(on);

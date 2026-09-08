@@ -386,13 +386,31 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     }
 
     final settings = ref.read(settingsProvider);
-    if (settings.restTimerEnabled && !completesExercise) {
-      ref
-          .read(restTimerProvider.notifier)
-          .start(
-            Duration(seconds: settings.restForRole(exercise.role)),
-            exerciseName: exercise.name,
-          );
+    if (settings.restTimerEnabled) {
+      if (!completesExercise) {
+        // Between sets of the same exercise.
+        ref
+            .read(restTimerProvider.notifier)
+            .start(
+              Duration(seconds: settings.restForRole(exercise.role)),
+              exerciseName: exercise.name,
+            );
+      } else {
+        // Exercise done — the longer between-exercise rest, but only when
+        // there is still something left to do after it.
+        final view = ref.read(sessionViewProvider(widget.sessionId)).value;
+        final remaining = view?.exercises.where(
+          (e) => !e.isComplete && e.link.id != exercise.link.id,
+        );
+        if (remaining != null && remaining.isNotEmpty) {
+          ref
+              .read(restTimerProvider.notifier)
+              .start(
+                Duration(seconds: settings.restSecondsExercise),
+                exerciseName: 'Next: ${remaining.first.name}',
+              );
+        }
+      }
     }
 
     if (logged.isPr && mounted) {
@@ -810,11 +828,25 @@ class _RestBar extends ConsumerWidget {
             color: done ? AppColors.accent : AppColors.textSecondary,
           ),
           const SizedBox(width: 10),
-          Text(
-            done ? 'Rest over — go' : Fmt.clock(state.remaining),
-            style: done
-                ? AppText.display(size: 17, color: AppColors.accent)
-                : AppText.numeric(size: 18, letterSpacing: 0),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                done ? 'Rest over — go' : Fmt.clock(state.remaining),
+                style: done
+                    ? AppText.display(size: 17, color: AppColors.accent)
+                    : AppText.numeric(size: 18, letterSpacing: 0),
+              ),
+              // The between-exercise rest says what's coming.
+              if (state.exerciseName?.startsWith('Next: ') ?? false)
+                Text(
+                  state.exerciseName!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall,
+                ),
+            ],
           ),
           const SizedBox(width: 12),
           Expanded(

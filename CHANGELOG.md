@@ -28,6 +28,9 @@ All notable changes to IronLog. Newest first.
   body-weight goal), Session (rest timer, haptics, reminders), Health
   Connect (link, step goal, manual sync), Sync & data (Firebase, CSV) and
   About (version, updates).
+- **Rest between exercises.** Logging an exercise's last set now starts a
+  separate, longer rest (default 5 min, Settings › Session) before the next
+  exercise, labelled with what's coming. Between-set rests are unchanged.
 
 ## Unreleased — training-quality overhaul
 

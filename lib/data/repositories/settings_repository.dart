@@ -8,6 +8,7 @@ class AppSettings {
     this.unit = WeightUnit.kg,
     this.restSeconds = 120,
     this.restSecondsPrimary = 180,
+    this.restSecondsExercise = 300,
     this.hapticsEnabled = true,
     this.restTimerEnabled = true,
     this.syncEnabled = true,
@@ -31,6 +32,10 @@ class AppSettings {
 
   /// Heavy primary compounds get a longer default rest.
   final int restSecondsPrimary;
+
+  /// Rest between exercises — started when an exercise's last set is logged
+  /// and there is another exercise still to do. Default 5 minutes.
+  final int restSecondsExercise;
   final bool hapticsEnabled;
   final bool restTimerEnabled;
   final bool syncEnabled;
@@ -68,6 +73,7 @@ class AppSettings {
     WeightUnit? unit,
     int? restSeconds,
     int? restSecondsPrimary,
+    int? restSecondsExercise,
     bool? hapticsEnabled,
     bool? restTimerEnabled,
     bool? syncEnabled,
@@ -87,6 +93,7 @@ class AppSettings {
       unit: unit ?? this.unit,
       restSeconds: restSeconds ?? this.restSeconds,
       restSecondsPrimary: restSecondsPrimary ?? this.restSecondsPrimary,
+      restSecondsExercise: restSecondsExercise ?? this.restSecondsExercise,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
       restTimerEnabled: restTimerEnabled ?? this.restTimerEnabled,
       syncEnabled: syncEnabled ?? this.syncEnabled,
@@ -110,6 +117,7 @@ abstract final class SettingKeys {
   static const unit = 'unit';
   static const restSeconds = 'rest_seconds';
   static const restSecondsPrimary = 'rest_seconds_primary';
+  static const restSecondsExercise = 'rest_seconds_exercise';
   static const haptics = 'haptics_enabled';
   static const restTimer = 'rest_timer_enabled';
   static const sync = 'sync_enabled';
@@ -148,6 +156,8 @@ class SettingsRepository {
       restSeconds: int.tryParse(map[SettingKeys.restSeconds] ?? '') ?? 120,
       restSecondsPrimary:
           int.tryParse(map[SettingKeys.restSecondsPrimary] ?? '') ?? 180,
+      restSecondsExercise:
+          int.tryParse(map[SettingKeys.restSecondsExercise] ?? '') ?? 300,
       hapticsEnabled: map[SettingKeys.haptics] != 'false',
       restTimerEnabled: map[SettingKeys.restTimer] != 'false',
       syncEnabled: map[SettingKeys.sync] != 'false',
@@ -228,6 +238,9 @@ class SettingsRepository {
 
   Future<void> setRestSecondsPrimary(int seconds) =>
       _db.setSetting(SettingKeys.restSecondsPrimary, '$seconds');
+
+  Future<void> setRestSecondsExercise(int seconds) =>
+      _db.setSetting(SettingKeys.restSecondsExercise, '$seconds');
 
   Future<void> setHaptics(bool on) =>
       _db.setSetting(SettingKeys.haptics, '$on');

@@ -166,8 +166,7 @@ abstract final class Notifications {
         await restFinished(exerciseName: exerciseName);
         return;
       }
-      final body =
-          exerciseName == null ? 'Next set — go.' : 'Next set: $exerciseName';
+      final body = _restBody(exerciseName);
       try {
         // Exact first: a rest timer that fires minutes late is useless.
         await _plugin.zonedSchedule(
@@ -197,13 +196,23 @@ abstract final class Notifications {
 
   /// Fires the alert immediately — used as the fallback when scheduling isn't
   /// available.
+  /// "Next set: X" between sets; the between-exercise rest passes
+  /// "Next: X" and reads "Next exercise: X".
+  static String _restBody(String? exerciseName) {
+    if (exerciseName == null) return 'Next set — go.';
+    if (exerciseName.startsWith('Next: ')) {
+      return 'Next exercise: ${exerciseName.substring(6)}';
+    }
+    return 'Next set: $exerciseName';
+  }
+
   static Future<void> restFinished({String? exerciseName}) async {
     if (!_ready) await init();
     try {
       await _plugin.show(
         id: _restNotificationId,
         title: 'Rest over',
-        body: exerciseName == null ? 'Next set — go.' : 'Next set: $exerciseName',
+        body: _restBody(exerciseName),
         notificationDetails: _restDetails,
       );
     } on Object catch (e) {

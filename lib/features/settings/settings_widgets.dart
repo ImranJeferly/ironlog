@@ -112,29 +112,48 @@ class SettingsSwitchRow extends StatelessWidget {
   }
 }
 
-/// Seconds stepper (rest timer), ±15 s.
+/// Seconds stepper (rest timer).
 class SettingsStepperRow extends StatelessWidget {
   const SettingsStepperRow({
     super.key,
     required this.title,
     required this.value,
     required this.onChanged,
+    this.subtitle,
+    this.step = 15,
+    this.min = 30,
+    this.max = 600,
   });
 
   final String title;
+  final String? subtitle;
   final int value;
   final ValueChanged<int> onChanged;
+  final int step;
+  final int min;
+  final int max;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: theme.textTheme.titleSmall),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(subtitle!, style: theme.textTheme.bodySmall),
+              ],
+            ],
+          ),
+        ),
         IconPill(
           icon: Icons.remove,
           size: 34,
-          onTap: value <= 30 ? null : () => onChanged(value - 15),
+          onTap: value <= min ? null : () => onChanged(value - step),
         ),
         SizedBox(
           width: 64,
@@ -147,7 +166,7 @@ class SettingsStepperRow extends StatelessWidget {
         IconPill(
           icon: Icons.add,
           size: 34,
-          onTap: value >= 600 ? null : () => onChanged(value + 15),
+          onTap: value >= max ? null : () => onChanged(value + step),
         ),
       ],
     );
