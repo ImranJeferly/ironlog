@@ -277,6 +277,7 @@ void main() {
     ) async {
       await withScreen(tester, const SettingsScreen(), () async {
         expect(find.text('Guest'), findsOneWidget);
+        // The lower rows sit below the fold of the test viewport.
         for (final label in [
           'Training',
           'Session',
@@ -284,6 +285,11 @@ void main() {
           'Sync & data',
           'About',
         ]) {
+          await tester.scrollUntilVisible(
+            find.text(label),
+            200,
+            maxScrolls: 30,
+          );
           expect(find.text(label), findsOneWidget, reason: label);
         }
         // The detail no longer lives here.
