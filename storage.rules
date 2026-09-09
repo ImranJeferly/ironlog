@@ -44,6 +44,14 @@ service firebase.storage {
           && request.resource.contentType.matches('audio/.*');
     }
 
+    match /chats/{chatId}/images/{file} {
+      allow read: if isChatMember(chatId);
+      // Same deal for photos: members only, write once, 8 MiB ceiling.
+      allow create: if isChatMember(chatId)
+          && request.resource.size < 8 * 1024 * 1024
+          && request.resource.contentType.matches('image/.*');
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

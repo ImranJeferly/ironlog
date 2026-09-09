@@ -549,6 +549,17 @@ class SocialHooks {
   final Ref _ref;
   DateTime? _lastNowPlayingPush;
   String? _lastNowPlayingKey;
+  DateTime? _lastProfileTouch;
+  String? _lastStatsSignature;
+
+  /// PRs hit during the session in progress. Broadcast as one line when the
+  /// session is finished rather than one message (and one push) per PR.
+  final List<String> _sessionPrs = [];
+
+  /// How stale a profile's `lastSeenAt` is allowed to get before a resume
+  /// writes it again. Resume fires on every app switch, and the field is only
+  /// used for a "last seen" line.
+  static const _profileTouchEvery = Duration(minutes: 15);
 
   SocialRepository get _repo => _ref.read(socialRepositoryProvider);
 
@@ -558,7 +569,14 @@ class SocialHooks {
   Future<void> onResume() async {
     if (!_enabled) return;
     try {
-      await _repo.ensureProfile(email: _ref.read(authServiceProvider).email);
+      final now = DateTime.now();
+      final due =
+          _lastProfileTouch == null ||
+          now.difference(_lastProfileTouch!) > _profileTouchEvery;
+      if (due) {
+        _lastProfileTouch = now;
+        await _repo.ensureProfile(email: _ref.read(authServiceProvider).email);
+      }
       await publishStats();
       await publishNowPlaying();
       // Registers this device's FCM token; the Cloud Functions push to it.
@@ -569,8 +587,15 @@ class SocialHooks {
   }
 
   /// Sign-out: stop notifying for the old account on this phone.
-  Future<void> stopPush() => PushService.stop();
+  Future<void> stopPush() async {
+    _lastProfileTouch = null;
+    _lastStatsSignature = null;
+    _sessionPrs.clear();
+    await PushService.stop();
+  }
 
+  /// Publishes the profile stats, but only when a number actually moved —
+  /// resume fires on every app switch and these rarely change.
   Future<void> publishStats() async {
     if (!_enabled) return;
     try {
@@ -578,6 +603,9 @@ class SocialHooks {
         _ref.read(appDatabaseProvider),
         _ref.read(progressRepositoryProvider),
       );
+      final signature = stats.signature;
+      if (signature == _lastStatsSignature) return;
+      _lastStatsSignature = signature;
       await _repo.publishStats(stats);
     } on Object catch (e) {
       debugPrint('IronLog: publishStats failed ($e)');
@@ -616,36 +644,54 @@ class SocialHooks {
   bool get enabled => _enabled;
 
   Future<void> sessionStarted(String name) => _guard(() async {
+    _sessionPrs.clear();
     await _repo.setActiveSession(name);
     await _repo.broadcast('🏋️ Started $name');
   });
 
+  /// One message per session: the summary, with the session's PRs appended.
+  /// A three-PR session used to send four messages — and, now that pushes are
+  /// real, four notifications — to every friend.
   Future<void> sessionFinished(SessionRow session) => _guard(() async {
     await _repo.setActiveSession(null);
     final unit = _ref.read(unitProvider);
-    await _repo.broadcast(
+    final summary = StringBuffer(
       '✅ Finished ${session.templateName ?? 'a workout'} · '
       '${session.totalSets} sets · ${Fmt.tonnage(session.tonnageKg, unit)}',
     );
+    if (_sessionPrs.isNotEmpty) {
+      final count = _sessionPrs.length;
+      summary
+        ..write('\n⚡ $count new PR${count == 1 ? '' : 's'}: ')
+        ..write(_sessionPrs.join(' · '));
+    }
+    _sessionPrs.clear();
+    await _repo.broadcast(summary.toString());
     await publishStats();
   });
 
-  Future<void> sessionDiscarded() =>
-      _guard(() => _repo.setActiveSession(null));
+  Future<void> sessionDiscarded() => _guard(() async {
+    _sessionPrs.clear();
+    await _repo.setActiveSession(null);
+  });
 
-  Future<void> prHit({
+  /// Records a PR for the end-of-session broadcast. Deliberately local: the
+  /// celebration is immediate, the telling-your-friends part is batched.
+  void prHit({
     required String exerciseName,
     required PrType type,
     required double value,
     required int reps,
-  }) => _guard(() async {
+  }) {
+    if (!_enabled) return;
     final unit = _ref.read(unitProvider);
     final what = switch (type) {
       PrType.reps => '$reps reps',
       _ => Fmt.weight(value, unit),
     };
-    await _repo.broadcast('⚡ New ${type.label}: $exerciseName $what');
-  });
+    final line = '$exerciseName $what';
+    if (!_sessionPrs.contains(line)) _sessionPrs.add(line);
+  }
 
   /// The training flow must never stall on a social write — offline, rules
   /// rejection, whatever. Log and move on.

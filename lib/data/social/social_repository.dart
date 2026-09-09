@@ -324,6 +324,8 @@ class SocialRepository {
             uid: d.id,
             since: (d.data()['since'] as Timestamp?)?.toDate() ?? DateTime.now(),
             chatId: d.data()['chatId'] as String? ?? chatIdFor(me, d.id),
+            muted: d.data()['muted'] == true,
+            mutedBroadcasts: d.data()['mutedBroadcasts'] == true,
           ),
       ],
     );
@@ -408,11 +410,15 @@ class SocialRepository {
 
   Future<void> cancelRequest(String requestId) => _requests.doc(requestId).delete();
 
-  Future<void> declineRequest(String requestId) => _requests
-      .doc(requestId)
-      .set({'status': FriendRequestStatus.declined.name}, SetOptions(merge: true));
+  /// Declining deletes the row rather than parking it as `declined`: the
+  /// sender is not told (deliberately), their outgoing list drops it either
+  /// way, and nothing accumulates in the collection forever.
+  Future<void> declineRequest(String requestId) =>
+      _requests.doc(requestId).delete();
 
   /// Accepts: marks the request, writes both friend rows and creates the chat.
+  /// The `accepted` row is what triggers the "you're friends now" push; the
+  /// Cloud Function deletes it once that's sent.
   Future<void> acceptRequest(String requestId) async {
     final me = uid;
     if (me == null) return;
@@ -458,6 +464,74 @@ class SocialRepository {
     batch.delete(_requests.doc(requestIdFor(from: me, to: other)));
     batch.delete(_requests.doc(requestIdFor(from: other, to: me)));
     await batch.commit();
+  }
+
+  /// Mute settings live on my own friend row, so they're private to me and
+  /// the push function reads them before sending.
+  Future<void> setMuted(
+    String other, {
+    bool? muted,
+    bool? mutedBroadcasts,
+  }) async {
+    final me = uid;
+    if (me == null) return;
+    await _users.doc(me).collection('friends').doc(other).set({
+      if (muted != null) 'muted': muted,
+      if (mutedBroadcasts != null) 'mutedBroadcasts': mutedBroadcasts,
+    }, SetOptions(merge: true));
+  }
+
+  // --------------------------------------------------------- block & report
+
+  /// Blocked users can't message me or send me a request (enforced in the
+  /// security rules), and the friendship is torn down on the way.
+  Future<void> block(String other) async {
+    final me = uid;
+    if (me == null) return;
+    await removeFriend(other);
+    await _users.doc(me).collection('blocked').doc(other).set({
+      'at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> unblock(String other) async {
+    final me = uid;
+    if (me == null) return;
+    await _users.doc(me).collection('blocked').doc(other).delete();
+  }
+
+  Stream<Set<String>> watchBlocked() {
+    final me = uid;
+    if (me == null) return Stream.value(const {});
+    return _users
+        .doc(me)
+        .collection('blocked')
+        .snapshots()
+        .map((s) => {for (final d in s.docs) d.id});
+  }
+
+  Future<bool> isBlocked(String other) async {
+    final me = uid;
+    if (me == null) return false;
+    return (await _users.doc(me).collection('blocked').doc(other).get()).exists;
+  }
+
+  /// Write-only from the app: reports land in `reports/` for review in the
+  /// console. Nobody can read them back through the client.
+  Future<void> report(
+    String other, {
+    required String reason,
+    String? chatId,
+  }) async {
+    final me = uid;
+    if (me == null) return;
+    await _db.collection('reports').add({
+      'reporter': me,
+      'target': other,
+      'reason': reason,
+      if (chatId != null) 'chatId': chatId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 
   // ---------------------------------------------------------------- chats
@@ -536,6 +610,52 @@ class SocialRepository {
         debugPrint('IronLog: message write failed ($e)');
       }),
     );
+  }
+
+  /// Refreshes my "typing" stamp on the chat. Throttled by the caller —
+  /// this is a write, so it goes out every few seconds at most, never per
+  /// keystroke. Pass [typing] false to clear it on send or on leaving.
+  Future<void> setTyping(String chatId, {required bool typing}) async {
+    final me = uid;
+    if (me == null) return;
+    try {
+      await _chats.doc(chatId).update({
+        'typing.$me': typing ? FieldValue.serverTimestamp() : FieldValue.delete(),
+      });
+    } on Object {
+      // A typing hint is never worth surfacing or retrying.
+    }
+  }
+
+  /// Sets or clears my reaction on a message. Re-sending the same emoji
+  /// clears it, which is what tapping the active one does.
+  Future<void> react(String chatId, String messageId, String? emoji) async {
+    final me = uid;
+    if (me == null) return;
+    try {
+      await _chats.doc(chatId).collection('messages').doc(messageId).update({
+        'reactions.$me': emoji == null ? FieldValue.delete() : emoji,
+      });
+    } on Object catch (e) {
+      debugPrint('IronLog: react failed ($e)');
+    }
+  }
+
+  /// Deletes my own message for everyone. [newPreview] refreshes the chat
+  /// list row when the deleted message was the most recent one.
+  Future<void> deleteMessage(
+    String chatId,
+    String messageId, {
+    String? newPreview,
+  }) async {
+    final me = uid;
+    if (me == null) return;
+    final batch = _db.batch();
+    batch.delete(_chats.doc(chatId).collection('messages').doc(messageId));
+    if (newPreview != null) {
+      batch.update(_chats.doc(chatId), {'lastText': newPreview});
+    }
+    await batch.commit();
   }
 
   /// Nudges a stalled connection: Firestore's stream can sit in back-off
@@ -620,6 +740,71 @@ class SocialRepository {
       preview: '🎤 Voice message (${(durationMs / 1000).round()} s)',
     );
     return null;
+  }
+
+  /// Uploads a JPEG to `chats/{chatId}/images/{messageId}.jpg` and posts it.
+  /// Returns null on success or a human-readable reason.
+  Future<String?> sendImage(
+    String chatId,
+    Uint8List jpeg, {
+    required int width,
+    required int height,
+    ReplyRef? replyTo,
+  }) async {
+    final me = uid;
+    if (me == null) return 'Sign in first.';
+    if (jpeg.length > 8 * 1024 * 1024) return 'That photo is too big to send.';
+    final messageRef = _chats.doc(chatId).collection('messages').doc();
+    final file = _files.ref('chats/$chatId/images/${messageRef.id}.jpg');
+    String url;
+    try {
+      await file.putData(jpeg, SettableMetadata(contentType: 'image/jpeg'));
+      url = await file.getDownloadURL();
+    } on FirebaseException catch (e) {
+      debugPrint('IronLog: image upload failed (${e.code})');
+      return switch (e.code) {
+        'unauthorized' || 'permission-denied' => 'That upload was rejected.',
+        _ => 'No connection — photos need one to send.',
+      };
+    } on Object catch (e) {
+      debugPrint('IronLog: image upload failed ($e)');
+      return 'No connection — photos need one to send.';
+    }
+    _post(
+      chatId,
+      me: me,
+      messageRef: messageRef,
+      message: {
+        'from': me,
+        'kind': MessageKind.image.name,
+        'imageUrl': url,
+        'imageW': width,
+        'imageH': height,
+        'replyTo': replyTo?.toMap(),
+        'sentAt': FieldValue.serverTimestamp(),
+      },
+      preview: '📷 Photo',
+    );
+    return null;
+  }
+
+  /// "Where are you?" — a one-tap system line into a friend's chat, which
+  /// reaches them as a push like any other message.
+  Future<void> nudge(String chatId, {required String myName}) async {
+    final me = uid;
+    if (me == null) return;
+    _post(
+      chatId,
+      me: me,
+      message: {
+        'from': me,
+        'kind': MessageKind.system.name,
+        'text': '👊 $myName nudged you — get to the gym.',
+        'nudge': true,
+        'sentAt': FieldValue.serverTimestamp(),
+      },
+      preview: '👊 Nudge',
+    );
   }
 
   /// Receiver-side: mark everything from the other person as delivered.

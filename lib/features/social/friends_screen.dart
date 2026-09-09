@@ -457,6 +457,16 @@ class _FriendRow extends ConsumerWidget {
               ],
             ),
           ),
+          if (friend.muted || friend.mutedBroadcasts) ...[
+            Icon(
+              friend.muted
+                  ? Icons.notifications_off_outlined
+                  : Icons.campaign_outlined,
+              size: 16,
+              color: AppColors.textTertiary,
+            ),
+            const SizedBox(width: 6),
+          ],
           IconPill(
             icon: Icons.chat_bubble_outline,
             size: 36,
@@ -468,8 +478,200 @@ class _FriendRow extends ConsumerWidget {
               friendUid: friend.uid,
             ),
           ),
+          const SizedBox(width: 2),
+          IconPill(
+            icon: Icons.more_vert,
+            size: 36,
+            tooltip: 'More',
+            onTap: () => showFriendActions(
+              context,
+              ref,
+              uid: friend.uid,
+              name: profile?.displayName ?? 'Friend',
+              friend: friend,
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// Mute · block · report, shared by the friends list and the profile screen.
+Future<void> showFriendActions(
+  BuildContext context,
+  WidgetRef ref, {
+  required String uid,
+  required String name,
+  Friend? friend,
+  String? chatId,
+}) {
+  final repo = ref.read(socialRepositoryProvider);
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.card,
+    builder: (sheet) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: AppSpacing.sm),
+          if (friend != null) ...[
+            SwitchListTile(
+              value: friend.mutedBroadcasts,
+              activeThumbColor: AppColors.accent,
+              secondary: const Icon(
+                Icons.campaign_outlined,
+                color: AppColors.textPrimary,
+              ),
+              title: const Text('Mute their workout posts'),
+              subtitle: const Text(
+                'No alerts for their sessions and PRs. Messages still come '
+                'through.',
+              ),
+              onChanged: (v) {
+                Navigator.of(sheet).pop();
+                repo.setMuted(uid, mutedBroadcasts: v);
+              },
+            ),
+            SwitchListTile(
+              value: friend.muted,
+              activeThumbColor: AppColors.accent,
+              secondary: const Icon(
+                Icons.notifications_off_outlined,
+                color: AppColors.textPrimary,
+              ),
+              title: const Text('Mute everything'),
+              subtitle: const Text(
+                'No notifications at all. The messages still arrive in the '
+                'chat.',
+              ),
+              onChanged: (v) {
+                Navigator.of(sheet).pop();
+                repo.setMuted(uid, muted: v);
+              },
+            ),
+            const Divider(height: 1),
+          ],
+          ListTile(
+            leading: const Icon(Icons.flag_outlined, color: AppColors.ember),
+            title: const Text('Report'),
+            onTap: () async {
+              Navigator.of(sheet).pop();
+              await _reportDialog(context, ref, uid: uid, name: name, chatId: chatId);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.block, color: AppColors.danger),
+            title: Text(
+              'Block $name',
+              style: const TextStyle(color: AppColors.danger),
+            ),
+            subtitle: const Text(
+              'Removes the friendship. They can\'t message you or send a '
+              'new request.',
+            ),
+            onTap: () async {
+              Navigator.of(sheet).pop();
+              await _confirmBlock(context, ref, uid: uid, name: name);
+            },
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _confirmBlock(
+  BuildContext context,
+  WidgetRef ref, {
+  required String uid,
+  required String name,
+}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Block $name?'),
+      content: Text(
+        'You stop being friends, and they can\'t message you or send you a '
+        'request until you unblock them. They aren\'t told.',
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text(
+            'Block',
+            style: TextStyle(
+              color: AppColors.danger,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+  if (ok != true) return;
+  await ref.read(socialRepositoryProvider).block(uid);
+  if (context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$name blocked.')));
+  }
+}
+
+Future<void> _reportDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  required String uid,
+  required String name,
+  String? chatId,
+}) async {
+  const reasons = [
+    'Spam',
+    'Harassment or abuse',
+    'Inappropriate content',
+    'Impersonation',
+    'Something else',
+  ];
+  final reason = await showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: AppColors.card,
+    builder: (sheet) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Text(
+              'Report $name',
+              style: Theme.of(sheet).textTheme.titleMedium,
+            ),
+          ),
+          for (final r in reasons)
+            ListTile(
+              title: Text(r),
+              onTap: () => Navigator.of(sheet).pop(r),
+            ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+      ),
+    ),
+  );
+  if (reason == null) return;
+  await ref
+      .read(socialRepositoryProvider)
+      .report(uid, reason: reason, chatId: chatId);
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Reported. Thanks — we\'ll take a look.')),
     );
   }
 }

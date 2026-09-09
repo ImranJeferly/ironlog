@@ -113,6 +113,20 @@ class ProfileStats {
     'updatedAt': FieldValue.serverTimestamp(),
   };
 
+  /// Everything a friend can see, as one comparable string. Used to skip the
+  /// write when nothing actually moved — `toMap` can't be compared because
+  /// its `updatedAt` is a server sentinel that differs every call.
+  String get signature => [
+    sessions,
+    streak,
+    prs,
+    adherence4w.toStringAsFixed(3),
+    weeklySets,
+    lastWorkoutName ?? '',
+    lastWorkoutAt?.toIso8601String() ?? '',
+    for (final e in bestLifts.entries) '${e.key}=${e.value.toStringAsFixed(1)}',
+  ].join('|');
+
   static ProfileStats fromMap(Map<String, dynamic>? m) {
     if (m == null) return const ProfileStats();
     final lifts = <String, double>{};
@@ -236,11 +250,24 @@ class FriendRequest {
 }
 
 class Friend {
-  const Friend({required this.uid, required this.since, required this.chatId});
+  const Friend({
+    required this.uid,
+    required this.since,
+    required this.chatId,
+    this.muted = false,
+    this.mutedBroadcasts = false,
+  });
 
   final String uid;
   final DateTime since;
   final String chatId;
+
+  /// No pushes at all from this friend. The messages still arrive.
+  final bool muted;
+
+  /// No pushes for their session/PR broadcasts, but real messages still
+  /// come through — the setting most people actually want.
+  final bool mutedBroadcasts;
 }
 
 /// `chats/{chatId}` — the list row.
@@ -252,6 +279,7 @@ class ChatSummary {
     this.lastFrom,
     this.lastAt,
     this.unread = const {},
+    this.typing = const {},
   });
 
   final String id;
@@ -263,12 +291,30 @@ class ChatSummary {
   /// uid → unread count.
   final Map<String, int> unread;
 
+  /// uid → when they last touched the composer. Refreshed while typing and
+  /// cleared on send, so anything older than [typingWindow] is stale.
+  final Map<String, DateTime> typing;
+
+  /// How long a typing stamp counts for. Comfortably longer than the
+  /// client's refresh interval so the bubble doesn't flicker.
+  static const typingWindow = Duration(seconds: 8);
+
   String otherThan(String uid) => members.firstWhere(
     (m) => m != uid,
     orElse: () => members.isEmpty ? '' : members.first,
   );
 
   int unreadFor(String uid) => unread[uid] ?? 0;
+
+  /// True when somebody other than [uid] is typing right now.
+  bool someoneTypingOtherThan(String uid) {
+    final now = DateTime.now();
+    for (final e in typing.entries) {
+      if (e.key == uid) continue;
+      if (now.difference(e.value) < typingWindow) return true;
+    }
+    return false;
+  }
 
   static ChatSummary fromDoc(String id, Map<String, dynamic> m) {
     final unread = <String, int>{};
@@ -278,6 +324,14 @@ class ChatSummary {
         if (v is num) unread['$k'] = v.toInt();
       });
     }
+    final typing = <String, DateTime>{};
+    final rawTyping = m['typing'];
+    if (rawTyping is Map) {
+      rawTyping.forEach((k, v) {
+        final at = _ts(v);
+        if (at != null) typing['$k'] = at;
+      });
+    }
     return ChatSummary(
       id: id,
       members: [for (final x in (m['members'] as List? ?? const [])) '$x'],
@@ -285,11 +339,12 @@ class ChatSummary {
       lastFrom: m['lastFrom'] as String?,
       lastAt: _ts(m['lastAt']),
       unread: unread,
+      typing: typing,
     );
   }
 }
 
-enum MessageKind { text, voice, system }
+enum MessageKind { text, voice, image, system }
 
 /// WhatsApp-style delivery state, derived from timestamps on the message.
 enum MessageStatus { pending, sent, delivered, seen }
@@ -326,6 +381,10 @@ class ChatMessage {
     this.audioUrl,
     this.audio,
     this.audioMs = 0,
+    this.imageUrl,
+    this.imageW,
+    this.imageH,
+    this.reactions = const {},
     this.replyTo,
     this.sentAt,
     this.deliveredAt,
@@ -347,6 +406,16 @@ class ChatMessage {
   /// TODO(2026-12-01): drop once nobody is on build ≤29.
   final Uint8List? audio;
   final int audioMs;
+
+  /// Photo download URL in Storage (`chats/{chatId}/images/{messageId}.jpg`),
+  /// with its pixel size so the bubble reserves the right space before the
+  /// image loads.
+  final String? imageUrl;
+  final int? imageW;
+  final int? imageH;
+
+  /// uid → emoji. One reaction per person; re-tapping the same one clears it.
+  final Map<String, String> reactions;
   final ReplyRef? replyTo;
   final DateTime? sentAt;
   final DateTime? deliveredAt;
@@ -366,8 +435,18 @@ class ChatMessage {
   String get preview => switch (kind) {
     MessageKind.text => text ?? '',
     MessageKind.voice => '🎤 Voice message (${(audioMs / 1000).round()} s)',
+    MessageKind.image => '📷 Photo',
     MessageKind.system => text ?? '',
   };
+
+  /// Emoji → how many people reacted with it, in insertion order.
+  Map<String, int> get reactionCounts {
+    final counts = <String, int>{};
+    for (final emoji in reactions.values) {
+      counts[emoji] = (counts[emoji] ?? 0) + 1;
+    }
+    return counts;
+  }
 
   static ChatMessage fromDoc(
     String id,
@@ -386,6 +465,14 @@ class ChatMessage {
       audioUrl: m['audioUrl'] as String?,
       audio: audio is Blob ? audio.bytes : null,
       audioMs: (m['audioMs'] as num?)?.toInt() ?? 0,
+      imageUrl: m['imageUrl'] as String?,
+      imageW: (m['imageW'] as num?)?.toInt(),
+      imageH: (m['imageH'] as num?)?.toInt(),
+      reactions: {
+        for (final e in (m['reactions'] as Map? ?? const {}).entries)
+          if (e.value is String && (e.value as String).isNotEmpty)
+            '${e.key}': e.value as String,
+      },
       replyTo: ReplyRef.fromMap(m['replyTo'] as Map<String, dynamic>?),
       sentAt: _ts(m['sentAt']),
       deliveredAt: _ts(m['deliveredAt']),

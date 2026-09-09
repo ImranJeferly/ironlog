@@ -415,13 +415,12 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
 
     if (logged.isPr && mounted) {
       final pr = logged.headline!;
-      unawaited(
-        ref.read(socialHooksProvider).prHit(
-          exerciseName: exercise.name,
-          type: pr.type,
-          value: pr.value,
-          reps: pr.reps,
-        ),
+      // Recorded now, broadcast once with the session summary.
+      ref.read(socialHooksProvider).prHit(
+        exerciseName: exercise.name,
+        type: pr.type,
+        value: pr.value,
+        reps: pr.reps,
       );
       await PrCelebration.show(
         context,

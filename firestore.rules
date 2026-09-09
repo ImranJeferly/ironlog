@@ -33,6 +33,15 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
+    /// True when `them` has blocked me. The one place nested lookups are
+    /// worth it: a block has to hold even though the blocked person's own
+    /// client would happily write. One extra read per request/message send.
+    function blockedBy(them) {
+      return exists(
+        /databases/$(database)/documents/users/$(them)/blocked/$(me())
+      );
+    }
+
     // ---------------------------------------------------------------- users
     match /users/{uid} {
       // Profile: name, handle, photoUrl, stats, now-playing, active session.
@@ -40,9 +49,19 @@ service cloud.firestore {
       allow write: if isUser(uid);
 
       // Friend rows. Either side of the pair may write the row (the app
-      // writes both rows when a request is accepted, and both when removed).
+      // writes both rows when a request is accepted, and both when removed) —
+      // except the mute flags, which are mine alone to set on my own row.
       match /friends/{fid} {
-        allow read, write: if isUser(uid) || isUser(fid);
+        allow read: if isUser(uid) || isUser(fid);
+        allow create, delete: if isUser(uid) || isUser(fid);
+        allow update: if isUser(uid)
+            || (isUser(fid) && !changed().hasAny(['muted', 'mutedBroadcasts']));
+      }
+
+      // Who I've blocked. Private to me; the rules above read it with
+      // exists(), which is not subject to this.
+      match /blocked/{other} {
+        allow read, write: if isUser(uid);
       }
 
       // Everything else under a user is private: training data, metrics,
@@ -75,7 +94,8 @@ service cloud.firestore {
           && request.resource.data.from == me()
           && request.resource.data.to != me()
           && request.resource.data.status == 'pending'
-          && id == request.resource.data.from + '_' + request.resource.data.to;
+          && id == request.resource.data.from + '_' + request.resource.data.to
+          && !blockedBy(request.resource.data.to);
       allow update: if signedIn()
           && (resource.data.from == me() || resource.data.to == me())
           && !changed().hasAny(['from', 'to']);
@@ -103,18 +123,41 @@ service cloud.firestore {
         return signedIn() && me() in chatId.split('_');
       }
 
+      /// The other half of a 1:1 chat id.
+      function otherMember() {
+        return chatId.split('_')[0] == me()
+            ? chatId.split('_')[1]
+            : chatId.split('_')[0];
+      }
+
       match /messages/{messageId} {
         allow read: if isMember();
-        // You can only post as yourself, and only into a chat you're in.
-        allow create: if isMember() && request.resource.data.from == me();
-        // A sent message is immutable except for the receipts, which only
-        // the *recipient* stamps (delivered when it arrives, seen when read).
-        allow update: if isMember()
-            && resource.data.from != me()
-            && changed().hasOnly(['deliveredAt', 'seenAt']);
+        // You can only post as yourself, only into a chat you're in, and not
+        // to somebody who has blocked you.
+        allow create: if isMember()
+            && request.resource.data.from == me()
+            && !blockedBy(otherMember());
+        // A sent message is immutable except for two things: the receipts,
+        // which only the *recipient* stamps, and my own reaction key.
+        allow update: if isMember() && (
+          (resource.data.from != me()
+              && changed().hasOnly(['deliveredAt', 'seenAt']))
+          || (changed().hasOnly(['reactions'])
+              && request.resource.data.get('reactions', {})
+                  .diff(resource.data.get('reactions', {}))
+                  .affectedKeys().hasOnly([me()]))
+        );
         // Only the author can delete their own message.
         allow delete: if isMember() && resource.data.from == me();
       }
+    }
+
+    // -------------------------------------------------------------- reports
+    // Write-only: the app files a report, nobody reads it back through a
+    // client. Reviewed in the Firebase console.
+    match /reports/{reportId} {
+      allow create: if signedIn() && request.resource.data.reporter == me();
+      allow read, update, delete: if false;
     }
   }
 }

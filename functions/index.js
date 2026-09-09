@@ -52,6 +52,29 @@ async function tokensOf(uid) {
 }
 
 /**
+ * Whether `recipient` wants to be pushed about `sender`. Mute settings live
+ * on the recipient's own friend row: `muted` silences everything,
+ * `mutedBroadcasts` silences only the session/PR system lines.
+ */
+async function wantsPush(recipient, sender, kind) {
+  try {
+    const snap = await db
+      .collection('users')
+      .doc(recipient)
+      .collection('friends')
+      .doc(sender)
+      .get();
+    if (!snap.exists) return true; // Not friends (yet) — nothing muted.
+    if (snap.get('muted') === true) return false;
+    if (kind === 'system' && snap.get('mutedBroadcasts') === true) return false;
+    return true;
+  } catch (e) {
+    logger.warn('mute check failed', { recipient, sender, error: String(e) });
+    return true;
+  }
+}
+
+/**
  * Sends one notification to every device of [uid]. `data` values must be
  * strings (FCM requirement). Prunes tokens FCM reports as gone.
  */
@@ -140,15 +163,23 @@ exports.onMessageCreated = onDocumentCreated(
         body = 'Voice message (' + secs + ' s)';
         break;
       }
+      case 'image':
+        body = 'Photo';
+        break;
       case 'system':
       case 'text':
       default:
         body = typeof m.text === 'string' && m.text ? m.text : 'New message';
     }
+    const kind = m.kind || 'text';
 
     await Promise.all(
-      recipients.map((uid) =>
-        pushTo(uid, {
+      recipients.map(async (uid) => {
+        if (!(await wantsPush(uid, from, kind))) {
+          logger.debug('muted', { uid, from, kind });
+          return;
+        }
+        await pushTo(uid, {
           title: name,
           body,
           tag: chatId,
@@ -159,10 +190,10 @@ exports.onMessageCreated = onDocumentCreated(
             chatId,
             messageId,
             from,
-            kind: m.kind || 'text',
+            kind,
           },
-        }),
-      ),
+        });
+      }),
     );
   },
 );
@@ -203,7 +234,8 @@ exports.onFriendRequestWritten = onDocumentWritten(
       return;
     }
 
-    // pending → accepted: tell the sender.
+    // pending → accepted: tell the sender, then bin the row. Requests are
+    // transient; leaving them behind means the collection only ever grows.
     if (before && before.status !== 'accepted' && status === 'accepted') {
       const name = await displayNameOf(to);
       const chatId = [from, to].sort().join('_');
@@ -212,6 +244,12 @@ exports.onFriendRequestWritten = onDocumentWritten(
         body: name + ' accepted your request — say hi.',
         tag: 'accepted:' + requestId,
         data: { type: 'accepted', route: 'chat:' + chatId + ':' + to, chatId, from: to },
+      });
+      await event.data.after.ref.delete().catch((e) => {
+        logger.warn('could not clean up accepted request', {
+          requestId,
+          error: String(e),
+        });
       });
     }
   },

@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
@@ -55,7 +57,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Timer? _pendingTicker;
   bool _kicking = false;
 
+  /// Last time we told the other side we're typing. A write, so it goes out
+  /// at most once per [_typingEvery] while the composer has text in it.
+  DateTime? _typingSentAt;
+  Timer? _typingExpiry;
+
   static const _stuckAfter = Duration(seconds: 8);
+  static const _typingEvery = Duration(seconds: 5);
 
   void _trackPending(List<ChatMessage>? messages, String? me) {
     final anyPending =
@@ -93,6 +101,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Notifications for this chat are redundant while it's on screen.
     PushService.setActiveChat(widget.chatId);
     PushService.dismissChat(widget.chatId);
+    _input.addListener(_onTyping);
   }
 
   @override
@@ -100,10 +109,55 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     PushService.setActiveChat(null);
     WidgetsBinding.instance.removeObserver(this);
     _pendingTicker?.cancel();
+    _typingExpiry?.cancel();
     _recTicker?.cancel();
     _recorder.dispose();
+    _input.removeListener(_onTyping);
     _input.dispose();
+    // Leaving the screen means I've stopped typing. Fire-and-forget: the
+    // stamp expires on its own anyway.
+    if (_typingSentAt != null) {
+      unawaited(
+        ref
+            .read(socialRepositoryProvider)
+            .setTyping(widget.chatId, typing: false),
+      );
+    }
     super.dispose();
+  }
+
+  /// Throttled "still typing" ping. Cleared as soon as the box is empty, and
+  /// re-armed to clear itself if the user just stops mid-word.
+  void _onTyping() {
+    final repo = ref.read(socialRepositoryProvider);
+    if (_input.text.trim().isEmpty) {
+      _typingExpiry?.cancel();
+      if (_typingSentAt != null) {
+        _typingSentAt = null;
+        unawaited(repo.setTyping(widget.chatId, typing: false));
+      }
+      return;
+    }
+    final now = DateTime.now();
+    if (_typingSentAt == null ||
+        now.difference(_typingSentAt!) > _typingEvery) {
+      _typingSentAt = now;
+      unawaited(repo.setTyping(widget.chatId, typing: true));
+    }
+    _typingExpiry?.cancel();
+    _typingExpiry = Timer(ChatSummary.typingWindow, () {
+      _typingSentAt = null;
+      unawaited(repo.setTyping(widget.chatId, typing: false));
+    });
+  }
+
+  void _stopTyping() {
+    _typingExpiry?.cancel();
+    if (_typingSentAt == null) return;
+    _typingSentAt = null;
+    unawaited(
+      ref.read(socialRepositoryProvider).setTyping(widget.chatId, typing: false),
+    );
   }
 
   @override
@@ -130,11 +184,109 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     setState(() => _sending = true);
     final reply = _reply;
     _input.clear();
+    _stopTyping();
     setState(() => _reply = null);
     await ref
         .read(socialRepositoryProvider)
         .sendText(widget.chatId, text, replyTo: reply);
     if (mounted) setState(() => _sending = false);
+  }
+
+  /// Camera or gallery → compressed JPEG → Storage → message.
+  Future<void> _sendImage({required bool fromCamera}) async {
+    if (_sending) return;
+    final reply = _reply;
+    setState(() {
+      _sending = true;
+      _reply = null;
+    });
+    try {
+      final file = await ref
+          .read(photoRepositoryProvider)
+          .pick(fromCamera: fromCamera);
+      if (file == null) return;
+      // 1600 px long edge is plenty for a phone screen and keeps the upload
+      // quick on gym wifi.
+      final bytes = await FlutterImageCompress.compressWithFile(
+        file.path,
+        minWidth: 1600,
+        minHeight: 1600,
+        quality: 78,
+        format: CompressFormat.jpeg,
+        keepExif: false,
+      );
+      if (bytes == null) {
+        _toast('Could not read that image.');
+        return;
+      }
+      final data = Uint8List.fromList(bytes);
+      final size = await decodeImageFromList(data);
+      final error = await ref
+          .read(socialRepositoryProvider)
+          .sendImage(
+            widget.chatId,
+            data,
+            width: size.width,
+            height: size.height,
+            replyTo: reply,
+          );
+      if (error != null) _toast(error);
+    } on Object catch (e) {
+      _toast('Photo failed: $e');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  void _pickImageSource() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.card,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: AppSpacing.sm),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_camera_outlined,
+                color: AppColors.textPrimary,
+              ),
+              title: const Text('Camera'),
+              onTap: () {
+                Navigator.of(sheet).pop();
+                _sendImage(fromCamera: true);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_library_outlined,
+                color: AppColors.textPrimary,
+              ),
+              title: const Text('Gallery'),
+              onTap: () {
+                Navigator.of(sheet).pop();
+                _sendImage(fromCamera: false);
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteMessage(ChatMessage m, List<ChatMessage> all) async {
+    // `all` is newest-first, so the replacement preview is the next one down.
+    final isLast = all.isNotEmpty && all.first.id == m.id;
+    final replacement = isLast && all.length > 1 ? all[1].preview : null;
+    await ref
+        .read(socialRepositoryProvider)
+        .deleteMessage(
+          widget.chatId,
+          m.id,
+          newPreview: isLast ? (replacement ?? 'Message deleted') : null,
+        );
   }
 
   Future<void> _toggleRecord() async {
@@ -148,7 +300,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         return;
       }
       final reply = _reply;
-      setState(() => _reply = null);
+      setState(() {
+        _reply = null;
+        _sending = true;
+      });
       final error = await ref
           .read(socialRepositoryProvider)
           .sendVoice(
@@ -157,6 +312,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             durationMs: clip.durationMs,
             replyTo: reply,
           );
+      if (mounted) setState(() => _sending = false);
       if (error != null) _toast(error);
       return;
     }
@@ -215,8 +371,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _trackPending(next.value, me);
     });
 
+    // "typing…" outranks everything else in the header — it's the most
+    // immediate thing the other person can be doing.
+    final chat = ref
+        .watch(chatsProvider)
+        .value
+        ?.where((c) => c.id == widget.chatId)
+        .firstOrNull;
+    final typing = chat?.someoneTypingOtherThan(me) ?? false;
+
     final np = friend?.nowPlaying;
-    final subtitle = friend == null
+    final subtitle = typing
+        ? 'typing…'
+        : friend == null
         ? ''
         : friend.isTraining
         ? 'Training now · ${friend.activeSessionName}'
@@ -259,7 +426,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: friend?.isTraining ?? false
+                          color: typing || (friend?.isTraining ?? false)
                               ? AppColors.accent
                               : AppColors.textSecondary,
                         ),
@@ -325,8 +492,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                             _Bubble(
                               message: m,
                               mine: m.from == me,
+                              me: me,
                               friendName: friend?.displayName ?? 'Friend',
                               onReply: () => _setReply(m),
+                              onReact: (emoji) => ref
+                                  .read(socialRepositoryProvider)
+                                  .react(widget.chatId, m.id, emoji),
+                              onDelete: m.from == me
+                                  ? () => _deleteMessage(m, messages)
+                                  : null,
                             ),
                         ],
                       );
@@ -346,6 +520,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             sending: _sending,
             onSend: _sendText,
             onMic: _toggleRecord,
+            onPhoto: _pickImageSource,
             onCancelRecord: _cancelRecord,
             onClearReply: () => setState(() => _reply = null),
           ),
@@ -479,14 +654,27 @@ class _Bubble extends StatelessWidget {
   const _Bubble({
     required this.message,
     required this.mine,
+    required this.me,
     required this.friendName,
     required this.onReply,
+    required this.onReact,
+    this.onDelete,
   });
+
+  /// The reactions offered in the long-press menu.
+  static const reactionChoices = ['💪', '🔥', '👍', '😂', '😮', '👀'];
 
   final ChatMessage message;
   final bool mine;
+  final String me;
   final String friendName;
   final VoidCallback onReply;
+
+  /// Null clears my reaction.
+  final void Function(String? emoji) onReact;
+
+  /// Null when the message isn't mine to delete.
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -549,6 +737,9 @@ class _Bubble extends StatelessWidget {
                 durationMs: message.audioMs,
                 mine: mine,
               )
+            else if (message.kind == MessageKind.image &&
+                message.imageUrl != null)
+              _ChatImage(message: message)
             else
               Text(
                 message.text ?? '',
@@ -580,6 +771,51 @@ class _Bubble extends StatelessWidget {
       ),
     );
 
+    final reactions = message.reactionCounts;
+    final bubbleWithReactions = reactions.isEmpty
+        ? body
+        : Column(
+            crossAxisAlignment: mine
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            children: [
+              body,
+              Transform.translate(
+                offset: const Offset(0, -6),
+                child: Wrap(
+                  spacing: 4,
+                  children: [
+                    for (final e in reactions.entries)
+                      GestureDetector(
+                        onTap: () => onReact(
+                          message.reactions[me] == e.key ? null : e.key,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: message.reactions[me] == e.key
+                                  ? AppColors.accent
+                                  : AppColors.border,
+                            ),
+                          ),
+                          child: Text(
+                            e.value > 1 ? '${e.key} ${e.value}' : e.key,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          );
+
     // Swipe toward the centre to reply, like the chat apps people know.
     return Dismissible(
       key: ValueKey('swipe-${message.id}'),
@@ -603,7 +839,7 @@ class _Bubble extends StatelessWidget {
       ),
       child: Align(
         alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-        child: body,
+        child: bubbleWithReactions,
       ),
     );
   }
@@ -617,7 +853,39 @@ class _Bubble extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const SizedBox(height: AppSpacing.md),
+            // The reaction row sits above the actions — it's the one people
+            // reach for most.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                for (final emoji in reactionChoices)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(sheet).pop();
+                      Haptics.tick();
+                      onReact(message.reactions[me] == emoji ? null : emoji);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: message.reactions[me] == emoji
+                            ? AppColors.voltDim
+                            : Colors.transparent,
+                        border: Border.all(
+                          color: message.reactions[me] == emoji
+                              ? AppColors.accent
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: AppSpacing.sm),
+            const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.reply, color: AppColors.textPrimary),
               title: const Text('Reply'),
@@ -633,6 +901,21 @@ class _Bubble extends StatelessWidget {
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: message.text ?? ''));
                   Navigator.of(sheet).pop();
+                },
+              ),
+            if (onDelete != null)
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: AppColors.danger,
+                ),
+                title: const Text(
+                  'Delete for everyone',
+                  style: TextStyle(color: AppColors.danger),
+                ),
+                onTap: () {
+                  Navigator.of(sheet).pop();
+                  onDelete!();
                 },
               ),
             ListTile(
@@ -683,6 +966,80 @@ class _Ticks extends StatelessWidget {
   }
 }
 
+/// A photo in a bubble. Sized from the stored dimensions so the list doesn't
+/// jump when the image finishes loading, and tappable for a full-screen look.
+class _ChatImage extends StatelessWidget {
+  const _ChatImage({required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = message.imageW ?? 4;
+    final h = message.imageH ?? 3;
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => _ImageViewer(url: message.imageUrl!),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 320),
+          child: AspectRatio(
+            aspectRatio: w / h,
+            child: Image.network(
+              message.imageUrl!,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              loadingBuilder: (context, child, progress) => progress == null
+                  ? child
+                  : Container(
+                      color: AppColors.card,
+                      alignment: Alignment.center,
+                      child: const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+              errorBuilder: (_, _, _) => Container(
+                color: AppColors.card,
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.broken_image_outlined,
+                  color: AppColors.textTertiary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageViewer extends StatelessWidget {
+  const _ImageViewer({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(backgroundColor: Colors.black),
+      body: Center(
+        child: InteractiveViewer(
+          maxScale: 5,
+          child: Image.network(url, fit: BoxFit.contain),
+        ),
+      ),
+    );
+  }
+}
+
 class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
@@ -693,6 +1050,7 @@ class _Composer extends StatelessWidget {
     required this.sending,
     required this.onSend,
     required this.onMic,
+    required this.onPhoto,
     required this.onCancelRecord,
     required this.onClearReply,
   });
@@ -705,6 +1063,7 @@ class _Composer extends StatelessWidget {
   final bool sending;
   final VoidCallback onSend;
   final VoidCallback onMic;
+  final VoidCallback onPhoto;
   final VoidCallback onCancelRecord;
   final VoidCallback onClearReply;
 
@@ -804,7 +1163,14 @@ class _Composer extends StatelessWidget {
                       ),
                     ),
                   ),
-                ] else
+                ] else ...[
+                  IconPill(
+                    icon: Icons.add_photo_alternate_outlined,
+                    size: 44,
+                    tooltip: 'Send a photo',
+                    onTap: sending ? null : onPhoto,
+                  ),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: TextField(
                       controller: controller,
@@ -816,6 +1182,7 @@ class _Composer extends StatelessWidget {
                       onSubmitted: (_) => onSend(),
                     ),
                   ),
+                ],
                 const SizedBox(width: 8),
                 ValueListenableBuilder<TextEditingValue>(
                   valueListenable: controller,

@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/date_x.dart';
 import '../../core/utils/format.dart';
+import '../../core/utils/haptics.dart';
 import '../../data/social/social_models.dart';
 import '../../data/social/social_repository.dart'
     show SendOutcome, describeSocialError;
@@ -14,6 +15,7 @@ import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
 import 'avatar.dart';
 import 'chat_screen.dart';
+import 'friends_screen.dart' show showFriendActions;
 
 /// A friend's profile: photo, what they're doing right now, their headline
 /// stats, and a side-by-side compare with yours.
@@ -169,11 +171,32 @@ class FriendProfileScreen extends ConsumerWidget {
               if (friend != null) ...[
                 const SizedBox(width: AppSpacing.sm),
                 IconPill(
+                  icon: Icons.back_hand_outlined,
+                  size: 48,
+                  tooltip: 'Nudge',
+                  onTap: () => _nudge(context, ref, friend),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                IconPill(
                   icon: Icons.person_remove_outlined,
                   size: 48,
                   color: AppColors.danger,
                   tooltip: 'Remove friend',
                   onTap: () => _confirmRemove(context, ref, profile),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                IconPill(
+                  icon: Icons.more_vert,
+                  size: 48,
+                  tooltip: 'Mute, block or report',
+                  onTap: () => showFriendActions(
+                    context,
+                    ref,
+                    uid: uid,
+                    name: profile.displayName,
+                    friend: friend,
+                    chatId: friend.chatId,
+                  ),
                 ),
               ],
             ],
@@ -259,6 +282,23 @@ class FriendProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// "Where are you?" in one tap — lands as a push like any other message.
+  Future<void> _nudge(
+    BuildContext context,
+    WidgetRef ref,
+    Friend friend,
+  ) async {
+    final me = ref.read(myProfileProvider).value;
+    await ref
+        .read(socialRepositoryProvider)
+        .nudge(friend.chatId, myName: me?.displayName ?? 'Someone');
+    if (!context.mounted) return;
+    Haptics.impact();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Nudged 👊')));
   }
 
   Future<void> _confirmRemove(

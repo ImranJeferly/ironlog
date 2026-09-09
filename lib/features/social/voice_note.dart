@@ -112,6 +112,14 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
   StreamSubscription<Duration>? _posSub;
   bool _playing = false;
   Duration _position = Duration.zero;
+  bool _scrubbing = false;
+
+  /// Cycled by the speed pill. 1× is where everyone starts; 1.5× and 2× are
+  /// for the friend who sends ninety-second voice notes.
+  static const _rates = [1.0, 1.5, 2.0];
+  int _rateIndex = 0;
+
+  double get _rate => _rates[_rateIndex];
 
   @override
   void initState() {
@@ -124,8 +132,30 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
       });
     });
     _posSub = _player.onPositionChanged.listen((d) {
-      if (mounted) setState(() => _position = d);
+      // Ignore position callbacks mid-drag or the thumb fights the finger.
+      if (mounted && !_scrubbing) setState(() => _position = d);
     });
+  }
+
+  Future<void> _cycleRate() async {
+    Haptics.tick();
+    setState(() => _rateIndex = (_rateIndex + 1) % _rates.length);
+    try {
+      await _player.setPlaybackRate(_rate);
+    } on Object {
+      // Rate changes are best-effort; playback continues at 1×.
+    }
+  }
+
+  Future<void> _seek(double fraction) async {
+    final total = Duration(milliseconds: widget.durationMs);
+    final to = total * fraction.clamp(0.0, 1.0);
+    setState(() => _position = to);
+    try {
+      await _player.seek(to);
+    } on Object {
+      // Nothing loaded yet — the next play() starts from the top.
+    }
   }
 
   @override
@@ -145,8 +175,10 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
       await _player.resume();
     } else if (widget.url != null) {
       await _player.play(UrlSource(widget.url!, mimeType: 'audio/mp4'));
+      await _player.setPlaybackRate(_rate);
     } else {
       await _player.play(BytesSource(widget.bytes!, mimeType: 'audio/mp4'));
+      await _player.setPlaybackRate(_rate);
     }
   }
 
@@ -187,40 +219,92 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                height: 6,
-                child: LayoutBuilder(
-                  builder: (context, c) => Stack(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: track,
-                          borderRadius: BorderRadius.circular(999),
+              // Draggable: a 90-second note is unusable without a scrubber.
+              LayoutBuilder(
+                builder: (context, c) => GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: (_) => setState(() => _scrubbing = true),
+                  onHorizontalDragUpdate: (d) {
+                    final f = (d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0);
+                    setState(() => _position = total * f);
+                  },
+                  onHorizontalDragEnd: (_) async {
+                    final f = total.inMilliseconds == 0
+                        ? 0.0
+                        : _position.inMilliseconds / total.inMilliseconds;
+                    setState(() => _scrubbing = false);
+                    await _seek(f);
+                  },
+                  onTapUp: (d) =>
+                      _seek((d.localPosition.dx / c.maxWidth).clamp(0.0, 1.0)),
+                  child: SizedBox(
+                    height: 16,
+                    child: Center(
+                      child: SizedBox(
+                        height: 6,
+                        child: Stack(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: track,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                            Container(
+                              width: c.maxWidth * progress,
+                              decoration: BoxDecoration(
+                                color: fg,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Container(
-                        width: c.maxWidth * progress,
-                        decoration: BoxDecoration(
-                          color: fg,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                _playing || _position > Duration.zero
-                    ? Fmt.clock(_position)
-                    : Fmt.clock(total),
-                style: AppText.numeric(
-                  size: 11,
-                  letterSpacing: 0,
-                  color: widget.mine
-                      ? AppColors.textPrimary.withValues(alpha: 0.85)
-                      : AppColors.textSecondary,
-                ),
+              Row(
+                children: [
+                  Text(
+                    _playing || _position > Duration.zero
+                        ? Fmt.clock(_position)
+                        : Fmt.clock(total),
+                    style: AppText.numeric(
+                      size: 11,
+                      letterSpacing: 0,
+                      color: widget.mine
+                          ? AppColors.textPrimary.withValues(alpha: 0.85)
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _cycleRate,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: track),
+                      ),
+                      child: Text(
+                        _rate == 1.0
+                            ? '1×'
+                            : '${_rate.toStringAsFixed(1)}×',
+                        style: AppText.numeric(
+                          size: 10,
+                          letterSpacing: 0,
+                          color: widget.mine
+                              ? AppColors.textPrimary
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
