@@ -11,7 +11,6 @@ import '../../core/push.dart';
 import '../../core/utils/haptics.dart';
 import '../history/history_screen.dart';
 import '../home/home_screen.dart';
-import '../photos/photos_screen.dart';
 import '../progress/progress_screen.dart';
 import '../settings/settings_screen.dart';
 import '../social/chat_screen.dart';
@@ -36,7 +35,6 @@ class _AppShellState extends ConsumerState<AppShell>
     _TabSpec('Progress', Icons.show_chart_outlined, Icons.show_chart),
     _TabSpec('History', Icons.calendar_today_outlined, Icons.calendar_today),
     _TabSpec('Friends', Icons.chat_bubble_outline, Icons.chat_bubble),
-    _TabSpec('Photos', Icons.photo_library_outlined, Icons.photo_library),
     _TabSpec('Settings', Icons.tune_outlined, Icons.tune),
   ];
 
@@ -167,7 +165,6 @@ class _AppShellState extends ConsumerState<AppShell>
           ProgressScreen(),
           HistoryScreen(),
           FriendsScreen(),
-          PhotosScreen(),
           SettingsScreen(),
         ],
       ),

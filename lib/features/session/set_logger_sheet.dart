@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
 import '../../core/utils/haptics.dart';
 import '../../domain/enums.dart';
+import '../../domain/plates.dart';
 import '../../domain/session_view.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/buttons.dart';
@@ -116,6 +117,28 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
 
   int get _repCount => _reps[_repIndex].round();
 
+  /// Barbell lifts only. Dumbbell, machine, cable and bodyweight work has no
+  /// bar to load, and a plate row there is just clutter.
+  static final _barbellRx = RegExp(
+    r'\b(barbell|bar|squat|deadlift|bench|row|press|curl|rdl|romanian|'
+    r'ez|hip thrust|lunge|clean|snatch)\b',
+    caseSensitive: false,
+  );
+  static final _notBarbellRx = RegExp(
+    r'\b(dumbbell|db|machine|cable|smith|pulldown|pushdown|fly|raise|'
+    r'extension|pull-?up|chin-?up|dip|leg press|hack|pec deck|rope|'
+    r'kettlebell|band|plate|body ?weight)\b',
+    caseSensitive: false,
+  );
+
+  bool get _showsPlates {
+    final e = widget.exercise.exercise;
+    if (e.isBodyweight) return false;
+    final name = e.name;
+    if (_notBarbellRx.hasMatch(name)) return false;
+    return _barbellRx.hasMatch(name);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -226,6 +249,10 @@ class _SetLoggerSheetState extends State<SetLoggerSheet> {
                   ),
                 ],
               ),
+
+              // What to actually hang on the bar. Only for barbell-ish work:
+              // it's noise on a machine or a dumbbell.
+              if (_showsPlates) _PlateStrip(totalKg: _weightKg, unit: widget.unit),
 
               // Nudge buttons for when scrolling is fiddly mid-set.
               Row(
@@ -453,6 +480,56 @@ class _RpeChip extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// "Per side: 20 + 10 + 2.5" — what to hang on the bar for the selected
+/// weight. Silent when the target isn't loadable with standard plates, which
+/// is itself the useful signal.
+class _PlateStrip extends StatelessWidget {
+  const _PlateStrip({required this.totalKg, required this.unit});
+
+  final double totalKg;
+  final WeightUnit unit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final load = Plates.forTotal(totalKg, unit: unit);
+    if (load == null) return const SizedBox(height: AppSpacing.sm);
+
+    final text = load.isBarOnly
+        ? 'Bar only (${Plates.describe(load)})'
+        : 'Per side: ${Plates.describe(load)}';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.fitness_center,
+            size: 13,
+            color: AppColors.textTertiary,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              load.isExact
+                  ? text
+                  : '$text · ${Fmt.weight(unit.toKg(load.leftoverKg), unit)} short',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: load.isExact
+                    ? AppColors.textSecondary
+                    : AppColors.warning,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

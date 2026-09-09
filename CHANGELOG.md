@@ -2,7 +2,66 @@
 
 All notable changes to IronLog. Newest first.
 
-## Unreleased — proper Firebase: Cloud Functions, FCM, Storage
+## Unreleased — the cleanup pass
+
+Everything from a full read of the app: what was dead, what was noisy,
+and the small features that were missing.
+
+**Gone**
+
+- **Anonymous auth.** The app already required a real account before it
+  synced or showed anything social, so the anonymous user only littered
+  the Auth list on every fresh install.
+- `cupertino_icons` (unused), `TODO.md` (stale), and error copy that
+  still blamed undeployed security rules.
+- **The sixth bottom tab.** Photos folded into Progress, next to Body,
+  where the other "how is my body changing" views already live.
+
+**Quieter**
+
+- **PRs no longer spam.** They're collected during the session and go out
+  with the finish summary as one message. A three-PR session with five
+  friends was 20 messages and 20 pushes; it's now 5.
+- Profile stats are only published when a number actually moved, and
+  `lastSeenAt` at most every 15 minutes rather than on every app resume.
+- Friend requests are deleted once answered instead of accumulating.
+
+**New — friends**
+
+- **Mute** a friend's workout posts, or everything. Checked server-side
+  before the push; muted messages still arrive silently in the chat.
+- **Block** (tears down the friendship, stops messages and requests at
+  the security rules) and **report**.
+- **Reactions** — one emoji per person per message.
+- **Photos in chat**, with a zoomable viewer.
+- **Delete for everyone**, for your own messages.
+- **Typing indicator**, throttled to one write per 5 seconds.
+- **Voice notes** get a scrubber and a 1×/1.5×/2× speed pill.
+- **Nudge** — one tap on a friend's profile.
+
+**New — training**
+
+- **Plate calculator** under the weight wheel on barbell lifts: what to
+  hang on each side, and how far short you are when it isn't loadable.
+- **Supersets.** Link an exercise to the one above it in the workout
+  editor; logging a set jumps to the partner instead of resting, and the
+  timer only runs once the round is done.
+- **Rest notification actions** — +30 s and Skip without opening the app.
+- **Body measurements** — chest, waist, hips, arm, thigh, neck, on the
+  Body tab, synced and exported.
+- **Repeat a workout** from any session in History.
+
+**New — your data**
+
+- **Progress photos back up to Storage** (`users/{uid}/photos/…`,
+  owner-only) and download onto a new phone. They were local-only because
+  Storage used to be off-limits; that reason is gone, and a lost phone
+  was the one thing local-only couldn't survive.
+- **Restore from CSV** in Sync & data, reading back what Export writes.
+  Existing days and sessions are left alone, so running it twice is safe
+  and a set naming an unknown exercise is skipped rather than invented.
+
+## Earlier — proper Firebase: Cloud Functions, FCM, Storage
 
 The free-tier workarounds are gone. The project now needs the **Blaze**
 plan (pay-as-you-go; the free allowances cover a handful of users many

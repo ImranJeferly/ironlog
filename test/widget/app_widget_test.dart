@@ -117,7 +117,7 @@ void main() {
     testWidgets('navigates between all five tabs', (tester) async {
       await completeFirstRun();
       await withScreen(tester, const AppShell(), () async {
-        for (final tab in ['Progress', 'History', 'Photos', 'Settings']) {
+        for (final tab in ['Progress', 'History', 'Friends', 'Settings']) {
           await tester.tap(find.text(tab));
           await tester.pump(const Duration(milliseconds: 400));
         }
@@ -243,13 +243,13 @@ void main() {
   });
 
   group('other screens', () {
-    testWidgets('progress renders its three tabs', (tester) async {
+    testWidgets('progress renders its four tabs', (tester) async {
       await withScreen(tester, const ProgressScreen(), () async {
         expect(find.text('Exercises'), findsOneWidget);
         expect(find.text('Muscles'), findsOneWidget);
         expect(find.text('Body'), findsOneWidget);
-        // Photos has its own bottom-nav tab — not duplicated here.
-        expect(find.text('Photos'), findsNothing);
+        // Photos folded in here so the bottom bar stays at five tabs.
+        expect(find.text('Photos'), findsOneWidget);
 
         for (final tab in ['Muscles', 'Body']) {
           await tester.tap(find.text(tab));

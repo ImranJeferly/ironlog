@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/brutal.dart';
+import '../photos/photos_screen.dart';
 import 'body_tab.dart';
 import 'exercises_tab.dart';
 import 'muscle_groups_tab.dart';
@@ -18,9 +19,9 @@ class ProgressScreen extends ConsumerStatefulWidget {
 class _ProgressScreenState extends ConsumerState<ProgressScreen> {
   int _tab = 0;
 
-  // Photos live on their own tab in the bottom bar — repeating them here
-  // just made the page structure confusing.
-  static const _labels = ['Exercises', 'Muscles', 'Body'];
+  // Photos belong with the other "how is my body changing" views, and folding
+  // them in here gets the bottom bar down from six tabs to five.
+  static const _labels = ['Exercises', 'Muscles', 'Body', 'Photos'];
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +67,7 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                 ExercisesTab(),
                 MuscleGroupsTab(),
                 BodyTab(),
+                PhotosScreen(embedded: true),
               ],
             ),
           ),

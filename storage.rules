@@ -26,6 +26,16 @@ service firebase.storage {
       return signedIn() && me() in chatId.split('_');
     }
 
+    // Progress photos: the owner's eyes only, ever. Backed up so they
+    // survive a lost phone, not shared with anyone.
+    match /users/{uid}/photos/{file} {
+      allow read, write: if signedIn()
+          && me() == uid
+          && (request.resource == null
+              || (request.resource.size < 12 * 1024 * 1024
+                  && request.resource.contentType.matches('image/.*')));
+    }
+
     match /profiles/{uid}/avatar.jpg {
       allow read: if signedIn();
       allow write: if signedIn()

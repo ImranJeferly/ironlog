@@ -54,11 +54,17 @@ I deviated from or extended the plan. Written for the person who owns this app.
 - **Incremental pull via a stored high-water mark.** After each pull the newest
   `updatedAt` seen is saved; the next pull only asks Firestore for documents strictly newer,
   keeping sync cheap.
-- **Progress photos never sync — local external storage only.** They're large, personal,
-  and the compare slider only needs them on the phone that took them, so they stay on the
-  device's app-scoped **external** storage (`getExternalStorageDirectory`, no runtime
-  permission). `SyncService` has no photo push/pull path and `RemoteStore` has no file
-  operations. (Profile avatars and voice notes *do* use Storage — see Firebase below.)
+- **Progress photos are local-first, backed up second.** The compressed file on the phone
+  is what every screen reads, so the timeline works with no network. The row syncs through
+  Firestore like everything else; the JPEG goes to `users/{uid}/photos/{id}.jpg` in
+  Storage afterwards, in `PhotoSync`, which is deliberately *not* awaited into the sync
+  status — a slow upload must not make sync look stuck. `localPath` is never sent: it's
+  this device's path, and the receiving device rebuilds its own.
+
+- **No anonymous auth.** The app requires a real account before it syncs or shows anything
+  social, so an anonymous user could never accumulate data worth linking — it only filled
+  the Auth user list with one row per fresh install. `FirebaseBootstrap.isAvailable` means
+  "a project is reachable"; `isSignedIn` is the gate.
 
 ## Firebase
 
@@ -87,8 +93,37 @@ I deviated from or extended the plan. Written for the person who owns this app.
   emit cache then server; writes queue on disk. The one deliberate deviation is
   `broadcast()`, which caps the server wait at 4 s because it runs mid-session.
 - **Messages are immutable; receipts are the recipient's.** Rules allow `update` on a
-  message only for `deliveredAt`/`seenAt`, only by the non-author. That's what makes the
-  ticks trustworthy.
+  message only for `deliveredAt`/`seenAt` by the non-author, or for the writer's own key
+  in the `reactions` map. That's what makes the ticks trustworthy.
+
+- **Blocking is enforced in the rules, not the UI.** `blockedBy()` does an `exists()` on
+  the other person's `blocked` subcollection before a message or request is allowed. It's
+  the one place the "no nested lookups" rule is broken on purpose: a block that only the
+  client honours isn't a block, and it costs one read per send.
+
+- **Mute is checked in the Cloud Function, not the rules.** Muting is about notifications,
+  not access — a muted friend's messages still arrive, they just don't buzz. The flags
+  live on the recipient's own friend row, so only they can set them.
+
+- **PR broadcasts are batched into the session summary.** One message per session instead
+  of one per PR. Before push notifications were real this was merely chatty; afterwards it
+  was a notification per PR per friend.
+
+## Training
+
+- **Plate maths runs in the display unit, not kilos.** Converting a kg-rounded result to
+  pounds invents 1.13 lb plates. `Plates.forTotal` converts first, then fits greedily
+  against the plates that gym actually stocks, and reports the shortfall when a target
+  isn't loadable — which is itself the useful answer.
+
+- **A superset is a shared group number on consecutive rows**, frozen onto the session at
+  build time so a past session shows how it was actually run. Logging a set jumps to the
+  partner that's behind; the rest timer only starts when the round is done.
+
+- **CSV import fills gaps, never overwrites.** A day or session already on the phone wins,
+  which makes running a restore twice harmless. A set naming an exercise this install
+  doesn't have is skipped rather than creating one, because a phantom exercise would
+  poison the progression engine's history.
 - **`RemoteStore` is a Firestore-only interface.** The whole push/pull/merge algorithm is
   tested against an in-memory fake (`test/data/sync_service_test.dart`) with no Firebase
   project required, including a test asserting photos are never pushed.

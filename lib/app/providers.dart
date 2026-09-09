@@ -12,6 +12,7 @@ import '../core/utils/stream_x.dart';
 import '../data/db/database.dart';
 import '../data/db/seed_data.dart';
 import '../data/export/csv_export.dart';
+import '../data/export/csv_import.dart';
 import '../data/health/health_service.dart';
 import '../data/repositories/metrics_repository.dart';
 import '../data/repositories/photo_repository.dart';
@@ -26,6 +27,7 @@ import '../core/notifications.dart';
 import '../core/now_playing.dart';
 import '../core/push.dart';
 import '../core/update/update_service.dart';
+import '../data/sync/photo_sync.dart';
 import '../data/sync/sync_service.dart';
 import '../domain/enums.dart';
 import '../domain/program.dart';
@@ -75,6 +77,16 @@ final syncServiceProvider = Provider<SyncService>(
     db: ref.watch(appDatabaseProvider),
     settings: ref.watch(settingsRepositoryProvider),
   ),
+);
+
+/// Progress-photo files to and from Firebase Storage. Separate from
+/// [syncServiceProvider] because it moves megabytes, not documents.
+final photoSyncProvider = Provider<PhotoSync>(
+  (ref) => PhotoSync(ref.watch(appDatabaseProvider)),
+);
+
+final csvImporterProvider = Provider<CsvImporter>(
+  (ref) => CsvImporter(ref.watch(appDatabaseProvider)),
 );
 
 // ------------------------------------------------------------------ settings
@@ -400,6 +412,14 @@ final recentMetricsProvider = StreamProvider<List<DailyMetricRow>>((ref) {
       .watchRange(today.subtract(const Duration(days: 6)), today);
 });
 
+/// Latest value + date for each tape measurement.
+final latestMeasurementsProvider =
+    FutureProvider<Map<BodyMeasurement, (double, DateTime)>>((ref) {
+      ref.watch(analyticsRevisionProvider);
+      ref.watch(todayMetricsProvider);
+      return ref.watch(metricsRepositoryProvider).latestMeasurements();
+    });
+
 // -------------------------------------------------------------------- photos
 
 final photosProvider = StreamProvider<List<PhotoRow>>(
@@ -469,6 +489,11 @@ class SyncController extends Notifier<SyncStatus> {
     } on Object catch (e) {
       state = state.copyWith(state: SyncState.failed, message: '$e');
     }
+    // Photo files go to Storage after the document round-trip, so a row
+    // pulled from another device already exists when its JPEG lands.
+    // Deliberately not awaited into the status: a slow upload must not make
+    // sync look stuck.
+    unawaited(ref.read(photoSyncProvider).sync());
   }
 
   Future<void> forceFullPush() async {

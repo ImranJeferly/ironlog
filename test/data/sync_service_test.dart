@@ -13,7 +13,7 @@ import 'package:gym/domain/enums.dart';
 
 import '../helpers/test_db.dart';
 
-/// In-memory stand-in for Firestore. There is no Storage — photos never sync.
+/// In-memory stand-in for Firestore.
 class FakeRemoteStore implements RemoteStore {
   final Map<String, Map<String, Map<String, dynamic>>> docs = {};
 
@@ -102,9 +102,7 @@ void main() {
       expect(doc['exerciseId'], 'incline-db-press');
     });
 
-    test('never pushes a photos collection (local-only, no Storage)', () async {
-      // Insert a photo row directly so it would be "unsynced" under the old
-      // design, and confirm sync leaves it entirely alone.
+    test('pushes the photo row but never its local path', () async {
       await db
           .into(db.photos)
           .insert(
@@ -118,8 +116,14 @@ void main() {
 
       await sync.sync();
 
-      expect(remote.docs.containsKey('photos'), isFalse);
-      // The photo does not count as pending work, either.
+      final doc = remote.docs[SyncCollections.photos]?['p1'];
+      expect(doc, isNotNull, reason: 'the row itself syncs');
+      // `localPath` is this device's business; the receiving device rebuilds
+      // its own from `storagePath`.
+      expect(doc!.containsKey('localPath'), isFalse);
+      expect(doc['pose'], 'front');
+      // The JPEG itself goes to Storage separately, so nothing is pending
+      // here once the row is up.
       expect(await sync.pendingCount(), 0);
     });
 

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/utils/date_x.dart';
 import '../../domain/enums.dart';
@@ -77,6 +79,20 @@ class SyncService {
 
   RemoteStore get _remote => _store ??= FirestoreRemoteStore();
 
+  /// Where photo files live on this device. Null when the platform has no
+  /// such directory (tests, desktop), which switches photo sync off rather
+  /// than failing the whole cycle.
+  Future<String?> _photoDir() async {
+    try {
+      final base =
+          await getExternalStorageDirectory() ??
+          await getApplicationDocumentsDirectory();
+      return p.join(base.path, 'progress_photos');
+    } on Object {
+      return null;
+    }
+  }
+
   /// Total rows waiting to be pushed.
   Future<int> pendingCount() async {
     var total = 0;
@@ -88,8 +104,7 @@ class SyncService {
     total += (await _db.unsyncedSets()).length;
     total += (await _db.unsyncedPersonalRecords()).length;
     total += (await _db.unsyncedMetrics()).length;
-    // Photos are intentionally never synced — they live only on local external
-    // storage, so they never count as pending.
+    total += (await _db.unsyncedPhotos()).length;
     return total;
   }
 
@@ -282,8 +297,23 @@ class SyncService {
       count++;
     }
 
-    // Photos are deliberately not pushed — there is no Firebase Storage in this
-    // app, so progress photos stay entirely on local external storage.
+    // Photo rows. The JPEGs themselves go to Storage in [PhotoSync], which
+    // runs after this and stamps `storagePath` — so a photo uploaded this
+    // cycle pushes its row on the next one, which is fine.
+    for (final row in await _db.unsyncedPhotos()) {
+      await _remote.upsert(
+        SyncCollections.photos,
+        row.id,
+        SyncMappers.photo(row),
+      );
+      await (_db.update(
+        _db.photos,
+      )..where((t) => t.id.equals(row.id))).write(
+        const PhotosCompanion(synced: Value(true)),
+      );
+      count++;
+    }
+
     return count;
   }
 
@@ -438,7 +468,34 @@ class SyncService {
       count++;
     }
 
-    // Photos are never pulled — they are local-only, on external storage.
+    // Photo rows. The file each one points at is fetched afterwards by
+    // [PhotoSync]; until then the row exists with a path that isn't there
+    // yet, which the timeline renders as a placeholder.
+    final photoDir = await _photoDir();
+    if (photoDir != null) {
+      for (final doc in await _remote.fetchSince(
+        SyncCollections.photos,
+        since,
+      )) {
+        trackNewest(doc);
+        final companion = SyncMappers.photoFrom(doc, localDir: photoDir);
+        if (companion == null) continue;
+        final local = await (_db.select(
+          _db.photos,
+        )..where((t) => t.id.equals(companion.id.value))).getSingleOrNull();
+        if (local != null &&
+            !local.updatedAt.isBefore(companion.updatedAt.value)) {
+          continue;
+        }
+        // Never clobber a good local path with a computed one.
+        await _db.into(_db.photos).insertOnConflictUpdate(
+          local == null
+              ? companion
+              : companion.copyWith(localPath: Value(local.localPath)),
+        );
+        count++;
+      }
+    }
 
     if (newest != null && newest != since) {
       await _db.setSetting(_lastPullKey, newest!);

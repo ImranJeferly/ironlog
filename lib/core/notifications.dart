@@ -59,6 +59,12 @@ abstract final class Notifications {
           ),
         ),
         onDidReceiveNotificationResponse: (response) {
+          final action = response.actionId;
+          if (action != null &&
+              (action == actionAddThirty || action == actionSkipRest)) {
+            onRestAction?.call(action);
+            return;
+          }
           if (response.payload != null) pendingRoute.value = response.payload;
         },
       );
@@ -153,6 +159,16 @@ abstract final class Notifications {
     }
   }
 
+  /// Action ids on the rest notification. The shell turns these into a timer
+  /// change without the user opening the app — which is the point: the phone
+  /// is in your pocket between sets.
+  static const actionAddThirty = 'rest_add_30';
+  static const actionSkipRest = 'rest_skip';
+
+  /// Set by [init] so a tapped action reaches the rest timer. The session
+  /// screen owns the timer, so it registers the handler.
+  static void Function(String actionId)? onRestAction;
+
   static NotificationDetails get _restDetails => const NotificationDetails(
     android: AndroidNotificationDetails(
       _restChannelId,
@@ -161,6 +177,20 @@ abstract final class Notifications {
       importance: Importance.high,
       priority: Priority.high,
       category: AndroidNotificationCategory.alarm,
+      actions: [
+        AndroidNotificationAction(
+          actionAddThirty,
+          '+30 s',
+          showsUserInterface: false,
+          cancelNotification: true,
+        ),
+        AndroidNotificationAction(
+          actionSkipRest,
+          'Skip',
+          showsUserInterface: false,
+          cancelNotification: true,
+        ),
+      ],
     ),
     iOS: DarwinNotificationDetails(presentSound: true),
   );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,8 +12,10 @@ import '../../data/db/database.dart';
 import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/brutal.dart';
+import '../../widgets/buttons.dart';
 import '../../widgets/heatmap.dart';
 import '../progress/exercise_detail_screen.dart';
+import '../session/active_session_screen.dart';
 import '../session/session_summary_screen.dart';
 
 /// Calendar heatmap + the full session list, plus the all-time PR feed.
@@ -225,6 +229,30 @@ class _SessionRow extends ConsumerWidget {
   final SessionRow session;
   final WeightUnit unit;
 
+  /// Runs the same workout again, freshly built — so the progression engine
+  /// gets to suggest today's weights rather than replaying last week's.
+  Future<void> _repeat(BuildContext context, WidgetRef ref) async {
+    final templateId = session.templateId;
+    if (templateId == null) return;
+    final active = ref.read(activeSessionProvider).value;
+    if (active != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Finish the session you\'re in first.')),
+      );
+      return;
+    }
+    final id = await ref
+        .read(workoutRepositoryProvider)
+        .startSessionFromTemplate(templateId);
+    if (!context.mounted) return;
+    unawaited(
+      ref
+          .read(socialHooksProvider)
+          .sessionStarted(session.templateName ?? 'Workout'),
+    );
+    await ActiveSessionScreen.open(context, id);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -251,6 +279,15 @@ class _SessionRow extends ConsumerWidget {
                 Dates.relativeDay(session.date),
                 style: theme.textTheme.bodySmall,
               ),
+              if (session.templateId != null) ...[
+                const SizedBox(width: 4),
+                IconPill(
+                  icon: Icons.replay,
+                  size: 32,
+                  tooltip: 'Do this workout again',
+                  onTap: () => _repeat(context, ref),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 10),

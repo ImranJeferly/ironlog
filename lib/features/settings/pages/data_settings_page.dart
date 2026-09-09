@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,6 +28,7 @@ class DataSettingsPage extends ConsumerStatefulWidget {
 
 class _DataSettingsPageState extends ConsumerState<DataSettingsPage> {
   bool _exporting = false;
+  bool _importing = false;
 
   Future<void> _export() async {
     setState(() => _exporting = true);
@@ -34,6 +38,43 @@ class _DataSettingsPageState extends ConsumerState<DataSettingsPage> {
       if (mounted) showSettingsToast(context, 'Export failed: $e');
     } finally {
       if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  /// Restore picks the file itself and decides from the header which kind of
+  /// export it is, so the user doesn't have to say.
+  Future<void> _import() async {
+    setState(() => _importing = true);
+    try {
+      final picked = await openFile(
+        acceptedTypeGroups: const [
+          XTypeGroup(label: 'CSV', extensions: ['csv']),
+        ],
+      );
+      if (picked == null) return;
+      final file = File(picked.path);
+      final head = (await file.readAsString()).split(RegExp(r'\r?\n')).first;
+      final importer = ref.read(csvImporterProvider);
+      final report = head.contains('session_id')
+          ? await importer.importSessions(file)
+          : head.contains('water_ml')
+          ? await importer.importMetrics(file)
+          : null;
+
+      if (!mounted) return;
+      if (report == null) {
+        showSettingsToast(
+          context,
+          'That isn\'t an IronLog sessions or metrics export.',
+        );
+        return;
+      }
+      ref.read(analyticsRevisionProvider.notifier).bump();
+      showSettingsToast(context, report.summary);
+    } on Object catch (e) {
+      if (mounted) showSettingsToast(context, 'Restore failed: $e');
+    } finally {
+      if (mounted) setState(() => _importing = false);
     }
   }
 
@@ -141,6 +182,36 @@ class _DataSettingsPageState extends ConsumerState<DataSettingsPage> {
                 label: _exporting ? 'Working…' : 'Export',
                 height: 40,
                 onPressed: _exporting ? null : _export,
+              ),
+            ],
+          ),
+        ),
+        AppCard(
+          child: Row(
+            children: [
+              const Icon(
+                Icons.restore_page_outlined,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Restore from CSV', style: theme.textTheme.titleSmall),
+                    Text(
+                      'Reads a sessions or metrics export back in. Existing '
+                      'days and sessions are left alone.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              GhostButton(
+                label: _importing ? 'Working…' : 'Restore',
+                height: 40,
+                onPressed: _importing ? null : _import,
               ),
             ],
           ),

@@ -36,7 +36,20 @@ class RestTimerController extends Notifier<RestTimerState> {
 
   @override
   RestTimerState build() {
-    ref.onDispose(() => _ticker?.cancel());
+    // "+30 s" and "Skip" on the rest notification, so the phone can stay in
+    // your pocket between sets.
+    Notifications.onRestAction = (action) {
+      switch (action) {
+        case Notifications.actionAddThirty:
+          addSeconds(30);
+        case Notifications.actionSkipRest:
+          stop();
+      }
+    };
+    ref.onDispose(() {
+      _ticker?.cancel();
+      Notifications.onRestAction = null;
+    });
     return const RestTimerState();
   }
 

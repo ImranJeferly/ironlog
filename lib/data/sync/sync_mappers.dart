@@ -14,8 +14,11 @@ abstract final class SyncCollections {
   static const sets = 'sets';
   static const personalRecords = 'personal_records';
   static const metrics = 'metrics';
-  // Photos are intentionally not listed — they never sync (local-only, no
-  // Firebase Storage).
+
+  /// Photo *rows* sync like everything else; the image files themselves go to
+  /// Storage separately (see `PhotoSync`), because Firestore documents are
+  /// the wrong place for a megabyte of JPEG.
+  static const photos = 'photos';
 }
 
 /// Timestamps travel as UTC ISO-8601 strings. They sort lexicographically in
@@ -423,5 +426,52 @@ abstract final class SyncMappers {
     );
   }
 
-  // Photos have no mapper — they never sync. See [SyncCollections].
+  // ------------------------------------------------------------------ photos
+
+  /// The row only. `localPath` is deliberately not sent: it's this device's
+  /// path, and the receiving device rebuilds its own from `storagePath`.
+  static Map<String, dynamic> photo(PhotoRow r) => {
+    'id': r.id,
+    'date': Dates.isoDay(r.date),
+    'pose': r.pose.name,
+    'storagePath': r.storagePath,
+    'widthPx': r.widthPx,
+    'heightPx': r.heightPx,
+    'byteSize': r.byteSize,
+    'note': r.note,
+    'updatedAt': isoUtc(r.updatedAt),
+    'deleted': r.deleted,
+  };
+
+  static PhotosCompanion? photoFrom(
+    Map<String, dynamic> m, {
+    required String localDir,
+  }) {
+    final id = m['id'];
+    final dateRaw = m['date'];
+    final updatedAt = parseIso(m['updatedAt']);
+    if (id is! String || dateRaw is! String || updatedAt == null) return null;
+    final date = DateTime.tryParse(dateRaw);
+    if (date == null) return null;
+    final pose = PhotoPose.values.firstWhere(
+      (p) => p.name == m['pose'],
+      orElse: () => PhotoPose.front,
+    );
+
+    return PhotosCompanion(
+      id: Value(id),
+      date: Value(date.dayStart),
+      pose: Value(pose),
+      // Where the file will live once PhotoSync fetches it.
+      localPath: Value('$localDir/$id.jpg'),
+      storagePath: Value(m['storagePath'] as String?),
+      widthPx: Value(_int(m['widthPx'])),
+      heightPx: Value(_int(m['heightPx'])),
+      byteSize: Value(_int(m['byteSize'])),
+      note: Value(m['note'] as String?),
+      updatedAt: Value(updatedAt),
+      deleted: Value(_bool(m['deleted'])),
+      synced: const Value(true),
+    );
+  }
 }

@@ -11,6 +11,7 @@ import '../../domain/enums.dart';
 import '../../widgets/app_card.dart';
 import '../../widgets/charts.dart';
 import '../home/daily_metrics_card.dart';
+import 'measurements_card.dart';
 
 /// Body-weight trend with a 7-day moving average, plotted against strength.
 class BodyTab extends ConsumerWidget {
@@ -102,6 +103,9 @@ class BodyTab extends ConsumerWidget {
 
         const SectionHeader('Today’s metrics'),
         const DailyMetricsCard(),
+
+        const SectionHeader('Measurements'),
+        const MeasurementsCard(),
       ],
     );
   }
