@@ -71,11 +71,11 @@ abstract final class PushService {
 
   /// Registers this phone for pushes: asks for permission, makes sure the
   /// Android channel exists, and stores the FCM token under the account.
-  /// No-op unless a real (non-anonymous) user is signed in.
+  /// No-op unless somebody is signed in.
   static Future<void> start() async {
     if (!_available) return;
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.isAnonymous) return;
+    if (user == null) return;
     try {
       await _ensureChannel();
       await _fcm.requestPermission(alert: true, badge: true, sound: true);
@@ -88,7 +88,7 @@ abstract final class PushService {
       if (token != null) await _saveToken(user.uid, token);
       _tokenSub ??= _fcm.onTokenRefresh.listen((t) {
         final u = FirebaseAuth.instance.currentUser;
-        if (u != null && !u.isAnonymous) unawaited(_saveToken(u.uid, t));
+        if (u != null) unawaited(_saveToken(u.uid, t));
       });
     } on Object catch (e) {
       debugPrint('IronLog: push start failed ($e)');

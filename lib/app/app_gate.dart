@@ -66,7 +66,7 @@ class _AppGateState extends ConsumerState<AppGate> {
     final streamed = ref.watch(authUserProvider).value;
     final user = streamed ?? ref.read(authServiceProvider).currentUser;
 
-    if (user == null || user.isAnonymous) return const AuthScreen();
+    if (user == null) return const AuthScreen();
     return const AppShell();
   }
 }

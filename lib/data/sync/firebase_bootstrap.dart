@@ -10,6 +10,12 @@ import '../../firebase_options.dart';
 /// Nothing here is allowed to throw into the app: an unconfigured or
 /// unreachable Firebase must leave IronLog fully usable offline, which is the
 /// whole point of the local-first design.
+///
+/// There is no anonymous sign-in: the app requires a real account before it
+/// shows anything social or syncs anything, so an anonymous user could never
+/// accumulate data worth carrying over — it only littered the Auth user list.
+/// [isAvailable] therefore means "a Firebase project is reachable", not
+/// "somebody is signed in"; check [uid] for that.
 abstract final class FirebaseBootstrap {
   static bool _available = false;
   static String? _reason;
@@ -20,14 +26,15 @@ abstract final class FirebaseBootstrap {
   /// switches on automatically.
   static const _placeholderProjectId = 'ironlog-unconfigured';
 
+  /// True when Firebase initialised against a real project.
   static bool get isAvailable => _available;
 
   /// Human-readable explanation shown in Settings when sync is off.
   static String? get unavailableReason => _reason;
 
-  /// Uid of whoever is signed in right now — the single-user document root in
-  /// Firestore. Live rather than cached so signing into a real account (or
-  /// linking the anonymous one) immediately points sync at the right data.
+  /// Uid of whoever is signed in right now — the document root in Firestore,
+  /// or null when signed out. Live rather than cached so signing in
+  /// immediately points sync at the right data.
   static String? get uid {
     if (!_available) return null;
     try {
@@ -37,6 +44,9 @@ abstract final class FirebaseBootstrap {
       return _uid;
     }
   }
+
+  /// True when a real account is signed in — the gate for sync and social.
+  static bool get isSignedIn => uid != null;
 
   static Future<void> init() async {
     // The whole thing is guarded: the generated options throw
@@ -62,14 +72,6 @@ abstract final class FirebaseBootstrap {
         persistenceEnabled: true,
         cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
       );
-      final auth = FirebaseAuth.instance;
-      final credential =
-          auth.currentUser ?? (await auth.signInAnonymously()).user;
-      if (credential == null) {
-        _reason = 'Anonymous sign-in returned no user.';
-        return;
-      }
-      _uid = credential.uid;
       _available = true;
       _reason = null;
     } on UnsupportedError {

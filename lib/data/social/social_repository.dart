@@ -38,8 +38,8 @@ String describeSocialError(Object error) {
   if (error is FirebaseException) {
     return switch (error.code) {
       'permission-denied' =>
-        'Firestore rejected this (permission denied). The security rules in '
-            'firestore.rules aren\'t published in the Firebase console yet.',
+        'You don\'t have access to that. If you were friends, they may have '
+            'removed or blocked you.',
       'unavailable' => 'Firestore is unreachable — check your connection.',
       _ => 'Firestore error: ${error.code}',
     };
@@ -207,8 +207,7 @@ class SocialRepository {
       debugPrint('IronLog: setPhoto failed (${e.code})');
       return switch (e.code) {
         'unauthorized' || 'permission-denied' =>
-          'Storage rejected the upload — the rules in storage.rules aren\'t '
-              'deployed yet.',
+          'That upload was rejected.',
         'retry-limit-exceeded' || 'unavailable' || 'network-request-failed' =>
           'No connection — photos need one to upload.',
         _ => 'Could not upload the photo (${e.code}).',
@@ -239,9 +238,7 @@ class SocialRepository {
     return switch (await _claimHandle(me, handle, current: current)) {
       _Claim.ok => null,
       _Claim.taken => '@$handle is taken.',
-      _Claim.denied =>
-        'Firestore rejected the write — the security rules in '
-            'firestore.rules aren\'t deployed yet.',
+      _Claim.denied => 'That handle was rejected.',
       _Claim.failed => 'Could not save the handle. Check your connection.',
     };
   }
@@ -601,8 +598,7 @@ class SocialRepository {
       debugPrint('IronLog: voice upload failed (${e.code})');
       return switch (e.code) {
         'unauthorized' || 'permission-denied' =>
-          'Storage rejected the upload — the rules in storage.rules aren\'t '
-              'deployed yet.',
+          'That upload was rejected.',
         _ => 'No connection — voice notes need one to send.',
       };
     } on Object catch (e) {

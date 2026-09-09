@@ -162,8 +162,9 @@ class UserProfile {
   /// (`profiles/{uid}/avatar.jpg`).
   final String? photoUrl;
 
-  /// Legacy: small JPEG stored inline in the document by builds that had no
-  /// Storage. Still rendered when present so old profiles don't go blank.
+  /// Legacy: small JPEG stored inline in the document by builds ≤29, which had
+  /// no Storage. Still rendered so old profiles don't go blank.
+  /// TODO(2026-12-01): drop once nobody is on build ≤29.
   final Uint8List? photo;
   final ProfileStats stats;
   final NowPlaying? nowPlaying;
@@ -341,8 +342,9 @@ class ChatMessage {
   /// (`chats/{chatId}/voice/{messageId}.m4a`).
   final String? audioUrl;
 
-  /// Legacy: voice note bytes inline in the document, from builds that had
-  /// no Storage. Still playable.
+  /// Legacy: voice note bytes inline in the document, from builds ≤29, which
+  /// had no Storage. Still playable.
+  /// TODO(2026-12-01): drop once nobody is on build ≤29.
   final Uint8List? audio;
   final int audioMs;
   final ReplyRef? replyTo;

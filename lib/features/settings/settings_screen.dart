@@ -91,8 +91,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-/// Who the stats belong to, with the headline numbers. Anonymous data can
-/// be upgraded to a permanent account in place — linking keeps the uid.
+/// Who the stats belong to, with the headline numbers.
 class _ProfileCard extends ConsumerWidget {
   const _ProfileCard();
 
@@ -101,17 +100,17 @@ class _ProfileCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final available = FirebaseBootstrap.isAvailable;
     final user = ref.watch(authUserProvider).value;
-    final email = (user != null && !user.isAnonymous) ? user.email : null;
+    final email = user?.email;
     final signedIn = email != null;
     final consistency = ref.watch(consistencyProvider).value;
     final prs = ref.watch(personalRecordsProvider).value ?? const [];
     final profile = signedIn ? ref.watch(myProfileProvider).value : null;
-    final initial = (email ?? 'G').trim().isEmpty
-        ? 'G'
-        : (email ?? 'G').trim()[0].toUpperCase();
+    final initial = (email ?? '?').trim().isEmpty
+        ? '?'
+        : (email ?? '?').trim()[0].toUpperCase();
     final title = (profile?.displayName.trim().isNotEmpty ?? false)
         ? profile!.displayName
-        : (email ?? 'Guest');
+        : (email ?? 'Signed out');
     final subtitle = signedIn
         ? (profile?.handle != null
               ? '@${profile!.handle} · synced to this account'
@@ -223,7 +222,7 @@ class _ProfileCard extends ConsumerWidget {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Signed out — back to guest mode.'),
+                        content: Text('Signed out.'),
                       ),
                     );
                   }

@@ -489,11 +489,9 @@ final socialRepositoryProvider = Provider<SocialRepository>(
   (ref) => SocialRepository(),
 );
 
-/// True once the user is on a real (non-anonymous) account — the gate for
-/// everything social.
+/// True once somebody is signed in — the gate for everything social.
 final socialEnabledProvider = Provider<bool>((ref) {
-  final user = ref.watch(authUserProvider).value;
-  return user != null && !user.isAnonymous;
+  return ref.watch(authUserProvider).value != null;
 });
 
 final myProfileProvider = StreamProvider<UserProfile?>((ref) {
@@ -563,7 +561,7 @@ class SocialHooks {
       await _repo.ensureProfile(email: _ref.read(authServiceProvider).email);
       await publishStats();
       await publishNowPlaying();
-      // Native listener that turns friends' writes into notifications.
+      // Registers this device's FCM token; the Cloud Functions push to it.
       await PushService.start();
     } on Object catch (e) {
       debugPrint('IronLog: social resume failed ($e)');
@@ -614,7 +612,7 @@ class SocialHooks {
   }
 
   /// True when the user has a real account — the only case the hooks do
-  /// anything. Lets callers skip timers and listeners for guests.
+  /// anything. Lets callers skip timers and listeners when signed out.
   bool get enabled => _enabled;
 
   Future<void> sessionStarted(String name) => _guard(() async {

@@ -3,12 +3,11 @@ import 'package:flutter/foundation.dart';
 
 import 'firebase_bootstrap.dart';
 
-/// Email/password account management on top of the anonymous bootstrap.
+/// Email/password account management.
 ///
-/// The key trick: when the current user is anonymous, creating an account
-/// *links* the email credential to it instead of creating a fresh user. The
-/// uid — and therefore every stat already synced to Firestore under
-/// `users/{uid}` — carries over to the new account untouched.
+/// There is no anonymous tier: the app requires a real account before it
+/// syncs or shows anything social, so every uid belongs to a login the user
+/// can always get back into.
 class AuthService {
   FirebaseAuth get _auth => FirebaseAuth.instance;
 
@@ -23,46 +22,29 @@ class AuthService {
     }
   }
 
-  /// Null while signed out or anonymous — a non-null value means the stats are
-  /// tied to a real account the user can always get back into.
-  String? get email {
-    final user = currentUser;
-    if (user == null || user.isAnonymous) return null;
-    return user.email;
-  }
+  /// Null while signed out.
+  String? get email => currentUser?.email;
 
   Stream<User?> authStateChanges() {
     if (!isAvailable) return Stream<User?>.value(null);
     try {
-      // userChanges, not authStateChanges: linking an anonymous user to an
-      // email credential keeps the same User object, so authStateChanges
-      // never fires and the account UI would keep showing "Guest" until the
-      // next app restart.
+      // userChanges, not authStateChanges: it also fires on profile edits
+      // (e.g. a verified email landing), which the account UI reflects.
       return _auth.userChanges();
     } on Object {
       return Stream<User?>.value(null);
     }
   }
 
-  /// Creates (or upgrades to) a permanent account. Returns null on success,
-  /// otherwise a human-readable error.
+  /// Creates a permanent account. Returns null on success, otherwise a
+  /// human-readable error.
   Future<String?> createAccount(String email, String password) async {
     if (!isAvailable) return 'Firebase is not available on this device.';
     try {
-      final credential = EmailAuthProvider.credential(
+      await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      final user = _auth.currentUser;
-      if (user != null && user.isAnonymous) {
-        // Same uid before and after — all synced stats transfer automatically.
-        await user.linkWithCredential(credential);
-      } else {
-        await _auth.createUserWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-      }
       return null;
     } on FirebaseAuthException catch (e) {
       return _friendly(e);
@@ -100,12 +82,12 @@ class AuthService {
     }
   }
 
-  /// Signs out and drops back to a fresh anonymous user so sync keeps working.
+  /// Signs out. The app falls back to the login screen; nothing syncs until
+  /// somebody signs in again.
   Future<void> signOut() async {
     if (!isAvailable) return;
     try {
       await _auth.signOut();
-      await _auth.signInAnonymously();
     } on Object catch (e) {
       debugPrint('IronLog: signOut failed ($e)');
     }

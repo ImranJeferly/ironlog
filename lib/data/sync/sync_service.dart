@@ -113,6 +113,14 @@ class SyncService {
         lastSyncAt: settings.lastSyncAt,
       );
     }
+    if (!FirebaseBootstrap.isSignedIn) {
+      return SyncStatus(
+        state: SyncState.disabled,
+        message: 'Sign in to back your training up.',
+        pending: await pendingCount(),
+        lastSyncAt: settings.lastSyncAt,
+      );
+    }
     if (_running) {
       return SyncStatus(
         state: SyncState.syncing,

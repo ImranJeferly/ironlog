@@ -276,7 +276,7 @@ void main() {
       tester,
     ) async {
       await withScreen(tester, const SettingsScreen(), () async {
-        expect(find.text('Guest'), findsOneWidget);
+        expect(find.text('Signed out'), findsOneWidget);
         // The lower rows sit below the fold of the test viewport.
         for (final label in [
           'Training',
