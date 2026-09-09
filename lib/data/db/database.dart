@@ -31,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.withExecutor(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -55,6 +55,18 @@ class AppDatabase extends _$AppDatabase {
       if (from < 4) {
         await m.addColumn(templateExercises, templateExercises.repMinOverride);
         await m.addColumn(templateExercises, templateExercises.repMaxOverride);
+      }
+      // v5: tape measurements on the daily row, and superset grouping on both
+      // the template and the per-session snapshot.
+      if (from < 5) {
+        await m.addColumn(dailyMetrics, dailyMetrics.chestCm);
+        await m.addColumn(dailyMetrics, dailyMetrics.waistCm);
+        await m.addColumn(dailyMetrics, dailyMetrics.hipsCm);
+        await m.addColumn(dailyMetrics, dailyMetrics.armCm);
+        await m.addColumn(dailyMetrics, dailyMetrics.thighCm);
+        await m.addColumn(dailyMetrics, dailyMetrics.neckCm);
+        await m.addColumn(templateExercises, templateExercises.supersetGroup);
+        await m.addColumn(sessionExercises, sessionExercises.supersetGroup);
       }
     },
     beforeOpen: (details) async {

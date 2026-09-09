@@ -154,3 +154,21 @@ enum RpeLevel {
 }
 
 enum SyncState { idle, syncing, success, failed, disabled }
+
+/// Tape measurements, all stored in centimetres. The order here is the order
+/// they appear in the UI: torso down the middle, then limbs.
+enum BodyMeasurement {
+  chest('Chest'),
+  waist('Waist'),
+  hips('Hips'),
+  arm('Arm'),
+  thigh('Thigh'),
+  neck('Neck');
+
+  const BodyMeasurement(this.label);
+
+  final String label;
+
+  /// Column key used in the CSV export/import.
+  String get key => '${name}_cm';
+}

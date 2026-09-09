@@ -36,6 +36,10 @@ class SessionExerciseView {
 
   bool get increaseFlagged => link.increaseFlagged;
 
+  /// Non-null when this exercise is part of a superset; every member of the
+  /// same superset shares the number.
+  int? get supersetGroup => link.supersetGroup;
+
   double? get suggestedWeightKg => link.suggestedWeightKg;
 
   String get schemeLabel => link.repRangeMin == link.repRangeMax
@@ -97,6 +101,33 @@ class SessionView {
       }
     }
     return latest;
+  }
+
+  /// The other exercises supersetted with [view], in session order.
+  List<SessionExerciseView> supersetPartners(SessionExerciseView view) {
+    final group = view.supersetGroup;
+    if (group == null) return const [];
+    return [
+      for (final e in exercises)
+        if (e.supersetGroup == group && e.link.id != view.link.id) e,
+    ];
+  }
+
+  /// The next exercise to move to inside a superset: the partner with the
+  /// fewest sets logged that still has work left. Null when the round is done
+  /// (or this isn't a superset), which is when the rest timer should start.
+  SessionExerciseView? nextInSuperset(SessionExerciseView view) {
+    final partners = supersetPartners(view);
+    if (partners.isEmpty) return null;
+    SessionExerciseView? best;
+    for (final p in partners) {
+      if (p.isComplete) continue;
+      // Only move on to a partner that is behind this one — otherwise the
+      // round is finished and it's time to rest.
+      if (p.completedSets >= view.completedSets) continue;
+      if (best == null || p.completedSets < best.completedSets) best = p;
+    }
+    return best;
   }
 
   double get tonnageKg =>

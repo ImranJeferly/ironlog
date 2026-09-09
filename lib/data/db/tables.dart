@@ -81,6 +81,11 @@ class TemplateExercises extends Table with SyncColumns {
   IntColumn get repMinOverride => integer().nullable()();
   IntColumn get repMaxOverride => integer().nullable()();
 
+  /// Consecutive exercises sharing a group number are a superset: you
+  /// alternate between them and only rest after the last one. Null means the
+  /// exercise stands alone.
+  IntColumn get supersetGroup => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -131,6 +136,10 @@ class SessionExercises extends Table with SyncColumns {
   BoolColumn get increaseFlagged =>
       boolean().withDefault(const Constant(false))();
   TextColumn get notes => text().nullable()();
+
+  /// Frozen copy of the template's superset grouping, so a past session keeps
+  /// showing how it was actually run.
+  IntColumn get supersetGroup => integer().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -184,6 +193,16 @@ class DailyMetrics extends Table with SyncColumns {
   IntColumn get kcal => integer().nullable()();
   IntColumn get proteinG => integer().nullable()();
   RealColumn get sleepHours => real().nullable()();
+
+  /// Tape measurements, in centimetres. Logged as often as the user cares to
+  /// — usually weekly — and charted alongside body weight, which is the
+  /// number that actually tells you whether a bulk is going where you want.
+  RealColumn get chestCm => real().nullable()();
+  RealColumn get waistCm => real().nullable()();
+  RealColumn get hipsCm => real().nullable()();
+  RealColumn get armCm => real().nullable()();
+  RealColumn get thighCm => real().nullable()();
+  RealColumn get neckCm => real().nullable()();
 
   /// Steps/sleep can come from Health or be typed in; remember which so a
   /// Health refresh never stomps a manual entry.

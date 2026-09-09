@@ -85,6 +85,7 @@ class WorkoutRepository {
         setsOverride: link.setsOverride,
         repMinOverride: link.repMinOverride,
         repMaxOverride: link.repMaxOverride,
+        supersetGroup: link.supersetGroup,
         deload: deload,
       );
     }
@@ -148,6 +149,7 @@ class WorkoutRepository {
     int? setsOverride,
     int? repMinOverride,
     int? repMaxOverride,
+    int? supersetGroup,
     bool deload = false,
   }) async {
     final suggestion = await suggestionFor(
@@ -187,6 +189,7 @@ class WorkoutRepository {
         repRangeMax: repMaxOverride ?? exercise.repRangeMax,
         suggestedWeightKg: Value(suggested),
         increaseFlagged: Value(increase),
+        supersetGroup: Value(supersetGroup),
         updatedAt: Value(now),
       ),
     );
@@ -759,6 +762,53 @@ class WorkoutRepository {
         synced: const Value(false),
       ),
     );
+  }
+
+  /// Groups (or ungroups) a template exercise with the one above it. A
+  /// superset is just a shared group number on consecutive rows; passing null
+  /// breaks the row out on its own again.
+  Future<void> setTemplateSuperset(
+    String templateExerciseId,
+    int? group,
+  ) async {
+    await (_db.update(
+      _db.templateExercises,
+    )..where((t) => t.id.equals(templateExerciseId))).write(
+      TemplateExercisesCompanion(
+        supersetGroup: Value(group),
+        synced: const Value(false),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Toggles "superset with the exercise above": the pair (or run) gets the
+  /// first row's group number, creating one if it doesn't have one yet.
+  Future<void> toggleSupersetWithPrevious(String templateId, int index) async {
+    final rows = await _db.templateExerciseRows(templateId);
+    if (index <= 0 || index >= rows.length) return;
+    final (me, _) = rows[index];
+    final (prev, _) = rows[index - 1];
+
+    if (me.supersetGroup != null && me.supersetGroup == prev.supersetGroup) {
+      // Already joined — break this row (and anything below it in the same
+      // run) out, so ungrouping the middle doesn't silently merge the ends.
+      for (var i = index; i < rows.length; i++) {
+        final (row, _) = rows[i];
+        if (row.supersetGroup != me.supersetGroup) break;
+        await setTemplateSuperset(row.id, null);
+      }
+      return;
+    }
+
+    final group =
+        prev.supersetGroup ??
+        (rows
+                .map((r) => r.$1.supersetGroup ?? 0)
+                .fold(0, (a, b) => a > b ? a : b) +
+            1);
+    if (prev.supersetGroup == null) await setTemplateSuperset(prev.id, group);
+    await setTemplateSuperset(me.id, group);
   }
 
   /// Persists a new exercise order for a template. [orderedIds] are the

@@ -1827,6 +1827,17 @@ class $TemplateExercisesTable extends TemplateExercises
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _supersetGroupMeta = const VerificationMeta(
+    'supersetGroup',
+  );
+  @override
+  late final GeneratedColumn<int> supersetGroup = GeneratedColumn<int>(
+    'superset_group',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     updatedAt,
@@ -1839,6 +1850,7 @@ class $TemplateExercisesTable extends TemplateExercises
     setsOverride,
     repMinOverride,
     repMaxOverride,
+    supersetGroup,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1926,6 +1938,15 @@ class $TemplateExercisesTable extends TemplateExercises
         ),
       );
     }
+    if (data.containsKey('superset_group')) {
+      context.handle(
+        _supersetGroupMeta,
+        supersetGroup.isAcceptableOrUnknown(
+          data['superset_group']!,
+          _supersetGroupMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1975,6 +1996,10 @@ class $TemplateExercisesTable extends TemplateExercises
         DriftSqlType.int,
         data['${effectivePrefix}rep_max_override'],
       ),
+      supersetGroup: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}superset_group'],
+      ),
     );
   }
 
@@ -2004,6 +2029,11 @@ class TemplateExerciseRow extends DataClass
   /// exercise default (Leg Press 8–12 on Legs A but 12–15 on Legs B).
   final int? repMinOverride;
   final int? repMaxOverride;
+
+  /// Consecutive exercises sharing a group number are a superset: you
+  /// alternate between them and only rest after the last one. Null means the
+  /// exercise stands alone.
+  final int? supersetGroup;
   const TemplateExerciseRow({
     required this.updatedAt,
     required this.synced,
@@ -2015,6 +2045,7 @@ class TemplateExerciseRow extends DataClass
     this.setsOverride,
     this.repMinOverride,
     this.repMaxOverride,
+    this.supersetGroup,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2034,6 +2065,9 @@ class TemplateExerciseRow extends DataClass
     }
     if (!nullToAbsent || repMaxOverride != null) {
       map['rep_max_override'] = Variable<int>(repMaxOverride);
+    }
+    if (!nullToAbsent || supersetGroup != null) {
+      map['superset_group'] = Variable<int>(supersetGroup);
     }
     return map;
   }
@@ -2056,6 +2090,9 @@ class TemplateExerciseRow extends DataClass
       repMaxOverride: repMaxOverride == null && nullToAbsent
           ? const Value.absent()
           : Value(repMaxOverride),
+      supersetGroup: supersetGroup == null && nullToAbsent
+          ? const Value.absent()
+          : Value(supersetGroup),
     );
   }
 
@@ -2075,6 +2112,7 @@ class TemplateExerciseRow extends DataClass
       setsOverride: serializer.fromJson<int?>(json['setsOverride']),
       repMinOverride: serializer.fromJson<int?>(json['repMinOverride']),
       repMaxOverride: serializer.fromJson<int?>(json['repMaxOverride']),
+      supersetGroup: serializer.fromJson<int?>(json['supersetGroup']),
     );
   }
   @override
@@ -2091,6 +2129,7 @@ class TemplateExerciseRow extends DataClass
       'setsOverride': serializer.toJson<int?>(setsOverride),
       'repMinOverride': serializer.toJson<int?>(repMinOverride),
       'repMaxOverride': serializer.toJson<int?>(repMaxOverride),
+      'supersetGroup': serializer.toJson<int?>(supersetGroup),
     };
   }
 
@@ -2105,6 +2144,7 @@ class TemplateExerciseRow extends DataClass
     Value<int?> setsOverride = const Value.absent(),
     Value<int?> repMinOverride = const Value.absent(),
     Value<int?> repMaxOverride = const Value.absent(),
+    Value<int?> supersetGroup = const Value.absent(),
   }) => TemplateExerciseRow(
     updatedAt: updatedAt ?? this.updatedAt,
     synced: synced ?? this.synced,
@@ -2120,6 +2160,9 @@ class TemplateExerciseRow extends DataClass
     repMaxOverride: repMaxOverride.present
         ? repMaxOverride.value
         : this.repMaxOverride,
+    supersetGroup: supersetGroup.present
+        ? supersetGroup.value
+        : this.supersetGroup,
   );
   TemplateExerciseRow copyWithCompanion(TemplateExercisesCompanion data) {
     return TemplateExerciseRow(
@@ -2145,6 +2188,9 @@ class TemplateExerciseRow extends DataClass
       repMaxOverride: data.repMaxOverride.present
           ? data.repMaxOverride.value
           : this.repMaxOverride,
+      supersetGroup: data.supersetGroup.present
+          ? data.supersetGroup.value
+          : this.supersetGroup,
     );
   }
 
@@ -2160,7 +2206,8 @@ class TemplateExerciseRow extends DataClass
           ..write('orderIndex: $orderIndex, ')
           ..write('setsOverride: $setsOverride, ')
           ..write('repMinOverride: $repMinOverride, ')
-          ..write('repMaxOverride: $repMaxOverride')
+          ..write('repMaxOverride: $repMaxOverride, ')
+          ..write('supersetGroup: $supersetGroup')
           ..write(')'))
         .toString();
   }
@@ -2177,6 +2224,7 @@ class TemplateExerciseRow extends DataClass
     setsOverride,
     repMinOverride,
     repMaxOverride,
+    supersetGroup,
   );
   @override
   bool operator ==(Object other) =>
@@ -2191,7 +2239,8 @@ class TemplateExerciseRow extends DataClass
           other.orderIndex == this.orderIndex &&
           other.setsOverride == this.setsOverride &&
           other.repMinOverride == this.repMinOverride &&
-          other.repMaxOverride == this.repMaxOverride);
+          other.repMaxOverride == this.repMaxOverride &&
+          other.supersetGroup == this.supersetGroup);
 }
 
 class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
@@ -2205,6 +2254,7 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
   final Value<int?> setsOverride;
   final Value<int?> repMinOverride;
   final Value<int?> repMaxOverride;
+  final Value<int?> supersetGroup;
   final Value<int> rowid;
   const TemplateExercisesCompanion({
     this.updatedAt = const Value.absent(),
@@ -2217,6 +2267,7 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
     this.setsOverride = const Value.absent(),
     this.repMinOverride = const Value.absent(),
     this.repMaxOverride = const Value.absent(),
+    this.supersetGroup = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TemplateExercisesCompanion.insert({
@@ -2230,6 +2281,7 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
     this.setsOverride = const Value.absent(),
     this.repMinOverride = const Value.absent(),
     this.repMaxOverride = const Value.absent(),
+    this.supersetGroup = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        templateId = Value(templateId),
@@ -2246,6 +2298,7 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
     Expression<int>? setsOverride,
     Expression<int>? repMinOverride,
     Expression<int>? repMaxOverride,
+    Expression<int>? supersetGroup,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2259,6 +2312,7 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
       if (setsOverride != null) 'sets_override': setsOverride,
       if (repMinOverride != null) 'rep_min_override': repMinOverride,
       if (repMaxOverride != null) 'rep_max_override': repMaxOverride,
+      if (supersetGroup != null) 'superset_group': supersetGroup,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2274,6 +2328,7 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
     Value<int?>? setsOverride,
     Value<int?>? repMinOverride,
     Value<int?>? repMaxOverride,
+    Value<int?>? supersetGroup,
     Value<int>? rowid,
   }) {
     return TemplateExercisesCompanion(
@@ -2287,6 +2342,7 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
       setsOverride: setsOverride ?? this.setsOverride,
       repMinOverride: repMinOverride ?? this.repMinOverride,
       repMaxOverride: repMaxOverride ?? this.repMaxOverride,
+      supersetGroup: supersetGroup ?? this.supersetGroup,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2324,6 +2380,9 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
     if (repMaxOverride.present) {
       map['rep_max_override'] = Variable<int>(repMaxOverride.value);
     }
+    if (supersetGroup.present) {
+      map['superset_group'] = Variable<int>(supersetGroup.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2343,6 +2402,7 @@ class TemplateExercisesCompanion extends UpdateCompanion<TemplateExerciseRow> {
           ..write('setsOverride: $setsOverride, ')
           ..write('repMinOverride: $repMinOverride, ')
           ..write('repMaxOverride: $repMaxOverride, ')
+          ..write('supersetGroup: $supersetGroup, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3482,6 +3542,17 @@ class $SessionExercisesTable extends SessionExercises
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _supersetGroupMeta = const VerificationMeta(
+    'supersetGroup',
+  );
+  @override
+  late final GeneratedColumn<int> supersetGroup = GeneratedColumn<int>(
+    'superset_group',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     updatedAt,
@@ -3497,6 +3568,7 @@ class $SessionExercisesTable extends SessionExercises
     suggestedWeightKg,
     increaseFlagged,
     notes,
+    supersetGroup,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3611,6 +3683,15 @@ class $SessionExercisesTable extends SessionExercises
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('superset_group')) {
+      context.handle(
+        _supersetGroupMeta,
+        supersetGroup.isAcceptableOrUnknown(
+          data['superset_group']!,
+          _supersetGroupMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3672,6 +3753,10 @@ class $SessionExercisesTable extends SessionExercises
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      supersetGroup: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}superset_group'],
+      ),
     );
   }
 
@@ -3702,6 +3787,10 @@ class SessionExerciseRow extends DataClass
   final double? suggestedWeightKg;
   final bool increaseFlagged;
   final String? notes;
+
+  /// Frozen copy of the template's superset grouping, so a past session keeps
+  /// showing how it was actually run.
+  final int? supersetGroup;
   const SessionExerciseRow({
     required this.updatedAt,
     required this.synced,
@@ -3716,6 +3805,7 @@ class SessionExerciseRow extends DataClass
     this.suggestedWeightKg,
     required this.increaseFlagged,
     this.notes,
+    this.supersetGroup,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3736,6 +3826,9 @@ class SessionExerciseRow extends DataClass
     map['increase_flagged'] = Variable<bool>(increaseFlagged);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || supersetGroup != null) {
+      map['superset_group'] = Variable<int>(supersetGroup);
     }
     return map;
   }
@@ -3759,6 +3852,9 @@ class SessionExerciseRow extends DataClass
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      supersetGroup: supersetGroup == null && nullToAbsent
+          ? const Value.absent()
+          : Value(supersetGroup),
     );
   }
 
@@ -3783,6 +3879,7 @@ class SessionExerciseRow extends DataClass
       ),
       increaseFlagged: serializer.fromJson<bool>(json['increaseFlagged']),
       notes: serializer.fromJson<String?>(json['notes']),
+      supersetGroup: serializer.fromJson<int?>(json['supersetGroup']),
     );
   }
   @override
@@ -3802,6 +3899,7 @@ class SessionExerciseRow extends DataClass
       'suggestedWeightKg': serializer.toJson<double?>(suggestedWeightKg),
       'increaseFlagged': serializer.toJson<bool>(increaseFlagged),
       'notes': serializer.toJson<String?>(notes),
+      'supersetGroup': serializer.toJson<int?>(supersetGroup),
     };
   }
 
@@ -3819,6 +3917,7 @@ class SessionExerciseRow extends DataClass
     Value<double?> suggestedWeightKg = const Value.absent(),
     bool? increaseFlagged,
     Value<String?> notes = const Value.absent(),
+    Value<int?> supersetGroup = const Value.absent(),
   }) => SessionExerciseRow(
     updatedAt: updatedAt ?? this.updatedAt,
     synced: synced ?? this.synced,
@@ -3835,6 +3934,9 @@ class SessionExerciseRow extends DataClass
         : this.suggestedWeightKg,
     increaseFlagged: increaseFlagged ?? this.increaseFlagged,
     notes: notes.present ? notes.value : this.notes,
+    supersetGroup: supersetGroup.present
+        ? supersetGroup.value
+        : this.supersetGroup,
   );
   SessionExerciseRow copyWithCompanion(SessionExercisesCompanion data) {
     return SessionExerciseRow(
@@ -3865,6 +3967,9 @@ class SessionExerciseRow extends DataClass
           ? data.increaseFlagged.value
           : this.increaseFlagged,
       notes: data.notes.present ? data.notes.value : this.notes,
+      supersetGroup: data.supersetGroup.present
+          ? data.supersetGroup.value
+          : this.supersetGroup,
     );
   }
 
@@ -3883,7 +3988,8 @@ class SessionExerciseRow extends DataClass
           ..write('repRangeMax: $repRangeMax, ')
           ..write('suggestedWeightKg: $suggestedWeightKg, ')
           ..write('increaseFlagged: $increaseFlagged, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('supersetGroup: $supersetGroup')
           ..write(')'))
         .toString();
   }
@@ -3903,6 +4009,7 @@ class SessionExerciseRow extends DataClass
     suggestedWeightKg,
     increaseFlagged,
     notes,
+    supersetGroup,
   );
   @override
   bool operator ==(Object other) =>
@@ -3920,7 +4027,8 @@ class SessionExerciseRow extends DataClass
           other.repRangeMax == this.repRangeMax &&
           other.suggestedWeightKg == this.suggestedWeightKg &&
           other.increaseFlagged == this.increaseFlagged &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.supersetGroup == this.supersetGroup);
 }
 
 class SessionExercisesCompanion extends UpdateCompanion<SessionExerciseRow> {
@@ -3937,6 +4045,7 @@ class SessionExercisesCompanion extends UpdateCompanion<SessionExerciseRow> {
   final Value<double?> suggestedWeightKg;
   final Value<bool> increaseFlagged;
   final Value<String?> notes;
+  final Value<int?> supersetGroup;
   final Value<int> rowid;
   const SessionExercisesCompanion({
     this.updatedAt = const Value.absent(),
@@ -3952,6 +4061,7 @@ class SessionExercisesCompanion extends UpdateCompanion<SessionExerciseRow> {
     this.suggestedWeightKg = const Value.absent(),
     this.increaseFlagged = const Value.absent(),
     this.notes = const Value.absent(),
+    this.supersetGroup = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SessionExercisesCompanion.insert({
@@ -3968,6 +4078,7 @@ class SessionExercisesCompanion extends UpdateCompanion<SessionExerciseRow> {
     this.suggestedWeightKg = const Value.absent(),
     this.increaseFlagged = const Value.absent(),
     this.notes = const Value.absent(),
+    this.supersetGroup = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        sessionId = Value(sessionId),
@@ -3990,6 +4101,7 @@ class SessionExercisesCompanion extends UpdateCompanion<SessionExerciseRow> {
     Expression<double>? suggestedWeightKg,
     Expression<bool>? increaseFlagged,
     Expression<String>? notes,
+    Expression<int>? supersetGroup,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4006,6 +4118,7 @@ class SessionExercisesCompanion extends UpdateCompanion<SessionExerciseRow> {
       if (suggestedWeightKg != null) 'suggested_weight_kg': suggestedWeightKg,
       if (increaseFlagged != null) 'increase_flagged': increaseFlagged,
       if (notes != null) 'notes': notes,
+      if (supersetGroup != null) 'superset_group': supersetGroup,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4024,6 +4137,7 @@ class SessionExercisesCompanion extends UpdateCompanion<SessionExerciseRow> {
     Value<double?>? suggestedWeightKg,
     Value<bool>? increaseFlagged,
     Value<String?>? notes,
+    Value<int?>? supersetGroup,
     Value<int>? rowid,
   }) {
     return SessionExercisesCompanion(
@@ -4040,6 +4154,7 @@ class SessionExercisesCompanion extends UpdateCompanion<SessionExerciseRow> {
       suggestedWeightKg: suggestedWeightKg ?? this.suggestedWeightKg,
       increaseFlagged: increaseFlagged ?? this.increaseFlagged,
       notes: notes ?? this.notes,
+      supersetGroup: supersetGroup ?? this.supersetGroup,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4086,6 +4201,9 @@ class SessionExercisesCompanion extends UpdateCompanion<SessionExerciseRow> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (supersetGroup.present) {
+      map['superset_group'] = Variable<int>(supersetGroup.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4108,6 +4226,7 @@ class SessionExercisesCompanion extends UpdateCompanion<SessionExerciseRow> {
           ..write('suggestedWeightKg: $suggestedWeightKg, ')
           ..write('increaseFlagged: $increaseFlagged, ')
           ..write('notes: $notes, ')
+          ..write('supersetGroup: $supersetGroup, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5807,6 +5926,66 @@ class $DailyMetricsTable extends DailyMetrics
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _chestCmMeta = const VerificationMeta(
+    'chestCm',
+  );
+  @override
+  late final GeneratedColumn<double> chestCm = GeneratedColumn<double>(
+    'chest_cm',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _waistCmMeta = const VerificationMeta(
+    'waistCm',
+  );
+  @override
+  late final GeneratedColumn<double> waistCm = GeneratedColumn<double>(
+    'waist_cm',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _hipsCmMeta = const VerificationMeta('hipsCm');
+  @override
+  late final GeneratedColumn<double> hipsCm = GeneratedColumn<double>(
+    'hips_cm',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _armCmMeta = const VerificationMeta('armCm');
+  @override
+  late final GeneratedColumn<double> armCm = GeneratedColumn<double>(
+    'arm_cm',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _thighCmMeta = const VerificationMeta(
+    'thighCm',
+  );
+  @override
+  late final GeneratedColumn<double> thighCm = GeneratedColumn<double>(
+    'thigh_cm',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _neckCmMeta = const VerificationMeta('neckCm');
+  @override
+  late final GeneratedColumn<double> neckCm = GeneratedColumn<double>(
+    'neck_cm',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _stepsFromHealthMeta = const VerificationMeta(
     'stepsFromHealth',
   );
@@ -5864,6 +6043,12 @@ class $DailyMetricsTable extends DailyMetrics
     kcal,
     proteinG,
     sleepHours,
+    chestCm,
+    waistCm,
+    hipsCm,
+    armCm,
+    thighCm,
+    neckCm,
     stepsFromHealth,
     sleepFromHealth,
     weightFromHealth,
@@ -5942,6 +6127,42 @@ class $DailyMetricsTable extends DailyMetrics
         sleepHours.isAcceptableOrUnknown(data['sleep_hours']!, _sleepHoursMeta),
       );
     }
+    if (data.containsKey('chest_cm')) {
+      context.handle(
+        _chestCmMeta,
+        chestCm.isAcceptableOrUnknown(data['chest_cm']!, _chestCmMeta),
+      );
+    }
+    if (data.containsKey('waist_cm')) {
+      context.handle(
+        _waistCmMeta,
+        waistCm.isAcceptableOrUnknown(data['waist_cm']!, _waistCmMeta),
+      );
+    }
+    if (data.containsKey('hips_cm')) {
+      context.handle(
+        _hipsCmMeta,
+        hipsCm.isAcceptableOrUnknown(data['hips_cm']!, _hipsCmMeta),
+      );
+    }
+    if (data.containsKey('arm_cm')) {
+      context.handle(
+        _armCmMeta,
+        armCm.isAcceptableOrUnknown(data['arm_cm']!, _armCmMeta),
+      );
+    }
+    if (data.containsKey('thigh_cm')) {
+      context.handle(
+        _thighCmMeta,
+        thighCm.isAcceptableOrUnknown(data['thigh_cm']!, _thighCmMeta),
+      );
+    }
+    if (data.containsKey('neck_cm')) {
+      context.handle(
+        _neckCmMeta,
+        neckCm.isAcceptableOrUnknown(data['neck_cm']!, _neckCmMeta),
+      );
+    }
     if (data.containsKey('steps_from_health')) {
       context.handle(
         _stepsFromHealthMeta,
@@ -6018,6 +6239,30 @@ class $DailyMetricsTable extends DailyMetrics
         DriftSqlType.double,
         data['${effectivePrefix}sleep_hours'],
       ),
+      chestCm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}chest_cm'],
+      ),
+      waistCm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}waist_cm'],
+      ),
+      hipsCm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}hips_cm'],
+      ),
+      armCm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}arm_cm'],
+      ),
+      thighCm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}thigh_cm'],
+      ),
+      neckCm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}neck_cm'],
+      ),
       stepsFromHealth: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}steps_from_health'],
@@ -6055,6 +6300,16 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
   final int? proteinG;
   final double? sleepHours;
 
+  /// Tape measurements, in centimetres. Logged as often as the user cares to
+  /// — usually weekly — and charted alongside body weight, which is the
+  /// number that actually tells you whether a bulk is going where you want.
+  final double? chestCm;
+  final double? waistCm;
+  final double? hipsCm;
+  final double? armCm;
+  final double? thighCm;
+  final double? neckCm;
+
   /// Steps/sleep can come from Health or be typed in; remember which so a
   /// Health refresh never stomps a manual entry.
   final bool stepsFromHealth;
@@ -6071,6 +6326,12 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
     this.kcal,
     this.proteinG,
     this.sleepHours,
+    this.chestCm,
+    this.waistCm,
+    this.hipsCm,
+    this.armCm,
+    this.thighCm,
+    this.neckCm,
     required this.stepsFromHealth,
     required this.sleepFromHealth,
     required this.weightFromHealth,
@@ -6098,6 +6359,24 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
     if (!nullToAbsent || sleepHours != null) {
       map['sleep_hours'] = Variable<double>(sleepHours);
     }
+    if (!nullToAbsent || chestCm != null) {
+      map['chest_cm'] = Variable<double>(chestCm);
+    }
+    if (!nullToAbsent || waistCm != null) {
+      map['waist_cm'] = Variable<double>(waistCm);
+    }
+    if (!nullToAbsent || hipsCm != null) {
+      map['hips_cm'] = Variable<double>(hipsCm);
+    }
+    if (!nullToAbsent || armCm != null) {
+      map['arm_cm'] = Variable<double>(armCm);
+    }
+    if (!nullToAbsent || thighCm != null) {
+      map['thigh_cm'] = Variable<double>(thighCm);
+    }
+    if (!nullToAbsent || neckCm != null) {
+      map['neck_cm'] = Variable<double>(neckCm);
+    }
     map['steps_from_health'] = Variable<bool>(stepsFromHealth);
     map['sleep_from_health'] = Variable<bool>(sleepFromHealth);
     map['weight_from_health'] = Variable<bool>(weightFromHealth);
@@ -6124,6 +6403,24 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
       sleepHours: sleepHours == null && nullToAbsent
           ? const Value.absent()
           : Value(sleepHours),
+      chestCm: chestCm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(chestCm),
+      waistCm: waistCm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(waistCm),
+      hipsCm: hipsCm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hipsCm),
+      armCm: armCm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(armCm),
+      thighCm: thighCm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(thighCm),
+      neckCm: neckCm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(neckCm),
       stepsFromHealth: Value(stepsFromHealth),
       sleepFromHealth: Value(sleepFromHealth),
       weightFromHealth: Value(weightFromHealth),
@@ -6146,6 +6443,12 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
       kcal: serializer.fromJson<int?>(json['kcal']),
       proteinG: serializer.fromJson<int?>(json['proteinG']),
       sleepHours: serializer.fromJson<double?>(json['sleepHours']),
+      chestCm: serializer.fromJson<double?>(json['chestCm']),
+      waistCm: serializer.fromJson<double?>(json['waistCm']),
+      hipsCm: serializer.fromJson<double?>(json['hipsCm']),
+      armCm: serializer.fromJson<double?>(json['armCm']),
+      thighCm: serializer.fromJson<double?>(json['thighCm']),
+      neckCm: serializer.fromJson<double?>(json['neckCm']),
       stepsFromHealth: serializer.fromJson<bool>(json['stepsFromHealth']),
       sleepFromHealth: serializer.fromJson<bool>(json['sleepFromHealth']),
       weightFromHealth: serializer.fromJson<bool>(json['weightFromHealth']),
@@ -6165,6 +6468,12 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
       'kcal': serializer.toJson<int?>(kcal),
       'proteinG': serializer.toJson<int?>(proteinG),
       'sleepHours': serializer.toJson<double?>(sleepHours),
+      'chestCm': serializer.toJson<double?>(chestCm),
+      'waistCm': serializer.toJson<double?>(waistCm),
+      'hipsCm': serializer.toJson<double?>(hipsCm),
+      'armCm': serializer.toJson<double?>(armCm),
+      'thighCm': serializer.toJson<double?>(thighCm),
+      'neckCm': serializer.toJson<double?>(neckCm),
       'stepsFromHealth': serializer.toJson<bool>(stepsFromHealth),
       'sleepFromHealth': serializer.toJson<bool>(sleepFromHealth),
       'weightFromHealth': serializer.toJson<bool>(weightFromHealth),
@@ -6182,6 +6491,12 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
     Value<int?> kcal = const Value.absent(),
     Value<int?> proteinG = const Value.absent(),
     Value<double?> sleepHours = const Value.absent(),
+    Value<double?> chestCm = const Value.absent(),
+    Value<double?> waistCm = const Value.absent(),
+    Value<double?> hipsCm = const Value.absent(),
+    Value<double?> armCm = const Value.absent(),
+    Value<double?> thighCm = const Value.absent(),
+    Value<double?> neckCm = const Value.absent(),
     bool? stepsFromHealth,
     bool? sleepFromHealth,
     bool? weightFromHealth,
@@ -6196,6 +6511,12 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
     kcal: kcal.present ? kcal.value : this.kcal,
     proteinG: proteinG.present ? proteinG.value : this.proteinG,
     sleepHours: sleepHours.present ? sleepHours.value : this.sleepHours,
+    chestCm: chestCm.present ? chestCm.value : this.chestCm,
+    waistCm: waistCm.present ? waistCm.value : this.waistCm,
+    hipsCm: hipsCm.present ? hipsCm.value : this.hipsCm,
+    armCm: armCm.present ? armCm.value : this.armCm,
+    thighCm: thighCm.present ? thighCm.value : this.thighCm,
+    neckCm: neckCm.present ? neckCm.value : this.neckCm,
     stepsFromHealth: stepsFromHealth ?? this.stepsFromHealth,
     sleepFromHealth: sleepFromHealth ?? this.sleepFromHealth,
     weightFromHealth: weightFromHealth ?? this.weightFromHealth,
@@ -6214,6 +6535,12 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
       sleepHours: data.sleepHours.present
           ? data.sleepHours.value
           : this.sleepHours,
+      chestCm: data.chestCm.present ? data.chestCm.value : this.chestCm,
+      waistCm: data.waistCm.present ? data.waistCm.value : this.waistCm,
+      hipsCm: data.hipsCm.present ? data.hipsCm.value : this.hipsCm,
+      armCm: data.armCm.present ? data.armCm.value : this.armCm,
+      thighCm: data.thighCm.present ? data.thighCm.value : this.thighCm,
+      neckCm: data.neckCm.present ? data.neckCm.value : this.neckCm,
       stepsFromHealth: data.stepsFromHealth.present
           ? data.stepsFromHealth.value
           : this.stepsFromHealth,
@@ -6239,6 +6566,12 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
           ..write('kcal: $kcal, ')
           ..write('proteinG: $proteinG, ')
           ..write('sleepHours: $sleepHours, ')
+          ..write('chestCm: $chestCm, ')
+          ..write('waistCm: $waistCm, ')
+          ..write('hipsCm: $hipsCm, ')
+          ..write('armCm: $armCm, ')
+          ..write('thighCm: $thighCm, ')
+          ..write('neckCm: $neckCm, ')
           ..write('stepsFromHealth: $stepsFromHealth, ')
           ..write('sleepFromHealth: $sleepFromHealth, ')
           ..write('weightFromHealth: $weightFromHealth')
@@ -6258,6 +6591,12 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
     kcal,
     proteinG,
     sleepHours,
+    chestCm,
+    waistCm,
+    hipsCm,
+    armCm,
+    thighCm,
+    neckCm,
     stepsFromHealth,
     sleepFromHealth,
     weightFromHealth,
@@ -6276,6 +6615,12 @@ class DailyMetricRow extends DataClass implements Insertable<DailyMetricRow> {
           other.kcal == this.kcal &&
           other.proteinG == this.proteinG &&
           other.sleepHours == this.sleepHours &&
+          other.chestCm == this.chestCm &&
+          other.waistCm == this.waistCm &&
+          other.hipsCm == this.hipsCm &&
+          other.armCm == this.armCm &&
+          other.thighCm == this.thighCm &&
+          other.neckCm == this.neckCm &&
           other.stepsFromHealth == this.stepsFromHealth &&
           other.sleepFromHealth == this.sleepFromHealth &&
           other.weightFromHealth == this.weightFromHealth);
@@ -6292,6 +6637,12 @@ class DailyMetricsCompanion extends UpdateCompanion<DailyMetricRow> {
   final Value<int?> kcal;
   final Value<int?> proteinG;
   final Value<double?> sleepHours;
+  final Value<double?> chestCm;
+  final Value<double?> waistCm;
+  final Value<double?> hipsCm;
+  final Value<double?> armCm;
+  final Value<double?> thighCm;
+  final Value<double?> neckCm;
   final Value<bool> stepsFromHealth;
   final Value<bool> sleepFromHealth;
   final Value<bool> weightFromHealth;
@@ -6307,6 +6658,12 @@ class DailyMetricsCompanion extends UpdateCompanion<DailyMetricRow> {
     this.kcal = const Value.absent(),
     this.proteinG = const Value.absent(),
     this.sleepHours = const Value.absent(),
+    this.chestCm = const Value.absent(),
+    this.waistCm = const Value.absent(),
+    this.hipsCm = const Value.absent(),
+    this.armCm = const Value.absent(),
+    this.thighCm = const Value.absent(),
+    this.neckCm = const Value.absent(),
     this.stepsFromHealth = const Value.absent(),
     this.sleepFromHealth = const Value.absent(),
     this.weightFromHealth = const Value.absent(),
@@ -6323,6 +6680,12 @@ class DailyMetricsCompanion extends UpdateCompanion<DailyMetricRow> {
     this.kcal = const Value.absent(),
     this.proteinG = const Value.absent(),
     this.sleepHours = const Value.absent(),
+    this.chestCm = const Value.absent(),
+    this.waistCm = const Value.absent(),
+    this.hipsCm = const Value.absent(),
+    this.armCm = const Value.absent(),
+    this.thighCm = const Value.absent(),
+    this.neckCm = const Value.absent(),
     this.stepsFromHealth = const Value.absent(),
     this.sleepFromHealth = const Value.absent(),
     this.weightFromHealth = const Value.absent(),
@@ -6339,6 +6702,12 @@ class DailyMetricsCompanion extends UpdateCompanion<DailyMetricRow> {
     Expression<int>? kcal,
     Expression<int>? proteinG,
     Expression<double>? sleepHours,
+    Expression<double>? chestCm,
+    Expression<double>? waistCm,
+    Expression<double>? hipsCm,
+    Expression<double>? armCm,
+    Expression<double>? thighCm,
+    Expression<double>? neckCm,
     Expression<bool>? stepsFromHealth,
     Expression<bool>? sleepFromHealth,
     Expression<bool>? weightFromHealth,
@@ -6355,6 +6724,12 @@ class DailyMetricsCompanion extends UpdateCompanion<DailyMetricRow> {
       if (kcal != null) 'kcal': kcal,
       if (proteinG != null) 'protein_g': proteinG,
       if (sleepHours != null) 'sleep_hours': sleepHours,
+      if (chestCm != null) 'chest_cm': chestCm,
+      if (waistCm != null) 'waist_cm': waistCm,
+      if (hipsCm != null) 'hips_cm': hipsCm,
+      if (armCm != null) 'arm_cm': armCm,
+      if (thighCm != null) 'thigh_cm': thighCm,
+      if (neckCm != null) 'neck_cm': neckCm,
       if (stepsFromHealth != null) 'steps_from_health': stepsFromHealth,
       if (sleepFromHealth != null) 'sleep_from_health': sleepFromHealth,
       if (weightFromHealth != null) 'weight_from_health': weightFromHealth,
@@ -6373,6 +6748,12 @@ class DailyMetricsCompanion extends UpdateCompanion<DailyMetricRow> {
     Value<int?>? kcal,
     Value<int?>? proteinG,
     Value<double?>? sleepHours,
+    Value<double?>? chestCm,
+    Value<double?>? waistCm,
+    Value<double?>? hipsCm,
+    Value<double?>? armCm,
+    Value<double?>? thighCm,
+    Value<double?>? neckCm,
     Value<bool>? stepsFromHealth,
     Value<bool>? sleepFromHealth,
     Value<bool>? weightFromHealth,
@@ -6389,6 +6770,12 @@ class DailyMetricsCompanion extends UpdateCompanion<DailyMetricRow> {
       kcal: kcal ?? this.kcal,
       proteinG: proteinG ?? this.proteinG,
       sleepHours: sleepHours ?? this.sleepHours,
+      chestCm: chestCm ?? this.chestCm,
+      waistCm: waistCm ?? this.waistCm,
+      hipsCm: hipsCm ?? this.hipsCm,
+      armCm: armCm ?? this.armCm,
+      thighCm: thighCm ?? this.thighCm,
+      neckCm: neckCm ?? this.neckCm,
       stepsFromHealth: stepsFromHealth ?? this.stepsFromHealth,
       sleepFromHealth: sleepFromHealth ?? this.sleepFromHealth,
       weightFromHealth: weightFromHealth ?? this.weightFromHealth,
@@ -6429,6 +6816,24 @@ class DailyMetricsCompanion extends UpdateCompanion<DailyMetricRow> {
     if (sleepHours.present) {
       map['sleep_hours'] = Variable<double>(sleepHours.value);
     }
+    if (chestCm.present) {
+      map['chest_cm'] = Variable<double>(chestCm.value);
+    }
+    if (waistCm.present) {
+      map['waist_cm'] = Variable<double>(waistCm.value);
+    }
+    if (hipsCm.present) {
+      map['hips_cm'] = Variable<double>(hipsCm.value);
+    }
+    if (armCm.present) {
+      map['arm_cm'] = Variable<double>(armCm.value);
+    }
+    if (thighCm.present) {
+      map['thigh_cm'] = Variable<double>(thighCm.value);
+    }
+    if (neckCm.present) {
+      map['neck_cm'] = Variable<double>(neckCm.value);
+    }
     if (stepsFromHealth.present) {
       map['steps_from_health'] = Variable<bool>(stepsFromHealth.value);
     }
@@ -6457,6 +6862,12 @@ class DailyMetricsCompanion extends UpdateCompanion<DailyMetricRow> {
           ..write('kcal: $kcal, ')
           ..write('proteinG: $proteinG, ')
           ..write('sleepHours: $sleepHours, ')
+          ..write('chestCm: $chestCm, ')
+          ..write('waistCm: $waistCm, ')
+          ..write('hipsCm: $hipsCm, ')
+          ..write('armCm: $armCm, ')
+          ..write('thighCm: $thighCm, ')
+          ..write('neckCm: $neckCm, ')
           ..write('stepsFromHealth: $stepsFromHealth, ')
           ..write('sleepFromHealth: $sleepFromHealth, ')
           ..write('weightFromHealth: $weightFromHealth, ')
@@ -8714,6 +9125,7 @@ typedef $$TemplateExercisesTableCreateCompanionBuilder =
       Value<int?> setsOverride,
       Value<int?> repMinOverride,
       Value<int?> repMaxOverride,
+      Value<int?> supersetGroup,
       Value<int> rowid,
     });
 typedef $$TemplateExercisesTableUpdateCompanionBuilder =
@@ -8728,6 +9140,7 @@ typedef $$TemplateExercisesTableUpdateCompanionBuilder =
       Value<int?> setsOverride,
       Value<int?> repMinOverride,
       Value<int?> repMaxOverride,
+      Value<int?> supersetGroup,
       Value<int> rowid,
     });
 
@@ -8828,6 +9241,11 @@ class $$TemplateExercisesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get supersetGroup => $composableBuilder(
+    column: $table.supersetGroup,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$TemplatesTableFilterComposer get templateId {
     final $$TemplatesTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -8924,6 +9342,11 @@ class $$TemplateExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get supersetGroup => $composableBuilder(
+    column: $table.supersetGroup,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$TemplatesTableOrderingComposer get templateId {
     final $$TemplatesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -9009,6 +9432,11 @@ class $$TemplateExercisesTableAnnotationComposer
 
   GeneratedColumn<int> get repMaxOverride => $composableBuilder(
     column: $table.repMaxOverride,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get supersetGroup => $composableBuilder(
+    column: $table.supersetGroup,
     builder: (column) => column,
   );
 
@@ -9102,6 +9530,7 @@ class $$TemplateExercisesTableTableManager
                 Value<int?> setsOverride = const Value.absent(),
                 Value<int?> repMinOverride = const Value.absent(),
                 Value<int?> repMaxOverride = const Value.absent(),
+                Value<int?> supersetGroup = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TemplateExercisesCompanion(
                 updatedAt: updatedAt,
@@ -9114,6 +9543,7 @@ class $$TemplateExercisesTableTableManager
                 setsOverride: setsOverride,
                 repMinOverride: repMinOverride,
                 repMaxOverride: repMaxOverride,
+                supersetGroup: supersetGroup,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9128,6 +9558,7 @@ class $$TemplateExercisesTableTableManager
                 Value<int?> setsOverride = const Value.absent(),
                 Value<int?> repMinOverride = const Value.absent(),
                 Value<int?> repMaxOverride = const Value.absent(),
+                Value<int?> supersetGroup = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TemplateExercisesCompanion.insert(
                 updatedAt: updatedAt,
@@ -9140,6 +9571,7 @@ class $$TemplateExercisesTableTableManager
                 setsOverride: setsOverride,
                 repMinOverride: repMinOverride,
                 repMaxOverride: repMaxOverride,
+                supersetGroup: supersetGroup,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -9882,6 +10314,7 @@ typedef $$SessionExercisesTableCreateCompanionBuilder =
       Value<double?> suggestedWeightKg,
       Value<bool> increaseFlagged,
       Value<String?> notes,
+      Value<int?> supersetGroup,
       Value<int> rowid,
     });
 typedef $$SessionExercisesTableUpdateCompanionBuilder =
@@ -9899,6 +10332,7 @@ typedef $$SessionExercisesTableUpdateCompanionBuilder =
       Value<double?> suggestedWeightKg,
       Value<bool> increaseFlagged,
       Value<String?> notes,
+      Value<int?> supersetGroup,
       Value<int> rowid,
     });
 
@@ -10014,6 +10448,11 @@ class $$SessionExercisesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get supersetGroup => $composableBuilder(
+    column: $table.supersetGroup,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$SessionsTableFilterComposer get sessionId {
     final $$SessionsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -10125,6 +10564,11 @@ class $$SessionExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get supersetGroup => $composableBuilder(
+    column: $table.supersetGroup,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SessionsTableOrderingComposer get sessionId {
     final $$SessionsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -10226,6 +10670,11 @@ class $$SessionExercisesTableAnnotationComposer
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
+  GeneratedColumn<int> get supersetGroup => $composableBuilder(
+    column: $table.supersetGroup,
+    builder: (column) => column,
+  );
+
   $$SessionsTableAnnotationComposer get sessionId {
     final $$SessionsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -10316,6 +10765,7 @@ class $$SessionExercisesTableTableManager
                 Value<double?> suggestedWeightKg = const Value.absent(),
                 Value<bool> increaseFlagged = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<int?> supersetGroup = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SessionExercisesCompanion(
                 updatedAt: updatedAt,
@@ -10331,6 +10781,7 @@ class $$SessionExercisesTableTableManager
                 suggestedWeightKg: suggestedWeightKg,
                 increaseFlagged: increaseFlagged,
                 notes: notes,
+                supersetGroup: supersetGroup,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10348,6 +10799,7 @@ class $$SessionExercisesTableTableManager
                 Value<double?> suggestedWeightKg = const Value.absent(),
                 Value<bool> increaseFlagged = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<int?> supersetGroup = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SessionExercisesCompanion.insert(
                 updatedAt: updatedAt,
@@ -10363,6 +10815,7 @@ class $$SessionExercisesTableTableManager
                 suggestedWeightKg: suggestedWeightKg,
                 increaseFlagged: increaseFlagged,
                 notes: notes,
+                supersetGroup: supersetGroup,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -11524,6 +11977,12 @@ typedef $$DailyMetricsTableCreateCompanionBuilder =
       Value<int?> kcal,
       Value<int?> proteinG,
       Value<double?> sleepHours,
+      Value<double?> chestCm,
+      Value<double?> waistCm,
+      Value<double?> hipsCm,
+      Value<double?> armCm,
+      Value<double?> thighCm,
+      Value<double?> neckCm,
       Value<bool> stepsFromHealth,
       Value<bool> sleepFromHealth,
       Value<bool> weightFromHealth,
@@ -11541,6 +12000,12 @@ typedef $$DailyMetricsTableUpdateCompanionBuilder =
       Value<int?> kcal,
       Value<int?> proteinG,
       Value<double?> sleepHours,
+      Value<double?> chestCm,
+      Value<double?> waistCm,
+      Value<double?> hipsCm,
+      Value<double?> armCm,
+      Value<double?> thighCm,
+      Value<double?> neckCm,
       Value<bool> stepsFromHealth,
       Value<bool> sleepFromHealth,
       Value<bool> weightFromHealth,
@@ -11603,6 +12068,36 @@ class $$DailyMetricsTableFilterComposer
 
   ColumnFilters<double> get sleepHours => $composableBuilder(
     column: $table.sleepHours,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get chestCm => $composableBuilder(
+    column: $table.chestCm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get waistCm => $composableBuilder(
+    column: $table.waistCm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get hipsCm => $composableBuilder(
+    column: $table.hipsCm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get armCm => $composableBuilder(
+    column: $table.armCm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get thighCm => $composableBuilder(
+    column: $table.thighCm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get neckCm => $composableBuilder(
+    column: $table.neckCm,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11681,6 +12176,36 @@ class $$DailyMetricsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get chestCm => $composableBuilder(
+    column: $table.chestCm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get waistCm => $composableBuilder(
+    column: $table.waistCm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get hipsCm => $composableBuilder(
+    column: $table.hipsCm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get armCm => $composableBuilder(
+    column: $table.armCm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get thighCm => $composableBuilder(
+    column: $table.thighCm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get neckCm => $composableBuilder(
+    column: $table.neckCm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get stepsFromHealth => $composableBuilder(
     column: $table.stepsFromHealth,
     builder: (column) => ColumnOrderings(column),
@@ -11737,6 +12262,24 @@ class $$DailyMetricsTableAnnotationComposer
     column: $table.sleepHours,
     builder: (column) => column,
   );
+
+  GeneratedColumn<double> get chestCm =>
+      $composableBuilder(column: $table.chestCm, builder: (column) => column);
+
+  GeneratedColumn<double> get waistCm =>
+      $composableBuilder(column: $table.waistCm, builder: (column) => column);
+
+  GeneratedColumn<double> get hipsCm =>
+      $composableBuilder(column: $table.hipsCm, builder: (column) => column);
+
+  GeneratedColumn<double> get armCm =>
+      $composableBuilder(column: $table.armCm, builder: (column) => column);
+
+  GeneratedColumn<double> get thighCm =>
+      $composableBuilder(column: $table.thighCm, builder: (column) => column);
+
+  GeneratedColumn<double> get neckCm =>
+      $composableBuilder(column: $table.neckCm, builder: (column) => column);
 
   GeneratedColumn<bool> get stepsFromHealth => $composableBuilder(
     column: $table.stepsFromHealth,
@@ -11795,6 +12338,12 @@ class $$DailyMetricsTableTableManager
                 Value<int?> kcal = const Value.absent(),
                 Value<int?> proteinG = const Value.absent(),
                 Value<double?> sleepHours = const Value.absent(),
+                Value<double?> chestCm = const Value.absent(),
+                Value<double?> waistCm = const Value.absent(),
+                Value<double?> hipsCm = const Value.absent(),
+                Value<double?> armCm = const Value.absent(),
+                Value<double?> thighCm = const Value.absent(),
+                Value<double?> neckCm = const Value.absent(),
                 Value<bool> stepsFromHealth = const Value.absent(),
                 Value<bool> sleepFromHealth = const Value.absent(),
                 Value<bool> weightFromHealth = const Value.absent(),
@@ -11810,6 +12359,12 @@ class $$DailyMetricsTableTableManager
                 kcal: kcal,
                 proteinG: proteinG,
                 sleepHours: sleepHours,
+                chestCm: chestCm,
+                waistCm: waistCm,
+                hipsCm: hipsCm,
+                armCm: armCm,
+                thighCm: thighCm,
+                neckCm: neckCm,
                 stepsFromHealth: stepsFromHealth,
                 sleepFromHealth: sleepFromHealth,
                 weightFromHealth: weightFromHealth,
@@ -11827,6 +12382,12 @@ class $$DailyMetricsTableTableManager
                 Value<int?> kcal = const Value.absent(),
                 Value<int?> proteinG = const Value.absent(),
                 Value<double?> sleepHours = const Value.absent(),
+                Value<double?> chestCm = const Value.absent(),
+                Value<double?> waistCm = const Value.absent(),
+                Value<double?> hipsCm = const Value.absent(),
+                Value<double?> armCm = const Value.absent(),
+                Value<double?> thighCm = const Value.absent(),
+                Value<double?> neckCm = const Value.absent(),
                 Value<bool> stepsFromHealth = const Value.absent(),
                 Value<bool> sleepFromHealth = const Value.absent(),
                 Value<bool> weightFromHealth = const Value.absent(),
@@ -11842,6 +12403,12 @@ class $$DailyMetricsTableTableManager
                 kcal: kcal,
                 proteinG: proteinG,
                 sleepHours: sleepHours,
+                chestCm: chestCm,
+                waistCm: waistCm,
+                hipsCm: hipsCm,
+                armCm: armCm,
+                thighCm: thighCm,
+                neckCm: neckCm,
                 stepsFromHealth: stepsFromHealth,
                 sleepFromHealth: sleepFromHealth,
                 weightFromHealth: weightFromHealth,

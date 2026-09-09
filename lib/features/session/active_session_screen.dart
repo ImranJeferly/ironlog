@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -322,6 +323,15 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     _goTo(list.length);
   }
 
+  /// Jumps to a specific exercise by its session-exercise row id — how a
+  /// superset hands over to its partner.
+  void _jumpTo(String linkId) {
+    final view = ref.read(sessionViewProvider(widget.sessionId)).value;
+    if (view == null) return;
+    final index = view.exercises.indexWhere((e) => e.link.id == linkId);
+    if (index >= 0) _goTo(index);
+  }
+
   String _cardioLabel(SessionView view) {
     final templates = ref.read(templatesProvider).value ?? const [];
     for (final t in templates) {
@@ -386,6 +396,23 @@ class _ActiveSessionScreenState extends ConsumerState<ActiveSessionScreen> {
     }
 
     final settings = ref.read(settingsProvider);
+    // Inside a superset you don't rest — you go straight to the partner
+    // exercise. The timer only starts once the round is finished.
+    final view = ref.read(sessionViewProvider(widget.sessionId)).value;
+    final refreshed = view?.exercises.firstWhereOrNull(
+      (e) => e.link.id == exercise.link.id,
+    );
+    final nextInRound = view == null || refreshed == null
+        ? null
+        : view.nextInSuperset(refreshed);
+    if (nextInRound != null) {
+      if (mounted) {
+        _jumpTo(nextInRound.link.id);
+        Haptics.tick();
+      }
+      return;
+    }
+
     if (settings.restTimerEnabled) {
       if (!completesExercise) {
         // Between sets of the same exercise.
@@ -979,7 +1006,8 @@ class _ExercisePage extends ConsumerWidget {
                       Flexible(
                         child: Text(
                           '${exercise.schemeLabel} · ${exercise.muscleGroup.label}'
-                          '${exercise.exercise.isUnilateral ? ' · per side' : ''}',
+                          '${exercise.exercise.isUnilateral ? ' · per side' : ''}'
+                          '${exercise.supersetGroup != null ? ' · superset' : ''}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall,

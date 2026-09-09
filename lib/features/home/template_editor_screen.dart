@@ -198,6 +198,29 @@ class TemplateEditorScreen extends ConsumerWidget {
                                   ],
                                 ),
                               ),
+                              // Supersets are a property of the pair, so the
+                              // link button belongs to the lower row.
+                              if (i > 0)
+                                IconPill(
+                                  icon: link.supersetGroup != null &&
+                                          link.supersetGroup ==
+                                              rows[i - 1].$1.supersetGroup
+                                      ? Icons.link
+                                      : Icons.link_off,
+                                  size: 34,
+                                  color: link.supersetGroup != null &&
+                                          link.supersetGroup ==
+                                              rows[i - 1].$1.supersetGroup
+                                      ? AppColors.accent
+                                      : AppColors.textTertiary,
+                                  tooltip: 'Superset with the one above',
+                                  onTap: () => ref
+                                      .read(workoutRepositoryProvider)
+                                      .toggleSupersetWithPrevious(
+                                        templateId,
+                                        i,
+                                      ),
+                                ),
                               IconPill(
                                 icon: Icons.close,
                                 size: 34,
