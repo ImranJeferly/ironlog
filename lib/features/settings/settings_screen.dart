@@ -131,7 +131,7 @@ class _ProfileCard extends ConsumerWidget {
             children: [
               Avatar(
                 initial: profile?.initial ?? initial,
-                photo: profile?.photo,
+                photo: profile?.photo, photoUrl: profile?.photoUrl,
                 size: 56,
                 muted: !signedIn,
               ),

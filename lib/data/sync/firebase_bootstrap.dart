@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -52,6 +53,15 @@ abstract final class FirebaseBootstrap {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp(options: options);
       }
+      // Online-first, offline fallback: every read goes to the server and
+      // falls back to the local cache when it can't; every write is queued
+      // on disk and flushed when the network allows. Unlimited cache so the
+      // fallback is the whole history, not the last 100 MB of it. Must be
+      // set before the first Firestore call.
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      );
       final auth = FirebaseAuth.instance;
       final credential =
           auth.currentUser ?? (await auth.signInAnonymously()).user;

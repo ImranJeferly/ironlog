@@ -2,9 +2,48 @@
 
 All notable changes to IronLog. Newest first.
 
-## Unreleased — friends, chat and profiles
+## Unreleased — proper Firebase: Cloud Functions, FCM, Storage
 
-Everything social lives in Firestore documents only — no Firebase Storage,
+The free-tier workarounds are gone. The project now needs the **Blaze**
+plan (pay-as-you-go; the free allowances cover a handful of users many
+times over). Deploy with `firebase deploy` — rules, Storage rules and
+Functions all live in the repo.
+
+- **Push notifications over FCM.** Cloud Functions (`functions/index.js`)
+  watch `chats/*/messages` and `friendRequests` and push to every device
+  registered under `users/{uid}/fcmTokens`. Messages, voice notes,
+  PR/session broadcasts, new requests and acceptances all arrive as real
+  pushes — app closed, screen off, no battery-exemption dance. Dead tokens
+  are pruned on the first failed send.
+- **The native listener stack is deleted.** `FriendPushService`,
+  `KeepAliveJob`, `PushReceiver` and `PushInbox` (a foreground service, a
+  15-minute polling job and a persistent "Background listener"
+  notification) are gone, along with the FOREGROUND_SERVICE and
+  battery-optimisation permissions and the Profile › Notifications card.
+  The inline "Reply" box on message notifications went with it.
+- **Delivered ticks come from the phone that got the push**, stamped on
+  arrival (foreground or background) — the one thing a server can't know.
+- **Photos and voice notes in Firebase Storage.** Profile photos upload to
+  `profiles/{uid}/avatar.jpg` (now 512 px), voice notes to
+  `chats/{chatId}/voice/{messageId}.m4a`, with rules scoped to the owner /
+  the two chat members. Messages carry a URL instead of a 1 MiB-capped
+  blob, so a chat no longer re-downloads every voice note it ever had.
+  Old inline blobs still render. Uploads are the one thing that needs a
+  connection, and say so; text still queues offline.
+- **Online first, offline fallback, explicitly.** Firestore persistence is
+  configured at boot with an unlimited cache: reads go to the server and
+  fall back to the cache; writes queue on disk and flush when they can.
+  Broadcasts try the server for four seconds before using the cached
+  friend list.
+- **Tighter Firestore rules.** A sent message is immutable except for
+  `deliveredAt`/`seenAt`, which only the recipient may write; only the
+  author can delete one. Friend requests can't change their `from`/`to`
+  and must be created as `pending` under the `{from}_{to}` id. Chat
+  membership can't be rewritten. FCM tokens are private to their owner.
+
+## Earlier — friends, chat and profiles
+
+Everything social lived in Firestore documents only — no Firebase Storage,
 no server code. It needs a real (non-guest) account.
 
 - **Friends tab.** New tab between History and Photos with Chats, Friends

@@ -67,7 +67,7 @@ class FriendProfileScreen extends ConsumerWidget {
             children: [
               Avatar(
                 initial: profile.initial,
-                photo: profile.photo,
+                photo: profile.photo, photoUrl: profile.photoUrl,
                 size: 84,
                 training: profile.isTraining,
               ),

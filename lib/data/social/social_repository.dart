@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 
 import '../sync/firebase_bootstrap.dart';
@@ -46,19 +47,30 @@ String describeSocialError(Object error) {
   return 'Something went wrong: $error';
 }
 
-/// Friends, requests, chats and profiles — all in Firestore documents, no
-/// Storage. Photos and voice notes travel as inline blobs, which keeps the
-/// whole feature inside the free tier.
+/// Friends, requests, chats and profiles in Firestore; photos and voice notes
+/// in Firebase Storage. Push notifications for any of it are sent by the
+/// Cloud Functions in `functions/index.js` — nothing here notifies anyone,
+/// it just writes the documents.
+///
+/// Reads are online-first with the Firestore cache as the fallback (the SDK
+/// default, made explicit in `FirebaseBootstrap`); document writes queue
+/// locally and flush when the network allows. Storage uploads are the one
+/// thing that genuinely needs a connection, and say so when there isn't one.
 ///
 /// Every method is a no-op (or empty stream) when Firebase isn't available or
 /// the user isn't signed into a real account, so the rest of the app never has
 /// to special-case it.
 class SocialRepository {
-  SocialRepository({FirebaseFirestore? firestore}) : _firestore = firestore;
+  SocialRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
+    : _firestore = firestore,
+      _storage = storage;
 
   final FirebaseFirestore? _firestore;
+  final FirebaseStorage? _storage;
 
   FirebaseFirestore get _db => _firestore ?? FirebaseFirestore.instance;
+
+  FirebaseStorage get _files => _storage ?? FirebaseStorage.instance;
 
   bool get isAvailable => FirebaseBootstrap.isAvailable;
 
@@ -163,13 +175,48 @@ class SocialRepository {
     }, SetOptions(merge: true));
   }
 
-  /// Small JPEG bytes → inline blob on the profile. Pass null to clear.
-  Future<void> setPhoto(Uint8List? jpeg) async {
+  /// Uploads the JPEG to `profiles/{uid}/avatar.jpg` and points the profile
+  /// at it. Pass null to clear. Returns null on success or a human-readable
+  /// reason — an upload needs a connection, unlike a document write.
+  Future<String?> setPhoto(Uint8List? jpeg) async {
     final me = uid;
-    if (me == null) return;
-    await _users.doc(me).set({
-      'photo': jpeg == null ? FieldValue.delete() : Blob(jpeg),
-    }, SetOptions(merge: true));
+    if (me == null) return 'Sign in first.';
+    final ref = _files.ref('profiles/$me/avatar.jpg');
+    try {
+      String? url;
+      if (jpeg != null) {
+        await ref.putData(jpeg, SettableMetadata(contentType: 'image/jpeg'));
+        // The token in a download URL survives an overwrite, so bust caches
+        // with the upload time.
+        final raw = await ref.getDownloadURL();
+        url = '$raw&v=${DateTime.now().millisecondsSinceEpoch}';
+      } else {
+        try {
+          await ref.delete();
+        } on FirebaseException catch (e) {
+          if (e.code != 'object-not-found') rethrow;
+        }
+      }
+      await _users.doc(me).set({
+        'photoUrl': url ?? FieldValue.delete(),
+        // Drop the inline blob older builds wrote; the URL replaces it.
+        'photo': FieldValue.delete(),
+      }, SetOptions(merge: true));
+      return null;
+    } on FirebaseException catch (e) {
+      debugPrint('IronLog: setPhoto failed (${e.code})');
+      return switch (e.code) {
+        'unauthorized' || 'permission-denied' =>
+          'Storage rejected the upload — the rules in storage.rules aren\'t '
+              'deployed yet.',
+        'retry-limit-exceeded' || 'unavailable' || 'network-request-failed' =>
+          'No connection — photos need one to upload.',
+        _ => 'Could not upload the photo (${e.code}).',
+      };
+    } on Object catch (e) {
+      debugPrint('IronLog: setPhoto failed ($e)');
+      return 'Could not upload the photo. Check your connection.';
+    }
   }
 
   static final _handleRx = RegExp(r'^[a-z0-9_]{3,20}$');
@@ -473,10 +520,11 @@ class SocialRepository {
     required String me,
     required Map<String, dynamic> message,
     required String preview,
+    DocumentReference<Map<String, dynamic>>? messageRef,
   }) {
     final chat = _chats.doc(chatId);
     final batch = _db.batch();
-    batch.set(chat.collection('messages').doc(), message);
+    batch.set(messageRef ?? chat.collection('messages').doc(), message);
     final updates = <String, dynamic>{
       'lastText': preview,
       'lastFrom': me,
@@ -528,8 +576,10 @@ class SocialRepository {
     );
   }
 
-  /// Inline AAC bytes. Firestore documents cap at 1 MiB, so the recorder keeps
-  /// clips short and low-bitrate.
+  /// Uploads the AAC clip to `chats/{chatId}/voice/{messageId}.m4a`, then
+  /// posts the message pointing at it. The upload is the only step that
+  /// needs a connection; the message write itself queues like text does.
+  /// Returns null on success or a human-readable reason.
   Future<String?> sendVoice(
     String chatId,
     Uint8List audio, {
@@ -538,16 +588,35 @@ class SocialRepository {
   }) async {
     final me = uid;
     if (me == null) return 'Sign in first.';
-    if (audio.length > 900 * 1024) {
+    if (audio.length > 4 * 1024 * 1024) {
       return 'That voice note is too long to send.';
+    }
+    final messageRef = _chats.doc(chatId).collection('messages').doc();
+    final file = _files.ref('chats/$chatId/voice/${messageRef.id}.m4a');
+    String url;
+    try {
+      await file.putData(audio, SettableMetadata(contentType: 'audio/mp4'));
+      url = await file.getDownloadURL();
+    } on FirebaseException catch (e) {
+      debugPrint('IronLog: voice upload failed (${e.code})');
+      return switch (e.code) {
+        'unauthorized' || 'permission-denied' =>
+          'Storage rejected the upload — the rules in storage.rules aren\'t '
+              'deployed yet.',
+        _ => 'No connection — voice notes need one to send.',
+      };
+    } on Object catch (e) {
+      debugPrint('IronLog: voice upload failed ($e)');
+      return 'No connection — voice notes need one to send.';
     }
     _post(
       chatId,
       me: me,
+      messageRef: messageRef,
       message: {
         'from': me,
         'kind': MessageKind.voice.name,
-        'audio': Blob(audio),
+        'audioUrl': url,
         'audioMs': durationMs,
         'replyTo': replyTo?.toMap(),
         'sentAt': FieldValue.serverTimestamp(),
@@ -598,17 +667,21 @@ class SocialRepository {
     final me = uid;
     if (me == null || !isAvailable) return;
     try {
-      // Cache first: the friend list rarely changes and this must not wait
-      // on the network mid-session.
+      // Server first, cache when offline — the SDK's default — but the
+      // training flow must not sit on a stalled link, so cap the wait and
+      // fall back to whatever's cached.
       QuerySnapshot<Map<String, dynamic>> friends;
       try {
         friends = await _users
             .doc(me)
             .collection('friends')
-            .get(const GetOptions(source: Source.cache));
-        if (friends.docs.isEmpty) throw StateError('empty cache');
+            .get()
+            .timeout(const Duration(seconds: 4));
       } on Object {
-        friends = await _users.doc(me).collection('friends').get();
+        friends = await _users
+            .doc(me)
+            .collection('friends')
+            .get(const GetOptions(source: Source.cache));
       }
       for (final f in friends.docs) {
         final chatId = f.data()['chatId'] as String? ?? chatIdFor(me, f.id);

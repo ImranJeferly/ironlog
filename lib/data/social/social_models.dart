@@ -143,6 +143,7 @@ class UserProfile {
     required this.displayName,
     this.handle,
     this.bio,
+    this.photoUrl,
     this.photo,
     this.stats = const ProfileStats(),
     this.nowPlaying,
@@ -157,7 +158,12 @@ class UserProfile {
   final String? handle;
   final String? bio;
 
-  /// Small JPEG stored inline in the document (no Firebase Storage).
+  /// Download URL of the profile photo in Firebase Storage
+  /// (`profiles/{uid}/avatar.jpg`).
+  final String? photoUrl;
+
+  /// Legacy: small JPEG stored inline in the document by builds that had no
+  /// Storage. Still rendered when present so old profiles don't go blank.
   final Uint8List? photo;
   final ProfileStats stats;
   final NowPlaying? nowPlaying;
@@ -180,6 +186,7 @@ class UserProfile {
           : 'Lifter',
       handle: m['handle'] as String?,
       bio: m['bio'] as String?,
+      photoUrl: m['photoUrl'] as String?,
       photo: photo is Blob ? photo.bytes : null,
       stats: ProfileStats.fromMap(m['stats'] as Map<String, dynamic>?),
       nowPlaying: NowPlaying.fromMap(m['nowPlaying'] as Map<String, dynamic>?),
@@ -315,6 +322,7 @@ class ChatMessage {
     required this.from,
     required this.kind,
     this.text,
+    this.audioUrl,
     this.audio,
     this.audioMs = 0,
     this.replyTo,
@@ -329,7 +337,12 @@ class ChatMessage {
   final MessageKind kind;
   final String? text;
 
-  /// Voice note bytes (AAC, inline in the document).
+  /// Voice note download URL in Firebase Storage
+  /// (`chats/{chatId}/voice/{messageId}.m4a`).
+  final String? audioUrl;
+
+  /// Legacy: voice note bytes inline in the document, from builds that had
+  /// no Storage. Still playable.
   final Uint8List? audio;
   final int audioMs;
   final ReplyRef? replyTo;
@@ -368,6 +381,7 @@ class ChatMessage {
         orElse: () => MessageKind.text,
       ),
       text: m['text'] as String?,
+      audioUrl: m['audioUrl'] as String?,
       audio: audio is Blob ? audio.bytes : null,
       audioMs: (m['audioMs'] as num?)?.toInt() ?? 0,
       replyTo: ReplyRef.fromMap(m['replyTo'] as Map<String, dynamic>?),

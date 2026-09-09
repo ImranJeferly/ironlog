@@ -237,7 +237,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             children: [
               Avatar(
                 initial: friend?.initial ?? '?',
-                photo: friend?.photo,
+                photo: friend?.photo, photoUrl: friend?.photoUrl,
                 size: 36,
                 training: friend?.isTraining ?? false,
               ),
@@ -541,9 +541,11 @@ class _Bubble extends StatelessWidget {
               ),
               const SizedBox(height: 6),
             ],
-            if (message.kind == MessageKind.voice && message.audio != null)
+            if (message.kind == MessageKind.voice &&
+                (message.audioUrl != null || message.audio != null))
               VoiceNotePlayer(
-                bytes: message.audio!,
+                url: message.audioUrl,
+                bytes: message.audio,
                 durationMs: message.audioMs,
                 mine: mine,
               )

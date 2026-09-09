@@ -72,7 +72,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                         onTap: () => MyProfileScreen.open(context),
                         child: Avatar(
                           initial: me?.initial ?? '?',
-                          photo: me?.photo,
+                          photo: me?.photo, photoUrl: me?.photoUrl,
                           size: 36,
                         ),
                       ),
@@ -271,7 +271,7 @@ class _ChatRow extends ConsumerWidget {
         children: [
           Avatar(
             initial: profile?.initial ?? '?',
-            photo: profile?.photo,
+            photo: profile?.photo, photoUrl: profile?.photoUrl,
             training: profile?.isTraining ?? false,
           ),
           const SizedBox(width: 12),
@@ -427,7 +427,7 @@ class _FriendRow extends ConsumerWidget {
         children: [
           Avatar(
             initial: profile?.initial ?? '?',
-            photo: profile?.photo,
+            photo: profile?.photo, photoUrl: profile?.photoUrl,
             training: profile?.isTraining ?? false,
           ),
           const SizedBox(width: 12),
@@ -601,7 +601,7 @@ class _RequestRow extends ConsumerWidget {
             children: [
               Avatar(
                 initial: initialOf(name),
-                photo: profile?.photo,
+                photo: profile?.photo, photoUrl: profile?.photoUrl,
                 size: 40,
               ),
               const SizedBox(width: 12),
@@ -811,7 +811,7 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
                     children: [
                       Avatar(
                         initial: _found!.initial,
-                        photo: _found!.photo,
+                        photo: _found!.photo, photoUrl: _found!.photoUrl,
                         size: 40,
                       ),
                       const SizedBox(width: 12),

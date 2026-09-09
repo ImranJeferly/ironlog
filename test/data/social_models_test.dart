@@ -111,6 +111,28 @@ void main() {
       expect(m.status, MessageStatus.sent);
     });
 
+    test('ChatMessage reads a Storage voice URL', () {
+      final m = ChatMessage.fromDoc('x', {
+        'from': 'u1',
+        'kind': 'voice',
+        'audioUrl': 'https://firebasestorage.googleapis.com/v0/b/x/o/a.m4a',
+        'audioMs': 3000,
+      });
+      expect(m.audioUrl, startsWith('https://'));
+      expect(m.audio, isNull);
+      expect(m.preview, '🎤 Voice message (3 s)');
+    });
+
+    test('UserProfile prefers the Storage photo URL over a legacy blob', () {
+      final p = UserProfile.fromDoc('u', {
+        'displayName': 'Imran',
+        'photoUrl': 'https://example.test/avatar.jpg',
+        'photo': Blob(Uint8List.fromList([9])),
+      });
+      expect(p.photoUrl, 'https://example.test/avatar.jpg');
+      expect(p.photo, isNotNull);
+    });
+
     test('UserProfile falls back sensibly on an empty document', () {
       final p = UserProfile.fromDoc('u', null);
       expect(p.displayName, 'Lifter');

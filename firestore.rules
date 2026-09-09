@@ -1,7 +1,8 @@
 rules_version = '2';
 // IronLog Firestore rules.
 //
-// Private:  users/{uid}/**  (training data, settings, metrics) — owner only.
+// Private:  users/{uid}/**  (training data, settings, metrics, FCM tokens)
+//           — owner only.
 // Public:   users/{uid}     (profile doc) — any signed-in user reads,
 //           owner writes.
 // Social:   handles, friendRequests, chats/messages — signed-in users, each
@@ -9,7 +10,9 @@ rules_version = '2';
 //           get()/exists() lookups inside write rules, so batched writes and
 //           list queries can't trip over rule evaluation.
 //
-// No Firebase Storage is used (photos and voice notes are inline blobs).
+// Push notifications are sent by Cloud Functions (functions/index.js) with
+// the Admin SDK, which bypasses these rules; the app only ever writes the
+// documents. Photos and voice notes live in Storage (storage.rules).
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -25,9 +28,14 @@ service cloud.firestore {
       return signedIn() && me() == uid;
     }
 
+    /// The keys a write actually changes.
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
     // ---------------------------------------------------------------- users
     match /users/{uid} {
-      // Profile: name, handle, photo, stats, now-playing, active session.
+      // Profile: name, handle, photoUrl, stats, now-playing, active session.
       allow read: if signedIn();
       allow write: if isUser(uid);
 
@@ -37,7 +45,8 @@ service cloud.firestore {
         allow read, write: if isUser(uid) || isUser(fid);
       }
 
-      // Everything else under a user is private training data.
+      // Everything else under a user is private: training data, metrics,
+      // and the FCM tokens the push functions fan out to.
       match /{document=**} {
         allow read, write: if isUser(uid);
       }
@@ -59,33 +68,52 @@ service cloud.firestore {
     // queries its own requests, and before sending one it *gets* the reverse
     // doc, which usually doesn't exist — a rule that touches resource.data
     // fails on a missing doc and surfaces as permission-denied. Writes are
-    // limited to the two people involved.
+    // limited to the two people involved, and the pair can't be rewritten.
     match /friendRequests/{id} {
       allow read: if signedIn();
       allow create: if signedIn()
           && request.resource.data.from == me()
-          && request.resource.data.to != me();
-      allow update, delete: if signedIn()
+          && request.resource.data.to != me()
+          && request.resource.data.status == 'pending'
+          && id == request.resource.data.from + '_' + request.resource.data.to;
+      allow update: if signedIn()
+          && (resource.data.from == me() || resource.data.to == me())
+          && !changed().hasAny(['from', 'to']);
+      allow delete: if signedIn()
           && (resource.data.from == me() || resource.data.to == me());
     }
 
     // ---------------------------------------------------------------- chats
-    // 1:1 chats: only the two members can see or touch them.
+    // 1:1 chats: only the two members can see or touch them. The chat id is
+    // the two uids joined with '_', which is how the app (and the Cloud
+    // Function) derive membership without a read.
     match /chats/{chatId} {
       allow read: if signedIn() && me() in resource.data.members;
-      allow create: if signedIn() && me() in request.resource.data.members;
-      allow update, delete: if signedIn() && me() in resource.data.members;
+      allow create: if signedIn()
+          && me() in request.resource.data.members
+          && request.resource.data.members.size() == 2;
+      // Members are fixed for the life of the chat (re-accepting a friend
+      // re-merges the same pair, which the diff sees as unchanged).
+      allow update: if signedIn()
+          && me() in resource.data.members
+          && !changed().hasAny(['members']);
+      allow delete: if signedIn() && me() in resource.data.members;
 
       function isMember() {
-        return signedIn()
-            && me() in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+        return signedIn() && me() in chatId.split('_');
       }
 
       match /messages/{messageId} {
         allow read: if isMember();
+        // You can only post as yourself, and only into a chat you're in.
         allow create: if isMember() && request.resource.data.from == me();
-        // Delivered / seen receipts are written by the recipient.
-        allow update, delete: if isMember();
+        // A sent message is immutable except for the receipts, which only
+        // the *recipient* stamps (delivered when it arrives, seen when read).
+        allow update: if isMember()
+            && resource.data.from != me()
+            && changed().hasOnly(['deliveredAt', 'seenAt']);
+        // Only the author can delete their own message.
+        allow delete: if isMember() && resource.data.from == me();
       }
     }
   }

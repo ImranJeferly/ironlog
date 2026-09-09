@@ -67,6 +67,8 @@ dependencies:
   # Voice messages: record short AAC clips, play them back from bytes.
   record: ^6.0.0
   audioplayers: ^6.4.0
+  firebase_messaging: ^16.6.0
+  firebase_storage: ^13.5.0
 
 dev_dependencies:
   flutter_test:

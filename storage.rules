@@ -1,0 +1,51 @@
+rules_version = '2';
+// IronLog Storage rules.
+//
+//   profiles/{uid}/avatar.jpg        — the profile photo. Anyone signed in can
+//                                      see it (it's what friends see); only
+//                                      the owner writes it, and only an image
+//                                      under 1 MiB.
+//   chats/{chatId}/voice/{file}      — voice notes. A chat id is the two
+//                                      member uids joined by '_', so membership
+//                                      is decided from the path alone: no
+//                                      Firestore lookup per download.
+//
+// Nothing else is reachable.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return request.auth.uid;
+    }
+
+    function isChatMember(chatId) {
+      return signedIn() && me() in chatId.split('_');
+    }
+
+    match /profiles/{uid}/avatar.jpg {
+      allow read: if signedIn();
+      allow write: if signedIn()
+          && me() == uid
+          && (request.resource == null
+              || (request.resource.size < 1 * 1024 * 1024
+                  && request.resource.contentType.matches('image/.*')));
+    }
+
+    match /chats/{chatId}/voice/{file} {
+      allow read: if isChatMember(chatId);
+      // Write once, by a member, under 5 MiB, audio only. No overwrite or
+      // delete: a sent voice note is immutable like a sent message.
+      allow create: if isChatMember(chatId)
+          && request.resource.size < 5 * 1024 * 1024
+          && request.resource.contentType.matches('audio/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

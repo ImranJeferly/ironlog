@@ -21,14 +21,14 @@ class VoiceClip {
   final int durationMs;
 }
 
-/// Records a short AAC clip. Low bitrate on purpose — it has to fit inline in
-/// a Firestore document.
+/// Records a short AAC clip. Low bitrate on purpose — it uploads over
+/// whatever the gym's signal is, and speech doesn't need more.
 class VoiceRecorder {
   final _rec = AudioRecorder();
   DateTime? _startedAt;
   String? _path;
 
-  /// Longest clip we'll accept (keeps the blob well under the 1 MiB cap).
+  /// Longest clip we'll accept.
   static const maxDuration = Duration(seconds: 90);
 
   bool get isRecording => _startedAt != null;
@@ -86,15 +86,19 @@ class VoiceRecorder {
 }
 
 /// Inline player for a voice-note bubble: play/pause, progress, duration.
+/// Plays from the Storage [url] when there is one, else from legacy inline
+/// [bytes]. One of the two must be given.
 class VoiceNotePlayer extends StatefulWidget {
   const VoiceNotePlayer({
     super.key,
-    required this.bytes,
+    this.url,
+    this.bytes,
     required this.durationMs,
     this.mine = false,
-  });
+  }) : assert(url != null || bytes != null, 'url or bytes');
 
-  final Uint8List bytes;
+  final String? url;
+  final Uint8List? bytes;
   final int durationMs;
   final bool mine;
 
@@ -139,8 +143,10 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
     } else if (_player.state == PlayerState.paused) {
       // Keep the position — a fresh play() would restart the clip.
       await _player.resume();
+    } else if (widget.url != null) {
+      await _player.play(UrlSource(widget.url!, mimeType: 'audio/mp4'));
     } else {
-      await _player.play(BytesSource(widget.bytes, mimeType: 'audio/mp4'));
+      await _player.play(BytesSource(widget.bytes!, mimeType: 'audio/mp4'));
     }
   }
 

@@ -54,14 +54,41 @@ I deviated from or extended the plan. Written for the person who owns this app.
 - **Incremental pull via a stored high-water mark.** After each pull the newest
   `updatedAt` seen is saved; the next pull only asks Firestore for documents strictly newer,
   keeping sync cheap.
-- **Photos never sync — local external storage only.** Firebase Storage now requires a
-  billed (Blaze) plan, and the owner explicitly wants nothing billable, so progress photos
-  are kept entirely on the device's app-scoped **external** storage
-  (`getExternalStorageDirectory`, no runtime permission) and are never uploaded. Only
-  workout data, metrics and PRs sync, all to Firestore, which is free on the Spark plan.
-  `SyncService` has no photo push/pull path and `RemoteStore` has no file operations at all;
-  the `firebase_storage` dependency was removed entirely so it cannot be used by accident.
-  Photos are backed up via the CSV/manual route, not the cloud.
+- **Progress photos never sync — local external storage only.** They're large, personal,
+  and the compare slider only needs them on the phone that took them, so they stay on the
+  device's app-scoped **external** storage (`getExternalStorageDirectory`, no runtime
+  permission). `SyncService` has no photo push/pull path and `RemoteStore` has no file
+  operations. (Profile avatars and voice notes *do* use Storage — see Firebase below.)
+
+## Firebase
+
+- **Blaze plan, on purpose.** The first social build ran on the free Spark plan and paid
+  for it in complexity: a native foreground service holding Firestore listeners open to
+  fake push notifications, a 15-minute polling job to catch what it missed, a
+  battery-exemption prompt, and photos/voice notes squeezed into Firestore documents as
+  inline blobs under the 1 MiB cap. All of that is deleted. The owner reversed the
+  "nothing billable" constraint (Sept 2026); the free allowances on Blaze cover this
+  app's traffic anyway.
+- **Cloud Functions are the only thing that sends a push.** `functions/index.js` reacts
+  to Firestore writes (`chats/*/messages`, `friendRequests`) and fans out over FCM to the
+  tokens in `users/{uid}/fcmTokens`. The app writes documents; it never notifies anyone.
+  Tokens are keyed by the token string so re-registering is idempotent; FCM's
+  "not registered" error deletes them.
+- **Notification + data messages, not data-only.** With a `notification` block Android
+  displays the push itself when the app is backgrounded or killed — the reliable path —
+  and the `data.route` tells the app where to go on tap. In the foreground the app posts
+  the same thing through `flutter_local_notifications` (unless that chat is open). The
+  background isolate does exactly one thing: stamp `deliveredAt`.
+- **Storage rules decide membership from the path.** A chat id is `{uidA}_{uidB}`, so
+  `chats/{chatId}/voice/*` is readable by `uid in chatId.split('_')` — no Firestore
+  lookup per download. Voice notes are write-once (no overwrite/delete), like messages.
+- **Online first, offline fallback = Firestore's own semantics, made explicit.**
+  `persistenceEnabled` + unlimited cache at boot. `get()` is server-then-cache; listeners
+  emit cache then server; writes queue on disk. The one deliberate deviation is
+  `broadcast()`, which caps the server wait at 4 s because it runs mid-session.
+- **Messages are immutable; receipts are the recipient's.** Rules allow `update` on a
+  message only for `deliveredAt`/`seenAt`, only by the non-author. That's what makes the
+  ticks trustworthy.
 - **`RemoteStore` is a Firestore-only interface.** The whole push/pull/merge algorithm is
   tested against an in-memory fake (`test/data/sync_service_test.dart`) with no Firebase
   project required, including a test asserting photos are never pushed.

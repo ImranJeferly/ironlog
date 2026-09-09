@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
 import '../../core/now_playing.dart';
-import '../../core/push.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/format.dart';
@@ -35,7 +34,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   bool _busy = false;
   String? _handleMessage;
   bool _nowPlayingAccess = false;
-  bool _batteryExempt = false;
 
   @override
   void initState() {
@@ -45,12 +43,8 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
 
   Future<void> _refreshAccess() async {
     final np = await NowPlayingService.hasAccess();
-    final battery = await PushService.isBatteryExempt();
     if (!mounted) return;
-    setState(() {
-      _nowPlayingAccess = np;
-      _batteryExempt = battery;
-    });
+    setState(() => _nowPlayingAccess = np);
   }
 
   @override
@@ -68,12 +62,13 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
           .read(photoRepositoryProvider)
           .pick(fromCamera: fromCamera);
       if (file == null) return;
-      // Small and square-ish: it lives inline in the profile document.
+      // Small and square-ish: an avatar, not a progress photo. Uploaded to
+      // Storage under profiles/{uid}/avatar.jpg.
       final bytes = await FlutterImageCompress.compressWithFile(
         file.path,
-        minWidth: 320,
-        minHeight: 320,
-        quality: 72,
+        minWidth: 512,
+        minHeight: 512,
+        quality: 80,
         format: CompressFormat.jpeg,
         keepExif: false,
       );
@@ -82,9 +77,22 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
         return;
       }
       if (!mounted) return;
-      await ref.read(socialRepositoryProvider).setPhoto(Uint8List.fromList(bytes));
+      final error = await ref
+          .read(socialRepositoryProvider)
+          .setPhoto(Uint8List.fromList(bytes));
+      if (error != null) _toast(error);
     } on Object catch (e) {
       _toast('Photo failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _removePhoto() async {
+    setState(() => _busy = true);
+    try {
+      final error = await ref.read(socialRepositoryProvider).setPhoto(null);
+      if (error != null) _toast(error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -148,7 +156,7 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
               children: [
                 Avatar(
                   initial: profile?.initial ?? '?',
-                  photo: profile?.photo,
+                  photo: profile?.photo, photoUrl: profile?.photoUrl,
                   size: 112,
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -170,24 +178,21 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                           ? null
                           : () => _savePhoto(fromCamera: false),
                     ),
-                    if (profile?.photo != null) ...[
+                    if (profile?.photoUrl != null ||
+                        profile?.photo != null) ...[
                       const SizedBox(width: 8),
                       IconPill(
                         icon: Icons.delete_outline,
                         color: AppColors.danger,
                         tooltip: 'Remove photo',
-                        onTap: _busy
-                            ? null
-                            : () => ref
-                                  .read(socialRepositoryProvider)
-                                  .setPhoto(null),
+                        onTap: _busy ? null : _removePhoto,
                       ),
                     ],
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Stored with your profile, never in Firebase Storage.',
+                  'Friends see it on your profile and in chats.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: AppColors.textTertiary,
                   ),
@@ -256,26 +261,6 @@ class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
                   onPressed: _busy ? null : _saveText,
                 ),
               ],
-            ),
-          ),
-
-          const SectionHeader('Notifications'),
-          AppCard(
-            child: _AccessRow(
-              granted: _batteryExempt,
-              title: _batteryExempt
-                  ? 'Friend notifications are reliable'
-                  : 'Keep friend notifications alive',
-              body: 'IronLog listens for messages itself — no push server. '
-                  'Exempting it from battery optimisation stops Android '
-                  'from pausing that listener when the screen is off.',
-              action: _batteryExempt ? 'Re-check' : 'Allow',
-              onTap: () async {
-                if (!_batteryExempt) {
-                  await PushService.requestBatteryExemption();
-                }
-                await _refreshAccess();
-              },
             ),
           ),
 

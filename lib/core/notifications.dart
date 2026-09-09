@@ -25,11 +25,12 @@ abstract final class Notifications {
   /// Today card when it sees it.
   static const routeToday = 'today';
 
-  /// Opens the Friends tab (new request). Posted by the native listener.
+  /// Opens the Friends tab (new request). Sent in the FCM `data.route`.
   static const routeFriends = 'friends';
 
-  /// Opens one chat: `chat:<chatId>:<friendUid>`. Posted by the native
-  /// listener (see `PushInbox.kt`); keep the two formats in sync.
+  /// Opens one chat: `chat:<chatId>:<friendUid>`. Sent in the FCM
+  /// `data.route` by the Cloud Functions (see `functions/index.js`); keep
+  /// the two formats in sync.
   static String routeChat(String chatId, String friendUid) =>
       'chat:$chatId:$friendUid';
 

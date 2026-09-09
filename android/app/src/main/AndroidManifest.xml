@@ -22,12 +22,6 @@
     <uses-permission android:name="android.permission.health.READ_WEIGHT"/>
     <!-- Voice messages in friend chats -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <!-- Friend notifications without a push server: a foreground service keeps
-         a Firestore listener open; battery-optimisation exemption keeps it
-         alive in Doze the way messaging apps do. -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
     <application
         android:label="IronLog"
@@ -102,28 +96,16 @@
             </intent-filter>
         </receiver>
 
-        <!-- Friend notifications: listener service, reboot/update restart and
-             inline-reply receiver, and the 15-minute catch-up job. -->
-        <service
-            android:name="com.example.gym.FriendPushService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keeps a Firestore listener open so friend chat messages arrive as notifications; the app has no push server." />
-        </service>
-        <receiver
-            android:name="com.example.gym.PushReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-            </intent-filter>
-        </receiver>
-        <service
-            android:name="com.example.gym.KeepAliveJob"
-            android:exported="true"
-            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <!-- Friend notifications arrive over Firebase Cloud Messaging, sent by
+             the Cloud Functions in /functions. When the app is in the
+             background Android shows them itself, on this channel with this
+             icon (the app creates the channel in PushService). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="ironlog_social" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_ironlog" />
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
